@@ -6,6 +6,15 @@ export default defineConfig({
     resolve: {
         alias: {
             'react-native': 'react-native-web',
+            '@': '/src',
+            '@/components': '/src/components',
+            '@/screens': '/src/screens',
+            '@/services': '/src/services',
+            '@/hooks': '/src/hooks',
+            '@/utils': '/src/utils',
+            '@/constants': '/src/constants',
+            '@/types': '/src/types',
+            '@/navigation': '/src/navigation',
         },
         extensions: ['.web.js', '.js', '.web.jsx', '.jsx', '.web.ts', '.ts', '.web.tsx', '.tsx', '.json'],
     },
