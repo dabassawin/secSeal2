@@ -4,32 +4,27 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"strconv"
 
-	"gorm.io/driver/sqlserver"
+	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
 var DB *gorm.DB
 
 func InitDB() {
-	dbPortStr := os.Getenv("DB_PORT")
-	log.Printf("DB_PORT env value: '%s'", dbPortStr)
-	port, err := strconv.Atoi(dbPortStr)
-	if err != nil {
-		log.Fatalf("Invalid database port: %v", err)
-	}
-
-	// SQL Server connection string format
-	dsn := fmt.Sprintf("sqlserver://%s:%s@%s:%d?database=%s&encrypt=disable",
+	dsn := fmt.Sprintf("host=%s port=%s user=%s password=%s dbname=%s sslmode=disable",
+		os.Getenv("DB_HOST"),
+		os.Getenv("DB_PORT"),
 		os.Getenv("DB_USER"),
 		os.Getenv("DB_PASSWORD"),
-		os.Getenv("DB_HOST"),
-		port,
 		os.Getenv("DB_NAME"),
 	)
 
-	DB, err = gorm.Open(sqlserver.Open(dsn), &gorm.Config{
+	log.Printf("📡 Connecting to PostgreSQL: host=%s port=%s dbname=%s",
+		os.Getenv("DB_HOST"), os.Getenv("DB_PORT"), os.Getenv("DB_NAME"))
+
+	var err error
+	DB, err = gorm.Open(postgres.Open(dsn), &gorm.Config{
 		DisableForeignKeyConstraintWhenMigrating: true,
 	})
 	if err != nil {

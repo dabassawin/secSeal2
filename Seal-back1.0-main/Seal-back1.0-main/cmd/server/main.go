@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 	"time"
 
@@ -206,6 +207,28 @@ func main() {
 		go generateToken(mockUser, &wg, tokenChan)
 		wg.Wait()
 		token := <-tokenChan
+
+		// ✅ บันทึก User ลง Database ถ้ายังไม่มี
+		existingUser, err := userService.GetUserByUsername(loginReq.Username)
+		if err != nil || existingUser == nil {
+			dbUser := &model.User{
+				EmpID:    uint(user["user_id"].(int)),
+				Username: loginReq.Username,
+				Email:    user["email"].(string),
+				Role:     user["role"].(string),
+			}
+			// แยกชื่อจาก name
+			nameParts := strings.SplitN(user["name"].(string), " ", 2)
+			dbUser.FirstName = nameParts[0]
+			if len(nameParts) > 1 {
+				dbUser.LastName = nameParts[1]
+			}
+			if createErr := userService.CreateUser(dbUser); createErr != nil {
+				log.Printf("⚠️ [LOGIN] Could not save user to DB: %v", createErr)
+			} else {
+				log.Printf("✅ [LOGIN] User '%s' saved to database", loginReq.Username)
+			}
+		}
 
 		return c.JSON(fiber.Map{
 			"success": true,

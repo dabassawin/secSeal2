@@ -86,3 +86,8 @@ func (s *LogService) DeleteLog(logID uint) error {
 func (s *LogService) GetLogsByAction(action string) ([]model.Log, error) {
 	return s.repo.GetByAction(action)
 }
+
+// ✅ Get logs by multiple action keywords (OR)
+func (s *LogService) GetLogsByActions(actions []string) ([]model.Log, error) {
+	return s.repo.GetByActions(actions)
+}

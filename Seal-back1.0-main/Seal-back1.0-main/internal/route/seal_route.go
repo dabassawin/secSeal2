@@ -53,7 +53,10 @@ func SetupSealRoutes(router fiber.Router, sealController *controller.SealControl
 	// -- 13) PUT /api/seals/:seal_number/return : user returns a seal after use
 	seal.Put("/:seal_number/return", middleware.JWTMiddleware(), sealController.ReturnSealHandler)
 
-	// -- 14) GET /api/seals/:seal_number : get a single seal by number (wildcard route - put last!)
+	// -- 14) GET /api/seals/:seal_number/logs : get logs for a specific seal
+	seal.Get("/:seal_number/logs", middleware.JWTMiddleware(), sealController.GetSealLogsHandler)
+
+	// -- 15) GET /api/seals/:seal_number : get a single seal by number (wildcard route - put last!)
 	seal.Get("/:seal_number", middleware.JWTMiddleware(), sealController.GetSealHandler)
 
 	// -- 15) POST /api/seals/check : check seals via JSON body

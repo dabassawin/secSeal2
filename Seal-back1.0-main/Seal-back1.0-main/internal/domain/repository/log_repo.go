@@ -104,7 +104,7 @@ func (r *LogRepository) GetByUser(userID uint) ([]model.Log, error) {
 // ✅ ดึง Log ตามช่วงเวลา (Date Range)
 func (r *LogRepository) GetByDateRange(startDate, endDate string) ([]model.Log, error) {
 	var logs []model.Log
-	err := r.db.Where("timestamp BETWEEN ? AND ?", startDate, endDate).Find(&logs).Error
+	err := r.db.Where("timestamp >= ?::date AND timestamp < ?::date + interval '1 day'", startDate, endDate).Find(&logs).Error
 	return logs, err
 }
 
@@ -117,5 +117,23 @@ func (r *LogRepository) Delete(logID uint) error {
 func (r *LogRepository) GetByAction(action string) ([]model.Log, error) {
 	var logs []model.Log
 	err := r.db.Where("action LIKE ?", "%"+action+"%").Find(&logs).Error
+	return logs, err
+}
+
+// ✅ Fetch logs by multiple action keywords (OR)
+func (r *LogRepository) GetByActions(actions []string) ([]model.Log, error) {
+	var logs []model.Log
+	if len(actions) == 0 {
+		return logs, nil
+	}
+	query := r.db
+	for i, action := range actions {
+		if i == 0 {
+			query = query.Where("action LIKE ?", "%"+action+"%")
+		} else {
+			query = query.Or("action LIKE ?", "%"+action+"%")
+		}
+	}
+	err := query.Find(&logs).Error
 	return logs, err
 }

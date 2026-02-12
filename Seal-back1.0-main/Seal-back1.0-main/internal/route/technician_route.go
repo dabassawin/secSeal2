@@ -19,18 +19,14 @@ func SetupTechnicianRoutes(router fiber.Router, techController *controller.Techn
 	tech.Put("/update/:id", techController.UpdateTechnicianHandler)    // อัปเดตข้อมูลช่าง
 	tech.Delete("/delete/:id", techController.DeleteTechnicianHandler) // ลบข้อมูลช่าง
 
+	// 🔹 Protected Routes สำหรับ Technician (ใช้ TechnicianJWT) — ต้องลงทะเบียนก่อน userProtected
+	protectedTech := tech.Group("", middleware.TechnicianJWTMiddleware())
+	protectedTech.Get("/my-seals", techController.GetAssignedSealsHandler)
+	protectedTech.Put("/seals/install", techController.InstallSealHandler)
+	protectedTech.Put("/seals/return/:seal_number", techController.ReturnSealHandler)
+	protectedTech.Post("/seals/upload-images", techController.UploadSealImagesHandler)
+
 	// 🔹 Protected Routes สำหรับ User ปกติ (ใช้ regular JWT)
 	userProtected := tech.Group("", middleware.JWTMiddleware())
-	userProtected.Get("/seals", techController.GetAllTechnicianSealsHandler) // ดูซีลทั้งหมดที่จ่ายให้ช่าง (สำหรับ user)
-
-	// 🔹 Protected Routes สำหรับ Technician (ใช้ TechnicianJWT)
-	protectedTech := tech.Group("", middleware.TechnicianJWTMiddleware())
-
-	// ✅ Routes ที่เกี่ยวกับ Seal (เฉพาะช่างที่มีสิทธิ์)
-	protectedTech.Get("/my-seals", techController.GetAssignedSealsHandler)            // ดูซีลที่ได้รับมอบหมาย (เฉพาะของตัวเอง)
-	protectedTech.Put("/seals/install", techController.InstallSealHandler)            // 🔥 เปลี่ยนเป็น POST รองรับการอัปโหลด
-	protectedTech.Put("/seals/return/:seal_number", techController.ReturnSealHandler) // คืนซีล
-
-	// ✅ **เพิ่ม API สำหรับอัปโหลดรูปซีล (แยกจาก Install)**
-	protectedTech.Post("/seals/upload-images", techController.UploadSealImagesHandler) // อัปโหลดรูปสำหรับซีลที่ติดตั้งแล้ว
+	userProtected.Get("/seals", techController.GetAllTechnicianSealsHandler)
 }

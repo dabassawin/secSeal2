@@ -67,13 +67,13 @@ func (lc *LogController) GetAllLogsHandler(c *fiber.Ctx) error {
 
 	for _, log := range logs {
 		switch {
-		case contains(log.Action, "Created seal"):
+		case contains(log.Action, "สร้างซีล") || contains(log.Action, "สร้างซิล") || contains(log.Action, "Created seal"):
 			groupedLogs["created"] = append(groupedLogs["created"], log)
-		case contains(log.Action, "Issued seal"):
+		case contains(log.Action, "จ่ายซิล") || contains(log.Action, "จ่ายซีล") || contains(log.Action, "Assigned seal") || contains(log.Action, "Issued seal"):
 			groupedLogs["issued"] = append(groupedLogs["issued"], log)
-		case contains(log.Action, "Used seal"):
+		case contains(log.Action, "ติดตั้งซิล") || contains(log.Action, "ติดตั้งซีล") || contains(log.Action, "ใช้งานแล้ว") || contains(log.Action, "Used seal"):
 			groupedLogs["used"] = append(groupedLogs["used"], log)
-		case contains(log.Action, "Returned seal"):
+		case contains(log.Action, "คืนซีล") || contains(log.Action, "คืนซิล") || contains(log.Action, "Returned seal"):
 			groupedLogs["returned"] = append(groupedLogs["returned"], log)
 		default:
 			groupedLogs["other"] = append(groupedLogs["other"], log)
@@ -112,8 +112,25 @@ func (lc *LogController) GetLogByIDHandler(c *fiber.Ctx) error {
 
 // ✅ Get logs by type
 func (lc *LogController) GetLogsByTypeHandler(c *fiber.Ctx) error {
-	logType := c.Params("log_type")
-	logs, err := lc.logService.GetLogsByType(logType)
+	logType := strings.ToLower(c.Params("log_type"))
+
+	// Map type names to action keywords (Thai + English)
+	typeKeywords := map[string][]string{
+		"created":  {"สร้างซีล", "สร้างซิล", "Created seal"},
+		"issued":   {"จ่ายซิล", "จ่ายซีล", "Assigned seal", "Issued seal"},
+		"used":     {"ติดตั้งซิล", "ติดตั้งซีล", "ใช้งานแล้ว", "Used seal"},
+		"returned": {"คืนซีล", "คืนซิล", "Returned seal"},
+	}
+
+	keywords, ok := typeKeywords[logType]
+	if !ok {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
+			"error":   "Invalid log type",
+			"message": "Valid types: created, issued, used, returned",
+		})
+	}
+
+	logs, err := lc.logService.GetLogsByActions(keywords)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error":   "Failed to fetch logs",
@@ -201,9 +218,9 @@ func (lc *LogController) DeleteLogHandler(c *fiber.Ctx) error {
 	})
 }
 
-// ✅ Get logs where action contains "Created seal"
+// ✅ Get logs where action contains seal creation keywords
 func (lc *LogController) GetCreatedLogsHandler(c *fiber.Ctx) error {
-	logs, err := lc.logService.GetLogsByAction("Created seal")
+	logs, err := lc.logService.GetLogsByActions([]string{"สร้างซีล", "สร้างซิล", "Created seal"})
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error":   "Failed to fetch created logs",
@@ -213,9 +230,9 @@ func (lc *LogController) GetCreatedLogsHandler(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"success": true, "logs": logs})
 }
 
-// ✅ Get logs where action contains "Issued seal"
+// ✅ Get logs where action contains seal issuance keywords
 func (lc *LogController) GetIssuedLogsHandler(c *fiber.Ctx) error {
-	logs, err := lc.logService.GetLogsByAction("Issued seal")
+	logs, err := lc.logService.GetLogsByActions([]string{"จ่ายซิล", "จ่ายซีล", "Assigned seal", "Issued seal"})
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error":   "Failed to fetch issued logs",
@@ -225,9 +242,9 @@ func (lc *LogController) GetIssuedLogsHandler(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"success": true, "logs": logs})
 }
 
-// ✅ Get logs where action contains "Used seal"
+// ✅ Get logs where action contains seal usage/installation keywords
 func (lc *LogController) GetUsedLogsHandler(c *fiber.Ctx) error {
-	logs, err := lc.logService.GetLogsByAction("Used seal")
+	logs, err := lc.logService.GetLogsByActions([]string{"ติดตั้งซิล", "ติดตั้งซีล", "ใช้งานแล้ว", "Used seal"})
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error":   "Failed to fetch used logs",
@@ -237,9 +254,9 @@ func (lc *LogController) GetUsedLogsHandler(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"success": true, "logs": logs})
 }
 
-// ✅ Get logs where action contains "Returned seal"
+// ✅ Get logs where action contains seal return keywords
 func (lc *LogController) GetReturnedLogsHandler(c *fiber.Ctx) error {
-	logs, err := lc.logService.GetLogsByAction("Returned seal")
+	logs, err := lc.logService.GetLogsByActions([]string{"คืนซีล", "คืนซิล", "Returned seal"})
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error":   "Failed to fetch returned logs",
