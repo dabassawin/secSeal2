@@ -19,6 +19,14 @@ export const colors = {
     error: '#f44336',
     warning: '#ff9800',
     info: '#2196f3',
+
+    // Dashboard Colors
+    primaryPurple: '#6A1B9A',
+    accentPurple: '#8E24AA',
+    accentYellow: '#FFC107',
+    accentBlue: '#2196F3',
+    accentGreen: '#4CAF50',
+    bgLight: '#F5F5F5',
 } as const;
 
 export type ColorKeys = keyof typeof colors;

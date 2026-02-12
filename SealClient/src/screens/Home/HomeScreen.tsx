@@ -1,32 +1,84 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { colors, sizes } from '@/constants';
+import { Header, StatusCard, ActionCard } from '@/components/dashboard';
 
 export const HomeScreen: React.FC = () => {
     return (
-        <View style={styles.container}>
-            <Text style={styles.title}>Welcome to SealClient! 🚀</Text>
-            <Text style={styles.subtitle}>Your React Native app is ready</Text>
+        <View style={styles.mainContainer}>
+            <Header />
+            <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
+
+                <View style={styles.sectionHeader}>
+                    <Text style={styles.title}>ระบบจัดการซีลความปลอดภัย</Text>
+                    <Text style={styles.subtitle}>ภาพรวมการดำเนินงานประจำวัน</Text>
+                </View>
+
+                {/* Status Cards Grid */}
+                <View style={styles.gridContainer}>
+                    <StatusCard title="ซีลทั้งหมดในระบบ" count="1,250" color={colors.primaryPurple} />
+                    <StatusCard title="พร้อมใช้งาน (ในคลัง)" count="450" color={colors.accentYellow} />
+                    <StatusCard title="อยู่ระหว่างปฏิบัติงาน" count="50" color={colors.accentBlue} />
+                    <StatusCard title="ติดตั้งเสร็จสิ้น (วันนี้)" count="120" color={colors.accentGreen} />
+                </View>
+
+                {/* Action Cards Grid */}
+                <View style={styles.actionGridContainer}>
+                    <ActionCard
+                        title="สร้างซีลใหม่ (Batch)"
+                        subtitle="สร้างรหัสซีลชุดใหม่เข้าสู่ระบบคลัง"
+                        icon="➕"
+                    />
+                    <ActionCard
+                        title="จัดการช่าง & จ่ายงาน"
+                        subtitle="ลงทะเบียนช่างเทคนิค และมอบหมายซีล"
+                        icon="👥"
+                    />
+                    <ActionCard
+                        title="Logs & รายงาน"
+                        subtitle="ตรวจสอบประวัติการใช้งานซีลทั้งหมด"
+                        icon="📋"
+                    />
+                </View>
+
+            </ScrollView>
         </View>
     );
 };
 
 const styles = StyleSheet.create({
+    mainContainer: {
+        flex: 1,
+        backgroundColor: colors.bgLight,
+    },
     container: {
         flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: colors.background,
+    },
+    contentContainer: {
         padding: sizes.lg,
     },
+    sectionHeader: {
+        marginBottom: sizes.lg,
+    },
     title: {
-        fontSize: sizes.fontXxl,
+        fontSize: sizes.fontXl,
         fontWeight: 'bold',
-        color: colors.text,
-        marginBottom: sizes.md,
+        color: colors.primaryPurple,
+        marginBottom: sizes.xs,
     },
     subtitle: {
-        fontSize: sizes.fontLg,
+        fontSize: sizes.fontSm,
         color: colors.textLight,
+    },
+    gridContainer: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        marginHorizontal: -sizes.xs, // Negative margin to offset card margins
+        marginBottom: sizes.lg,
+    },
+    actionGridContainer: {
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        marginHorizontal: -sizes.xs,
     },
 });
