@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator, Modal } from 'react-native';
 import { colors, sizes } from '@/constants';
 import { Header } from '@/components/dashboard';
 import { sealService } from '@/services/sealService';
@@ -11,39 +11,51 @@ export const CreateSealScreen: React.FC = () => {
     const [count, setCount] = useState('');
     const [loading, setLoading] = useState(false);
 
+    // Modal State
+    const [modalVisible, setModalVisible] = useState(false);
+    const [modalStatus, setModalStatus] = useState<'success' | 'error'>('success');
+    const [modalMessage, setModalMessage] = useState('');
+
     const handleCreate = async () => {
         if (!sealNumber || !count) {
-            Alert.alert('Error', 'Please fill in all fields');
+            setModalStatus('error');
+            setModalMessage('กรุณากรอกข้อมูลให้ครบทุกช่อง');
+            setModalVisible(true);
             return;
         }
 
         const countNum = parseInt(count);
         if (isNaN(countNum) || countNum <= 0) {
-            Alert.alert('Error', 'Count must be a valid number greater than 0');
+            setModalStatus('error');
+            setModalMessage('จำนวนต้องเป็นตัวเลขที่มากกว่า 0');
+            setModalVisible(true);
             return;
         }
 
         setLoading(true);
         try {
-            const response = await sealService.createSeal({
+            await sealService.createSeal({
                 seal_number: sealNumber,
                 count: countNum
             });
 
-            if (response && response.data) { // Assuming response.data contains the success message/data
-                Alert.alert('Success', 'Seals created successfully', [
-                    { text: 'OK', onPress: () => navigation.goBack() }
-                ]);
-            } else {
-                // Fallback if response structure is different, though sealService handles errors usually
-                Alert.alert('Success', 'Seals created successfully', [
-                    { text: 'OK', onPress: () => navigation.goBack() }
-                ]);
-            }
-        } catch (error) {
-            Alert.alert('Error', 'Failed to create seals');
+            setModalStatus('success');
+            setModalMessage('สร้างซีลชุดใหม่เรียบร้อยแล้ว');
+            setModalVisible(true);
+        } catch (error: any) {
+            console.error('Error creating seals:', error);
+            setModalStatus('error');
+            setModalMessage('ไม่สามารถสร้างซีลได้ กรุณาลองใหม่');
+            setModalVisible(true);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleModalClose = () => {
+        setModalVisible(false);
+        if (modalStatus === 'success') {
+            navigation.goBack();
         }
     };
 
@@ -89,6 +101,46 @@ export const CreateSealScreen: React.FC = () => {
                     </TouchableOpacity>
                 </View>
             </View>
+
+            {/* Status Modal */}
+            <Modal
+                transparent={true}
+                visible={modalVisible}
+                animationType="fade"
+                onRequestClose={handleModalClose}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent}>
+                        <View style={[
+                            styles.modalIconCircle,
+                            { backgroundColor: modalStatus === 'success' ? '#e8f5e9' : '#ffebee' }
+                        ]}>
+                            <Text style={[
+                                styles.modalIcon,
+                                { color: modalStatus === 'success' ? '#4caf50' : '#f44336' }
+                            ]}>
+                                {modalStatus === 'success' ? '✅' : '❌'}
+                            </Text>
+                        </View>
+
+                        <Text style={styles.modalTitle}>
+                            {modalStatus === 'success' ? 'สำเร็จ' : 'เกิดข้อผิดพลาด'}
+                        </Text>
+
+                        <Text style={styles.modalMessage}>{modalMessage}</Text>
+
+                        <TouchableOpacity
+                            style={[
+                                styles.modalBtn,
+                                { backgroundColor: modalStatus === 'success' ? colors.primaryPurple : '#f44336' }
+                            ]}
+                            onPress={handleModalClose}
+                        >
+                            <Text style={styles.modalBtnText}>ตกลง</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
         </View>
     );
 };
@@ -154,5 +206,59 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontWeight: 'bold',
         fontSize: sizes.fontMd,
+    },
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    modalContent: {
+        width: 350,
+        backgroundColor: 'white',
+        borderRadius: 20,
+        padding: 30,
+        alignItems: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.25,
+        shadowRadius: 15,
+        elevation: 10,
+    },
+    modalIconCircle: {
+        width: 80,
+        height: 80,
+        borderRadius: 40,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 20,
+    },
+    modalIcon: {
+        fontSize: 40,
+    },
+    modalTitle: {
+        fontSize: 22,
+        fontWeight: 'bold',
+        color: '#333',
+        marginBottom: 10,
+    },
+    modalMessage: {
+        fontSize: 16,
+        color: '#666',
+        textAlign: 'center',
+        marginBottom: 25,
+        lineHeight: 22,
+    },
+    modalBtn: {
+        width: '100%',
+        height: 50,
+        borderRadius: 12,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    modalBtnText: {
+        color: 'white',
+        fontSize: 16,
+        fontWeight: 'bold',
     },
 });
