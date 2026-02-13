@@ -1,20 +1,13 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
+import path from 'path';
 
 export default defineConfig({
     plugins: [react()],
     resolve: {
         alias: {
             'react-native': 'react-native-web',
-            '@': '/src',
-            '@/components': '/src/components',
-            '@/screens': '/src/screens',
-            '@/services': '/src/services',
-            '@/hooks': '/src/hooks',
-            '@/utils': '/src/utils',
-            '@/constants': '/src/constants',
-            '@/types': '/src/types',
-            '@/navigation': '/src/navigation',
+            '@': path.resolve(__dirname, './src'),
         },
         extensions: ['.web.js', '.js', '.web.jsx', '.jsx', '.web.ts', '.ts', '.web.tsx', '.tsx', '.json'],
     },
@@ -25,6 +18,9 @@ export default defineConfig({
     optimizeDeps: {
         esbuildOptions: {
             resolveExtensions: ['.web.js', '.js', '.web.jsx', '.jsx', '.web.ts', '.ts', '.web.tsx', '.tsx'],
+            loader: {
+                '.js': 'jsx',
+            },
         },
     },
 });

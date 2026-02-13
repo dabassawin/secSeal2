@@ -1,9 +1,54 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { colors, sizes } from '@/constants';
-import { Header, StatusCard, ActionCard } from '@/components/dashboard';
+import { Header, StatusCard, ActionCard, LogList } from '@/components/dashboard';
+import { logService } from '@/services/logService';
+import { sealService } from '@/services/sealService';
+import { SealReport } from '@/types';
 
 export const HomeScreen: React.FC = () => {
+    const [logs, setLogs] = React.useState<any[]>([]);
+    const [stats, setStats] = React.useState<SealReport | null>(null);
+    const [loading, setLoading] = React.useState(true);
+
+    React.useEffect(() => {
+        fetchData();
+    }, []);
+
+    const fetchData = async () => {
+        try {
+            const [logResponse, reportResponse] = await Promise.all([
+                logService.getAllLogs(),
+                sealService.getReport()
+            ]);
+
+            if (logResponse && logResponse.success) {
+                // Combine all log types into a single array for the "Recent Logs" list
+                const allLogs = [
+                    ...logResponse.logs.created,
+                    ...logResponse.logs.issued,
+                    ...logResponse.logs.used,
+                    ...logResponse.logs.returned,
+                    ...logResponse.logs.other
+                ].sort((a, b) => {
+                    const dateA = new Date(a.timestamp || a.created_at || 0).getTime();
+                    const dateB = new Date(b.timestamp || b.created_at || 0).getTime();
+                    return dateB - dateA; // Sort descending
+                });
+                setLogs(allLogs);
+            }
+
+            if (reportResponse) {
+                setStats(reportResponse);
+            }
+
+        } catch (error) {
+            console.error('Failed to fetch data', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     return (
         <View style={styles.mainContainer}>
             <Header />
@@ -16,10 +61,26 @@ export const HomeScreen: React.FC = () => {
 
                 {/* Status Cards Grid */}
                 <View style={styles.gridContainer}>
-                    <StatusCard title="ซีลทั้งหมดในระบบ" count="1,250" color={colors.primaryPurple} />
-                    <StatusCard title="พร้อมใช้งาน (ในคลัง)" count="450" color={colors.accentYellow} />
-                    <StatusCard title="อยู่ระหว่างปฏิบัติงาน" count="50" color={colors.accentBlue} />
-                    <StatusCard title="ติดตั้งเสร็จสิ้น (วันนี้)" count="120" color={colors.accentGreen} />
+                    <StatusCard
+                        title="ซีลทั้งหมดในระบบ"
+                        count={stats ? stats.total_seals.toLocaleString() : "-"}
+                        color={colors.primaryPurple}
+                    />
+                    <StatusCard
+                        title="พร้อมใช้งาน (ในคลัง)"
+                        count={stats ? stats["พร้อมใช้งาน"].toLocaleString() : "-"}
+                        color={colors.accentYellow}
+                    />
+                    <StatusCard
+                        title="อยู่ระหว่างปฏิบัติงาน"
+                        count={stats ? stats["จ่าย"].toLocaleString() : "-"}
+                        color={colors.accentBlue}
+                    />
+                    <StatusCard
+                        title="ติดตั้งเสร็จสิ้น (วันนี้)"
+                        count={stats ? stats["ติดตั้งแล้ว"].toLocaleString() : "-"}
+                        color={colors.accentGreen}
+                    />
                 </View>
 
                 {/* Action Cards Grid */}
@@ -40,6 +101,9 @@ export const HomeScreen: React.FC = () => {
                         icon="📋"
                     />
                 </View>
+
+                {/* Recent Logs Section */}
+                <LogList logs={logs} loading={loading} />
 
             </ScrollView>
         </View>

@@ -27,6 +27,7 @@ export const colors = {
     accentBlue: '#2196F3',
     accentGreen: '#4CAF50',
     bgLight: '#F5F5F5',
+    white: '#FFFFFF',
 } as const;
 
 export type ColorKeys = keyof typeof colors;

@@ -1,21 +1,35 @@
-import React from 'react';
+import { StatusBar, StyleSheet, useColorScheme, View } from 'react-native';
+import {
+    SafeAreaProvider,
+    useSafeAreaInsets,
+} from 'react-native-safe-area-context';
+import { HomeScreen } from '@/screens';
 
 function App() {
+    const isDarkMode = useColorScheme() === 'dark';
+
     return (
-        <div style={{
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            height: '100vh',
-            fontFamily: 'Arial, sans-serif',
-            fontSize: '48px',
-            fontWeight: 'bold',
-            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-            color: 'white'
-        }}>
-            Hello World! 🌍
-        </div>
+        <SafeAreaProvider>
+            <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
+            <AppContent />
+        </SafeAreaProvider>
     );
 }
+
+function AppContent() {
+    const safeAreaInsets = useSafeAreaInsets();
+
+    return (
+        <View style={styles.container}>
+            <HomeScreen />
+        </View>
+    );
+}
+
+const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+    },
+});
 
 export default App;

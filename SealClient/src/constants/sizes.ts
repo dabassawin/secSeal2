@@ -22,6 +22,10 @@ export const sizes = {
     radiusMd: 12,
     radiusLg: 16,
     radiusRound: 9999,
+
+    // Alias for compatibility
+    radSm: 8,
+    radMd: 12,
 } as const;
 
 export type SizeKeys = keyof typeof sizes;
