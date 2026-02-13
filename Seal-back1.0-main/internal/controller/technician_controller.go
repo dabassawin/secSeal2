@@ -235,15 +235,24 @@ func (tc *TechnicianController) ImportTechniciansHandler(c *fiber.Ctx) error {
 		return c.Status(400).JSON(fiber.Map{"error": "invalid JSON array"})
 	}
 
-	for _, t := range techList {
+	for i := range techList {
+		t := &techList[i]
+
 		// ใส่ default password ถ้าจำเป็น
 		if t.Password == "" {
 			t.Password = "default123"
 		}
 
-		if err := tc.technicianService.Register(&t); err != nil {
-			// ถ้า error อาจ return ทันทีหรือสะสม error ไว้
-			return c.Status(500).JSON(fiber.Map{"error": err.Error()})
+		// ถ้าไม่มี username ให้ใช้ technician_code แทน
+		if t.Username == "" && t.TechnicianCode != "" {
+			t.Username = t.TechnicianCode
+		}
+
+		if err := tc.technicianService.Register(t); err != nil {
+			// ให้ข้อมูลเพิ่มเติมเกี่ยวกับ Error ว่าเกิดขึ้นกับคนไหน
+			return c.Status(500).JSON(fiber.Map{
+				"error": fmt.Sprintf("Error at %s: %v", t.TechnicianCode, err),
+			})
 		}
 	}
 
