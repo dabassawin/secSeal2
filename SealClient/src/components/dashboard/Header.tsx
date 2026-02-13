@@ -1,22 +1,37 @@
-import React from 'react';
-import { View, Text, StyleSheet, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { colors, sizes } from '@/constants';
+import { useAuth } from '@/context/AuthContext';
+import { useNavigation, DrawerActions } from '@react-navigation/native';
 
 export const Header: React.FC = () => {
+    const { logout, user } = useAuth();
+    const navigation = useNavigation();
+
     return (
         <View style={styles.container}>
             <View style={styles.leftSection}>
+                <TouchableOpacity onPress={() => navigation.dispatch(DrawerActions.toggleDrawer())} style={styles.menuButton}>
+                    <Text style={styles.menuIcon}>☰</Text>
+                </TouchableOpacity>
                 {/* Logo Placeholder */}
-                <View style={styles.logoContainer}>
-                    <Text style={styles.logoIcon}>🛡️</Text>
-                </View>
-                <Text style={styles.title}>SecuritySeal</Text>
+                <TouchableOpacity
+                    onPress={() => (navigation as any).navigate('Dashboard')}
+                    style={{ flexDirection: 'row', alignItems: 'center' }}
+                >
+                    <View style={styles.logoContainer}>
+                        <Text style={styles.logoIcon}>🛡️</Text>
+                    </View>
+                    <Text style={styles.title}>SecuritySeal</Text>
+                </TouchableOpacity>
             </View>
             <View style={styles.rightSection}>
                 <View style={styles.statusBadge}>
                     <Text style={styles.statusText}>Admin Status</Text>
                 </View>
-                <Text style={styles.userName}>คุณสมชาย (Admin)</Text>
+                <Text style={styles.userName}>{user?.username || 'Admin'} (Staff)</Text>
+                <TouchableOpacity onPress={logout} style={styles.logoutButton}>
+                    <Text style={styles.logoutText}>Logout</Text>
+                </TouchableOpacity>
             </View>
         </View>
     );
@@ -35,6 +50,15 @@ const styles = StyleSheet.create({
     leftSection: {
         flexDirection: 'row',
         alignItems: 'center',
+    },
+    menuButton: {
+        marginRight: sizes.md,
+        padding: 4,
+    },
+    menuIcon: {
+        fontSize: 24,
+        color: colors.textDark,
+        fontWeight: 'bold',
     },
     logoContainer: {
         marginRight: sizes.sm,
@@ -67,5 +91,17 @@ const styles = StyleSheet.create({
         color: colors.textDark,
         fontSize: sizes.fontSm,
         fontWeight: '500',
+        marginRight: sizes.md,
+    },
+    logoutButton: {
+        backgroundColor: 'rgba(255, 255, 255, 0.2)',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 6,
+    },
+    logoutText: {
+        color: '#fff',
+        fontSize: 12,
+        fontWeight: 'bold',
     },
 });

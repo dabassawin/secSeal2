@@ -6,14 +6,18 @@ interface StatusCardProps {
     title: string;
     count: string;
     color: string;
+    onPress?: () => void;
 }
 
-export const StatusCard: React.FC<StatusCardProps> = ({ title, count, color }) => {
+import { TouchableOpacity } from 'react-native';
+
+export const StatusCard: React.FC<StatusCardProps> = ({ title, count, color, onPress }) => {
+    const Container = onPress ? TouchableOpacity : View;
     return (
-        <View style={[styles.container, { borderLeftColor: color }]}>
+        <Container style={[styles.container, { borderLeftColor: color }]} onPress={onPress}>
             <Text style={styles.title}>{title}</Text>
             <Text style={[styles.count, { color: color }]}>{count}</Text>
-        </View>
+        </Container>
     );
 };
 

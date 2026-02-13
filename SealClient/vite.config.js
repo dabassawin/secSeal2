@@ -12,7 +12,7 @@ export default defineConfig({
         extensions: ['.web.js', '.js', '.web.jsx', '.jsx', '.web.ts', '.ts', '.web.tsx', '.tsx', '.json'],
     },
     server: {
-        port: 3000,
+        port: 3001,
         open: true,
     },
     optimizeDeps: {
@@ -22,5 +22,9 @@ export default defineConfig({
                 '.js': 'jsx',
             },
         },
+    },
+    define: {
+        global: 'window',
+        __DEV__: JSON.stringify(true), // or 'process.env.NODE_ENV !== "production"'
     },
 });

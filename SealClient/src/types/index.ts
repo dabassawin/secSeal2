@@ -27,3 +27,30 @@ export interface SealReport {
     "ติดตั้งแล้ว": number;
     "ใช้งานแล้ว": number;
 }
+
+export interface Seal {
+    id: number;
+    seal_number: string;
+    qr_code?: string;
+    status: 'พร้อมใช้งาน' | 'จ่าย' | 'ติดตั้งแล้ว' | 'ใช้งานแล้ว' | 'เสียหาย' | 'สูญหาย';
+    box_number?: string;
+    created_at?: string;
+    updated_at?: string;
+    is_deleted?: boolean;
+    installed_serial?: string;
+}
+
+export interface Technician {
+    id: number;
+    technician_code: string;
+    username: string;
+    first_name: string;
+    last_name: string;
+    email: string;
+    electric_code?: string;
+    phone_number: string;
+    company_name: string;
+    department: string;
+    created_at?: string;
+    updated_at?: string;
+}

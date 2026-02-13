@@ -5,8 +5,10 @@ import { Header, StatusCard, ActionCard, LogList } from '@/components/dashboard'
 import { logService } from '@/services/logService';
 import { sealService } from '@/services/sealService';
 import { SealReport } from '@/types';
+import { useNavigation } from '@react-navigation/native';
 
 export const HomeScreen: React.FC = () => {
+    const navigation = useNavigation();
     const [logs, setLogs] = React.useState<any[]>([]);
     const [stats, setStats] = React.useState<SealReport | null>(null);
     const [loading, setLoading] = React.useState(true);
@@ -65,6 +67,7 @@ export const HomeScreen: React.FC = () => {
                         title="ซีลทั้งหมดในระบบ"
                         count={stats ? stats.total_seals.toLocaleString() : "-"}
                         color={colors.primaryPurple}
+                        onPress={() => (navigation as any).navigate('Seals')}
                     />
                     <StatusCard
                         title="พร้อมใช้งาน (ในคลัง)"
@@ -89,6 +92,7 @@ export const HomeScreen: React.FC = () => {
                         title="สร้างซีลใหม่ (Batch)"
                         subtitle="สร้างรหัสซีลชุดใหม่เข้าสู่ระบบคลัง"
                         icon="➕"
+                        onPress={() => (navigation as any).navigate('Seals', { screen: 'CreateSeal' })}
                     />
                     <ActionCard
                         title="จัดการช่าง & จ่ายงาน"
@@ -99,6 +103,7 @@ export const HomeScreen: React.FC = () => {
                         title="Logs & รายงาน"
                         subtitle="ตรวจสอบประวัติการใช้งานซีลทั้งหมด"
                         icon="📋"
+                        onPress={() => (navigation as any).navigate('Logs')}
                     />
                 </View>
 

@@ -26,6 +26,7 @@ export const colors = {
     accentYellow: '#FFC107',
     accentBlue: '#2196F3',
     accentGreen: '#4CAF50',
+    accentRed: '#F44336',
     bgLight: '#F5F5F5',
     white: '#FFFFFF',
 } as const;
