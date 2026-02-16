@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Image } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Image, Modal, Alert } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { colors, sizes } from '@/constants';
 import { Header } from '@/components/dashboard';
@@ -56,6 +56,7 @@ export const SealHistoryScreen: React.FC = () => {
     const [seal, setSeal] = useState<Seal | null>(null);
     const [logs, setLogs] = useState<Log[]>([]);
     const [loading, setLoading] = useState(true);
+    const [confirmModalVisible, setConfirmModalVisible] = useState(false);
 
     useEffect(() => {
         fetchData();
@@ -74,6 +75,18 @@ export const SealHistoryScreen: React.FC = () => {
             console.error('Error fetching seal history:', error);
         } finally {
             setLoading(false);
+        }
+    };
+
+    const handleCancelSeal = async () => {
+        try {
+            await sealService.cancelSeal(sealNumber);
+            setConfirmModalVisible(false);
+            Alert.alert("สำเร็จ", "ยกเลิกซีลแล้ว สถานะกลับเป็น 'พร้อมใช้งาน'");
+            fetchData(); // Refresh data
+        } catch (error) {
+            console.error("Cancel failed", error);
+            Alert.alert("เกิดข้อผิดพลาด", "ไม่สามารถยกเลิกซีลได้");
         }
     };
 
@@ -171,9 +184,46 @@ export const SealHistoryScreen: React.FC = () => {
                                     <Text style={styles.purpleBtnText}>🖨️ พิมพ์ Label</Text>
                                 </TouchableOpacity>
                             </View>
+
+                            {/* CANCEL SEAL ACTION */}
+                            {['ใช้งานแล้ว', 'ติดตั้งแล้ว'].includes(seal?.status || '') && (
+                                <View style={[styles.infoCard, { borderColor: '#ffcdd2', backgroundColor: '#ffebee' }]}>
+                                    <Text style={[styles.infoCardTitle, { color: '#c62828' }]}>⚠️ ยกเลิกรายการ (Cancel)</Text>
+                                    <Text style={styles.warningText}>
+                                        หากบันทึกการติดตั้งผิดพลาด สามารถกดยกเลิกเพื่อคืนสถานะเป็น "พร้อมใช้งาน" ได้
+                                    </Text>
+                                    <TouchableOpacity style={styles.cancelBtn} onPress={() => setConfirmModalVisible(true)}>
+                                        <Text style={styles.cancelBtnText}>🚫 ยกเลิกซีลนี้</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            )}
                         </View>
                     </View>
                 </View>
+
+                {/* Confirmation Modal */}
+                <Modal visible={confirmModalVisible} transparent={true} animationType="fade" onRequestClose={() => setConfirmModalVisible(false)}>
+                    <View style={styles.modalOverlay}>
+                        <View style={styles.modalContent}>
+                            <View style={styles.modalIconContainer}>
+                                <Text style={styles.modalIcon}>⚠️</Text>
+                            </View>
+                            <Text style={styles.modalTitle}>ยืนยันการยกเลิก</Text>
+                            <Text style={styles.modalMessage}>
+                                คุณต้องการยกเลิกซีลเบอร์ <Text style={{ fontWeight: 'bold' }}>{sealNumber}</Text> ใช่หรือไม่?{'\n'}
+                                สถานะจะถูกเปลี่ยนกลับเป็น "พร้อมใช้งาน"
+                            </Text>
+                            <View style={styles.modalActions}>
+                                <TouchableOpacity style={styles.modalCancelBtn} onPress={() => setConfirmModalVisible(false)}>
+                                    <Text style={styles.modalCancelText}>ปิด</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity style={styles.modalConfirmBtn} onPress={handleCancelSeal}>
+                                    <Text style={styles.modalConfirmText}>ยืนยันยกเลิก</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+                    </View>
+                </Modal>
             </ScrollView>
         </View>
     );
@@ -458,4 +508,18 @@ const styles = StyleSheet.create({
         marginTop: 30,
         fontSize: 14,
     },
+    warningText: { fontSize: 12, color: '#d32f2f', textAlign: 'center', marginBottom: 15, lineHeight: 18 },
+    cancelBtn: { backgroundColor: '#c62828', paddingVertical: 12, borderRadius: 8, alignItems: 'center' },
+    cancelBtnText: { color: 'white', fontWeight: 'bold', fontSize: 14 },
+    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
+    modalContent: { width: 300, backgroundColor: 'white', borderRadius: 16, padding: 25, alignItems: 'center', elevation: 10 },
+    modalIconContainer: { width: 60, height: 60, backgroundColor: '#ffebee', borderRadius: 30, justifyContent: 'center', alignItems: 'center', marginBottom: 15 },
+    modalIcon: { fontSize: 30 },
+    modalTitle: { fontSize: 18, fontWeight: 'bold', color: '#333', marginBottom: 10 },
+    modalMessage: { fontSize: 14, color: '#666', textAlign: 'center', marginBottom: 20, lineHeight: 22 },
+    modalActions: { flexDirection: 'row', width: '100%', justifyContent: 'space-between' },
+    modalCancelBtn: { flex: 1, padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#ddd', marginRight: 10, alignItems: 'center' },
+    modalCancelText: { color: '#666', fontWeight: 'bold' },
+    modalConfirmBtn: { flex: 1, padding: 12, borderRadius: 8, backgroundColor: '#d32f2f', alignItems: 'center' },
+    modalConfirmText: { color: 'white', fontWeight: 'bold' },
 });

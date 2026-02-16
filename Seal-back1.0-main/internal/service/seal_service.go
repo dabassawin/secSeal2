@@ -648,10 +648,10 @@ func (s *SealService) CancelSeal(sealNumber string, userID uint) error {
 		return errors.New("ไม่พบซิลในระบบ")
 	}
 
-	// เช็กว่าซีลสามารถคืนได้หรือไม่
-	if seal.Status == "ติดตั้งแล้ว" || seal.Status == "ใช้งานแล้ว" {
-		return errors.New("ซีลถูกใช้งานไปแล้ว ไม่สามารถคืนได้")
-	}
+	// Allow cancelling from 'Used' or 'Installed' to revert to 'Available'
+	// if seal.Status == "ติดตั้งแล้ว" || seal.Status == "ใช้งานแล้ว" {
+	// 	return errors.New("ซีลถูกใช้งานไปแล้ว ไม่สามารถคืนได้")
+	// }
 
 	now := time.Now()
 	seal.Status = "พร้อมใช้งาน"

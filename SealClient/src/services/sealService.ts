@@ -68,5 +68,9 @@ export const sealService = {
             seal_numbers: sealNumbers,
             remark
         });
+    },
+
+    cancelSeal: async (sealNumber: string) => {
+        return await api.put(`/api/seals/${sealNumber}/cancel`);
     }
 };
