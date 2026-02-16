@@ -67,7 +67,7 @@ export const HomeScreen: React.FC = () => {
                         title="ซีลทั้งหมดในระบบ"
                         count={stats ? stats.total_seals.toLocaleString() : "-"}
                         color={colors.primaryPurple}
-                        onPress={() => (navigation as any).navigate('Seals')}
+                        onPress={() => (navigation as any).navigate('Inventory')}
                     />
                     <StatusCard
                         title="พร้อมใช้งาน (ในคลัง)"
@@ -98,6 +98,7 @@ export const HomeScreen: React.FC = () => {
                         title="จัดการช่าง & จ่ายงาน"
                         subtitle="ลงทะเบียนช่างเทคนิค และมอบหมายซีล"
                         icon="👥"
+                        onPress={() => (navigation as any).navigate('Technicians')}
                     />
                     <ActionCard
                         title="Logs & รายงาน"

@@ -1,8 +1,8 @@
 import React from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createStackNavigator } from '@react-navigation/stack';
-import { createDrawerNavigator } from '@react-navigation/drawer';
-import { View, ActivityIndicator } from 'react-native';
+import { createDrawerNavigator, DrawerContentScrollView, DrawerItemList, DrawerItem } from '@react-navigation/drawer';
+import { View, ActivityIndicator, Text } from 'react-native';
 
 import { useAuth } from '../context/AuthContext';
 import LoginScreen from '../screens/LoginScreen';
@@ -22,6 +22,21 @@ const SealStack = createStackNavigator();
 const Stack = createStackNavigator();
 const Drawer = createDrawerNavigator();
 
+const CustomDrawerContent = (props: any) => {
+    const { logout } = useAuth();
+
+    return (
+        <DrawerContentScrollView {...props}>
+            <DrawerItemList {...props} />
+            <DrawerItem
+                label="ออกจากระบบ"
+                onPress={logout}
+                icon={({ color, size }) => <Text style={{ fontSize: size, color: color }}>🚪</Text>}
+            />
+        </DrawerContentScrollView>
+    );
+};
+
 const SealStackNavigator = () => {
     return (
         <SealStack.Navigator screenOptions={{ headerShown: false }}>
@@ -32,16 +47,31 @@ const SealStackNavigator = () => {
 
 const StaffNavigator = () => {
     return (
-        <Drawer.Navigator screenOptions={{ headerShown: false }}>
-            <Drawer.Screen name="Dashboard" component={HomeScreen} />
+        <Drawer.Navigator
+            screenOptions={{ headerShown: false }}
+            drawerContent={(props) => <CustomDrawerContent {...props} />}
+        >
+            <Drawer.Screen
+                name="Dashboard"
+                component={HomeScreen}
+                options={{
+                    drawerItemStyle: { display: 'none' }
+                }}
+            />
             <Drawer.Screen
                 name="Seals"
                 component={SealStackNavigator}
+                options={{
+                    drawerItemStyle: { display: 'none' }
+                }}
             />
             <Drawer.Screen
                 name="Inventory"
                 component={SealInventoryScreen}
-                options={{ title: 'คลังซีล (Inventory)' }}
+                options={{
+                    title: 'คลังซีล (Inventory)',
+                    drawerItemStyle: { display: 'none' }
+                }}
             />
             <Drawer.Screen
                 name="SealHistory"
@@ -54,7 +84,10 @@ const StaffNavigator = () => {
             <Drawer.Screen
                 name="Technicians"
                 component={TechnicianListScreen}
-                options={{ title: 'จัดการรายชื่อช่าง (Technicians)' }}
+                options={{
+                    title: 'จัดการรายชื่อช่าง (Technicians)',
+                    drawerItemStyle: { display: 'none' }
+                }}
             />
             <Drawer.Screen
                 name="AddTechnician"
@@ -75,6 +108,9 @@ const StaffNavigator = () => {
             <Drawer.Screen
                 name="Logs"
                 component={AuditLogScreen}
+                options={{
+                    drawerItemStyle: { display: 'none' }
+                }}
             />
             {/* We will add Logs, etc. here later */}
         </Drawer.Navigator>

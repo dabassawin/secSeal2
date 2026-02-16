@@ -29,9 +29,6 @@ export const Header: React.FC = () => {
                     <Text style={styles.statusText}>Admin Status</Text>
                 </View>
                 <Text style={styles.userName}>{user?.username || 'Admin'} (Staff)</Text>
-                <TouchableOpacity onPress={logout} style={styles.logoutButton}>
-                    <Text style={styles.logoutText}>Logout</Text>
-                </TouchableOpacity>
             </View>
         </View>
     );
@@ -92,16 +89,5 @@ const styles = StyleSheet.create({
         fontSize: sizes.fontSm,
         fontWeight: '500',
         marginRight: sizes.md,
-    },
-    logoutButton: {
-        backgroundColor: 'rgba(255, 255, 255, 0.2)',
-        paddingHorizontal: 12,
-        paddingVertical: 6,
-        borderRadius: 6,
-    },
-    logoutText: {
-        color: '#fff',
-        fontSize: 12,
-        fontWeight: 'bold',
     },
 });
