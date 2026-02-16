@@ -37,8 +37,8 @@ const styles = StyleSheet.create({
         shadowRadius: 3.84,
         elevation: 5,
         marginBottom: sizes.md,
-        flex: 1,
-        minWidth: 250,
+        minWidth: 250, // Keep for responsiveness
+        width: '30%', // Force 3 per row on large screens
         marginHorizontal: sizes.xs,
         height: 200,
     },

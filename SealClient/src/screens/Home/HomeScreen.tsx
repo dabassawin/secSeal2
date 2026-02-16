@@ -1,15 +1,14 @@
 import React from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { colors, sizes } from '@/constants';
-import { Header, StatusCard, ActionCard, LogList } from '@/components/dashboard';
-import { logService } from '@/services/logService';
+import { Header, StatusCard, ActionCard } from '@/components/dashboard';
+
 import { sealService } from '@/services/sealService';
 import { SealReport } from '@/types';
 import { useNavigation } from '@react-navigation/native';
 
 export const HomeScreen: React.FC = () => {
     const navigation = useNavigation();
-    const [logs, setLogs] = React.useState<any[]>([]);
     const [stats, setStats] = React.useState<SealReport | null>(null);
     const [loading, setLoading] = React.useState(true);
 
@@ -19,26 +18,7 @@ export const HomeScreen: React.FC = () => {
 
     const fetchData = async () => {
         try {
-            const [logResponse, reportResponse] = await Promise.all([
-                logService.getAllLogs(),
-                sealService.getReport()
-            ]);
-
-            if (logResponse && logResponse.success) {
-                // Combine all log types into a single array for the "Recent Logs" list
-                const allLogs = [
-                    ...logResponse.logs.created,
-                    ...logResponse.logs.issued,
-                    ...logResponse.logs.used,
-                    ...logResponse.logs.returned,
-                    ...logResponse.logs.other
-                ].sort((a, b) => {
-                    const dateA = new Date(a.timestamp || a.created_at || 0).getTime();
-                    const dateB = new Date(b.timestamp || b.created_at || 0).getTime();
-                    return dateB - dateA; // Sort descending
-                });
-                setLogs(allLogs);
-            }
+            const reportResponse = await sealService.getReport();
 
             if (reportResponse) {
                 setStats(reportResponse);
@@ -95,8 +75,8 @@ export const HomeScreen: React.FC = () => {
                         onPress={() => (navigation as any).navigate('Seals', { screen: 'CreateSeal' })}
                     />
                     <ActionCard
-                        title="จัดการช่าง & จ่ายงาน"
-                        subtitle="ลงทะเบียนช่างเทคนิค และมอบหมายซีล"
+                        title="รายชื่อช่าง"
+                        subtitle="ลงทะเบียนช่าง"
                         icon="👥"
                         onPress={() => (navigation as any).navigate('Technicians')}
                     />
@@ -106,10 +86,13 @@ export const HomeScreen: React.FC = () => {
                         icon="📋"
                         onPress={() => (navigation as any).navigate('Logs')}
                     />
+                    <ActionCard
+                        title="มอบหมายซีล (Assign)"
+                        subtitle="จ่ายซีลให้ช่างเทคนิค"
+                        icon="📦"
+                        onPress={() => (navigation as any).navigate('AssignSeal')}
+                    />
                 </View>
-
-                {/* Recent Logs Section */}
-                <LogList logs={logs} loading={loading} />
 
             </ScrollView>
         </View>
@@ -150,5 +133,6 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         flexWrap: 'wrap',
         marginHorizontal: -sizes.xs,
+        justifyContent: 'center',
     },
 });

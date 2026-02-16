@@ -49,5 +49,24 @@ export const sealService = {
             console.error(`Error fetching logs for seal ${sealNumber}:`, error);
             return [];
         }
+    },
+
+    // New methods for Assignment Screen
+    checkSeals: async (sealNumbers: string[]): Promise<{ found: string[]; unavailable: string[] }> => {
+        try {
+            const response = await api.post('/api/seals/check', { seal_numbers: sealNumbers });
+            return response.data;
+        } catch (error) {
+            console.error('Error checking seals:', error);
+            throw error;
+        }
+    },
+
+    assignSealsByTechCode: async (technicianCode: string, sealNumbers: string[], remark?: string) => {
+        return await api.post('/api/seals/assign-by-techcode', {
+            technician_code: technicianCode,
+            seal_numbers: sealNumbers,
+            remark
+        });
     }
 };

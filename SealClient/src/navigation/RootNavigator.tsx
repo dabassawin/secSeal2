@@ -14,7 +14,8 @@ import { SealHistoryScreen } from '../screens/Inventory/SealHistoryScreen';
 import {
     TechnicianListScreen,
     AddTechnicianScreen,
-    ImportTechnicianScreen
+    ImportTechnicianScreen,
+    AssignSealScreen
 } from '../screens';
 import TechnicianHomeScreen from '../screens/TechnicianHomeScreen';
 
@@ -106,6 +107,14 @@ const StaffNavigator = () => {
                 }}
             />
             <Drawer.Screen
+                name="AssignSeal"
+                component={AssignSealScreen}
+                options={{
+                    title: 'มอบหมายซีล',
+                    drawerItemStyle: { display: 'none' }
+                }}
+            />
+            <Drawer.Screen
                 name="Logs"
                 component={AuditLogScreen}
                 options={{
@@ -150,6 +159,7 @@ const RootNavigator = () => {
                         Technicians: 'technicians',
                         AddTechnician: 'technicians/add',
                         ImportTechnician: 'technicians/import',
+                        AssignSeal: 'seals/assign',
                         Seals: {
                             screens: {
                                 CreateSeal: 'seals/create',
