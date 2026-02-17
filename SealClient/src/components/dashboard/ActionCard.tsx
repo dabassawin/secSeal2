@@ -1,23 +1,42 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, Pressable, Platform } from 'react-native';
 import { colors, sizes } from '@/constants';
 
 interface ActionCardProps {
     title: string;
     subtitle: string;
-    icon: string; // Placeholder for now, can be an icon component later
+    icon: string;
     onPress?: () => void;
+    iconColor?: string;
+    iconBgColor?: string;
 }
 
-export const ActionCard: React.FC<ActionCardProps> = ({ title, subtitle, icon, onPress }) => {
+export const ActionCard: React.FC<ActionCardProps> = ({
+    title,
+    subtitle,
+    icon,
+    onPress,
+    iconColor = colors.primaryPurple,
+    iconBgColor = colors.bgLight
+}) => {
+    const [isHovered, setIsHovered] = useState(false);
+
     return (
-        <TouchableOpacity style={styles.container} onPress={onPress}>
-            <View style={styles.iconContainer}>
-                <Text style={styles.icon}>{icon}</Text>
+        <Pressable
+            style={[
+                styles.container,
+                isHovered && styles.containerHovered
+            ]}
+            onPress={onPress}
+            onHoverIn={() => setIsHovered(true)}
+            onHoverOut={() => setIsHovered(false)}
+        >
+            <View style={[styles.iconContainer, { backgroundColor: iconBgColor }]}>
+                <Text style={[styles.icon, { color: iconColor }]}>{icon}</Text>
             </View>
             <Text style={styles.title}>{title}</Text>
             <Text style={styles.subtitle}>{subtitle}</Text>
-        </TouchableOpacity>
+        </Pressable>
     );
 };
 
@@ -37,23 +56,30 @@ const styles = StyleSheet.create({
         shadowRadius: 3.84,
         elevation: 5,
         marginBottom: sizes.md,
-        minWidth: 250, // Keep for responsiveness
-        width: '30%', // Force 3 per row on large screens
+        minWidth: 250,
+        width: '30%',
         marginHorizontal: sizes.xs,
         height: 200,
+        borderWidth: 1,
+        borderColor: 'transparent',
+    },
+    containerHovered: {
+        transform: Platform.OS === 'web' ? [{ scale: 1.02 }] : [],
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+        elevation: 8,
+        borderColor: colors.primaryPurple,
     },
     iconContainer: {
         width: 60,
         height: 60,
         borderRadius: 30,
-        backgroundColor: colors.bgLight,
         justifyContent: 'center',
         alignItems: 'center',
         marginBottom: sizes.md,
     },
     icon: {
         fontSize: 30,
-        color: colors.primaryPurple,
     },
     title: {
         fontSize: sizes.fontMd,

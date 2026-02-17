@@ -66,33 +66,47 @@ export const HomeScreen: React.FC = () => {
                     />
                 </View>
 
-                {/* Action Cards Grid */}
+                {/* Action Cards Grid - Row 1 */}
                 <View style={styles.actionGridContainer}>
                     <ActionCard
                         title="สร้างซีลใหม่ (Batch)"
                         subtitle="สร้างรหัสซีลชุดใหม่เข้าสู่ระบบคลัง"
                         icon="➕"
+                        iconColor="#7c4dff"
+                        iconBgColor="#ede7f6"
                         onPress={() => (navigation as any).navigate('Seals', { screen: 'CreateSeal' })}
                     />
                     <ActionCard
                         title="รายชื่อช่าง"
                         subtitle="ลงทะเบียนช่าง"
                         icon="👥"
+                        iconColor="#5d4037"
+                        iconBgColor="#efebe9"
                         onPress={() => (navigation as any).navigate('Technicians')}
                     />
                     <ActionCard
                         title="Logs & รายงาน"
                         subtitle="ตรวจสอบประวัติการใช้งานซีลทั้งหมด"
                         icon="📋"
+                        iconColor="#ff9800"
+                        iconBgColor="#fff3e0"
                         onPress={() => (navigation as any).navigate('Logs')}
                     />
+                    {/* Action Cards Grid - Row 2 (Left Aligned) */}
                     <ActionCard
                         title="มอบหมายซีล (Assign)"
                         subtitle="จ่ายซีลให้ช่างเทคนิค"
                         icon="📦"
+                        iconColor="#8d6e63"
+                        iconBgColor="#d7ccc8"
                         onPress={() => (navigation as any).navigate('AssignSeal')}
                     />
+                    {/* Ghost items for left alignment when centered */}
+                    <View style={{ width: '30%', minWidth: 250, marginHorizontal: sizes.xs }} />
+                    <View style={{ width: '30%', minWidth: 250, marginHorizontal: sizes.xs }} />
                 </View>
+
+
 
             </ScrollView>
         </View>
@@ -126,13 +140,13 @@ const styles = StyleSheet.create({
     gridContainer: {
         flexDirection: 'row',
         flexWrap: 'wrap',
-        marginHorizontal: -sizes.xs, // Negative margin to offset card margins
+        marginHorizontal: -sizes.xs,
         marginBottom: sizes.lg,
     },
     actionGridContainer: {
         flexDirection: 'row',
         flexWrap: 'wrap',
         marginHorizontal: -sizes.xs,
-        justifyContent: 'center',
+        justifyContent: 'center', // Centered grid
     },
 });

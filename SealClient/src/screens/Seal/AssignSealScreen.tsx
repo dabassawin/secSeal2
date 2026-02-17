@@ -14,8 +14,8 @@ interface StagedSeal {
     sealNumber: string;
     type: 'Single' | 'Range';
     status: 'checking' | 'available' | 'unavailable' | 'duplicate';
-    rangeEnd?: string;
-    count?: number;
+    rangeCount?: number; // Changed from rangeEnd to rangeCount
+    startSeal?: string;  // Added to help with expansion
 }
 
 export const AssignSealScreen: React.FC = () => {
@@ -35,7 +35,7 @@ export const AssignSealScreen: React.FC = () => {
     const [entryMode, setEntryMode] = useState<EntryMode>('scan');
     const [singleSealInput, setSingleSealInput] = useState('');
     const [rangeStartInput, setRangeStartInput] = useState('');
-    const [rangeEndInput, setRangeEndInput] = useState('');
+    const [rangeCountInput, setRangeCountInput] = useState(''); // Changed from rangeEndInput
 
     // Staging
     const [stagedSeals, setStagedSeals] = useState<StagedSeal[]>([]);
@@ -95,6 +95,30 @@ export const AssignSealScreen: React.FC = () => {
         }
     };
 
+    // Helper to generate seal range
+    const generateSealRange = (start: string, count: number): string[] => {
+        const seals: string[] = [];
+        const match = start.match(/^([A-Za-z]+)(\d+)$/);
+
+        if (!match) {
+            // Fallback for non-standard formats (just returns start)
+            if (count === 1) return [start];
+            return [];
+        }
+
+        const prefix = match[1];
+        const numberPart = match[2];
+        const startNum = parseInt(numberPart, 10);
+        const length = numberPart.length;
+
+        for (let i = 0; i < count; i++) {
+            const currentNum = startNum + i;
+            const paddedNum = currentNum.toString().padStart(length, '0');
+            seals.push(`${prefix}${paddedNum}`);
+        }
+        return seals;
+    };
+
     const handleAddSingleSeal = async () => {
         if (!singleSealInput.trim()) return;
 
@@ -130,37 +154,61 @@ export const AssignSealScreen: React.FC = () => {
     };
 
     const handleAddRangeSeals = async () => {
-        if (!rangeStartInput.trim() || !rangeEndInput.trim()) return;
+        if (!rangeStartInput.trim() || !rangeCountInput.trim()) return;
 
-        // Determine availability of start and end as a proxy check
-        const startCheck = await checkSealAvailability(rangeStartInput);
-        const endCheck = await checkSealAvailability(rangeEndInput);
-
-        if (startCheck.status === 'unavailable') {
+        const count = parseInt(rangeCountInput.trim(), 10);
+        if (isNaN(count) || count <= 0) {
             setModalStatus('error');
-            setModalMessage(`ซีลเริ่มต้น ${rangeStartInput} ไม่พร้อมใช้งาน\nเหตุผล: ${startCheck.reason}`);
-            setModalVisible(true);
-            return;
-        }
-        if (endCheck.status === 'unavailable') {
-            setModalStatus('error');
-            setModalMessage(`ซีลสิ้นสุด ${rangeEndInput} ไม่พร้อมใช้งาน\nเหตุผล: ${endCheck.reason}`);
+            setModalMessage('กรุณาระบุจำนวนที่ถูกต้อง (มากกว่า 0)');
             setModalVisible(true);
             return;
         }
 
-        const newEntry: StagedSeal = {
-            id: Date.now().toString(),
-            sealNumber: `${rangeStartInput} - ${rangeEndInput}`,
-            type: 'Range',
-            status: 'available', // Assumed available if start/end are okay
-            rangeEnd: rangeEndInput,
-            count: 0
-        };
+        const startSeal = rangeStartInput.trim();
+        const generatedSeals = generateSealRange(startSeal, count);
 
-        setStagedSeals(prev => [newEntry, ...prev]);
+        if (generatedSeals.length === 0) {
+            setModalStatus('error');
+            setModalMessage('รูปแบบซีลเริ่มต้นไม่ถูกต้อง (ต้องเป็น ตัวอักษร+ตัวเลข)');
+            setModalVisible(true);
+            return;
+        }
+
+        // Check availability of ALL generated seals using CheckSeals (batch check)
+        // Or check start and end as proxy? Let's verify all for safety since count is usually small-medium.
+        // For better UX on large batches, we might just check start/end or rely on backend validation during assign.
+        // Let's stick to check all for now to be safe.
+
+        try {
+            const results = await sealService.checkSeals(generatedSeals);
+            const unavailable = results.filter(r => !r.is_available);
+
+            if (unavailable.length > 0) {
+                // Show error with first few unavailable
+                const reasons = unavailable.slice(0, 3).map(r => `${r.seal_number}: ${r.reason}`).join('\n');
+                setModalStatus('error');
+                setModalMessage(`พบซีลที่ไม่พร้อมใช้งาน ${unavailable.length} รายการ:\n${reasons}${unavailable.length > 3 ? '\n...' : ''}`);
+                setModalVisible(true);
+                return;
+            }
+        } catch (error) {
+            setModalStatus('error');
+            setModalMessage('เกิดข้อผิดพลาดในการตรวจสอบสถานะซีล');
+            setModalVisible(true);
+            return;
+        }
+
+        // Expand to individual Single items
+        const newEntries: StagedSeal[] = generatedSeals.map((seal, index) => ({
+            id: Date.now().toString() + '-' + index,
+            sealNumber: seal,
+            type: 'Single',
+            status: 'available'
+        }));
+
+        setStagedSeals(prev => [...newEntries, ...prev]);
         setRangeStartInput('');
-        setRangeEndInput('');
+        setRangeCountInput('');
     };
 
     const handleRemoveSeal = (id: string) => {
@@ -185,39 +233,19 @@ export const AssignSealScreen: React.FC = () => {
 
         setLoading(true);
         try {
-            // Flatten the list. For ranges, this logic is simplified.
-            // Ideally, we'd expand ranges. FOR NOW, we only send single seals to backend demo.
-            // If Range, we need to generate the list. 
-            // IMPLEMENTATION NOTE: Backend 'assign-by-techcode' takes a list of strings.
-
-            const sealList: string[] = [];
-
-            // Allow range expansion if easy (numeric) or just error if mixed
-            // To keep it simple for this step, we will only process 'Single' types correctly
-            // and maybe just start/end of range for demonstration or warn user.
-
-            validSeals.forEach(s => {
-                if (s.type === 'Single') {
-                    sealList.push(s.sealNumber);
-                } else {
-                    // logic to expand range would go here. 
-                    // For now, let's assume validSeals only contains checking for demonstration
-                    // or we push the start/end to at least show something.
-                    // A real range expander is needed for production.
-                    // pushing just the label will fail in backend check probably.
-                    // So we skip ranges or implement a basic expander.
-                }
-            });
+            // Collect all seal numbers (they are all Single now)
+            let sealList = validSeals.map(s => s.sealNumber);
 
             if (sealList.length === 0) {
-                // Fallback if only ranges provided and we didn't implement expansion
-                // For now, let's just alert
                 setModalStatus('error');
-                setModalMessage('ระบบ Range ยังไม่เปิดใช้งานเต็มรูปแบบ กรุณาใช้ Scan/Single');
+                setModalMessage('ไม่พบรายการซีลที่ถูกต้อง');
                 setModalVisible(true);
                 setLoading(false);
                 return;
             }
+
+            // Remove duplicates if any (though UI prevents easy duplicates)
+            sealList = [...new Set(sealList)];
 
             await sealService.assignSealsByTechCode(
                 selectedTech.technician_code,
@@ -351,12 +379,13 @@ export const AssignSealScreen: React.FC = () => {
                                         />
                                     </View>
                                     <View style={{ flex: 1 }}>
-                                        <Text style={styles.label}>สิ้นสุด (End)</Text>
+                                        <Text style={styles.label}>จำนวน (Count)</Text>
                                         <TextInput
                                             style={styles.rangeInput}
-                                            placeholder="Ex. SL-050"
-                                            value={rangeEndInput}
-                                            onChangeText={setRangeEndInput}
+                                            placeholder="Ex. 10"
+                                            value={rangeCountInput}
+                                            onChangeText={setRangeCountInput}
+                                            keyboardType="numeric"
                                         />
                                     </View>
                                 </View>
@@ -376,7 +405,7 @@ export const AssignSealScreen: React.FC = () => {
                     <View style={styles.listHeader}>
                         <Text style={styles.listTitle}>รายการที่จะจ่าย (Staging List)</Text>
                         <View style={styles.countBadge}>
-                            <Text style={styles.countText}>Total: {stagedSeals.length} รายการ</Text>
+                            <Text style={styles.countText}>Total: {stagedSeals.length} รายการ (Groups)</Text>
                         </View>
                     </View>
 
@@ -396,18 +425,18 @@ export const AssignSealScreen: React.FC = () => {
                                 item.status === 'duplicate' && styles.rowWarning
                             ]}>
                                 <Text style={[styles.td, { flex: 0.5 }]}>{index + 1}</Text>
-                                <View style={[styles.td, { flex: 3 }]}>
-                                    {item.type === 'Range' && <View style={styles.rangeTag}><Text style={styles.rangeTagText}>RANGE</Text></View>}
+                                <View style={{ flex: 3 }}>
+                                    {item.type === 'Range' && <View style={styles.rangeTag}><Text style={styles.rangeTagText}>RANGE ({item.rangeCount})</Text></View>}
                                     <Text style={styles.serialText}>{item.sealNumber}</Text>
                                 </View>
-                                <Text style={[styles.td, { flex: 1.5, color: '#666' }]}>{item.type === 'Range' ? 'Plastic Seal' : 'Lead Seal'}</Text>
-                                <View style={[styles.td, { flex: 2 }]}>
+                                <Text style={[styles.td, { flex: 1.5, color: '#666' }]}>{item.type === 'Range' ? 'Batch' : 'Single'}</Text>
+                                <View style={{ flex: 2 }}>
                                     {item.status === 'checking' && <Text style={styles.statusChecking}>⏳ Checking...</Text>}
                                     {item.status === 'available' && <Text style={styles.statusOk}>✅ Available</Text>}
                                     {item.status === 'unavailable' && <Text style={styles.statusError}>⛔ Unavailable</Text>}
                                 </View>
                                 <TouchableOpacity
-                                    style={[styles.td, { flex: 1, alignItems: 'center' }]}
+                                    style={{ flex: 1, alignItems: 'center' }}
                                     onPress={() => handleRemoveSeal(item.id)}
                                 >
                                     <Text style={styles.deleteIcon}>🗑</Text>
@@ -424,7 +453,7 @@ export const AssignSealScreen: React.FC = () => {
                     <View style={styles.footer}>
                         <View style={styles.totalRow}>
                             <Text style={styles.totalLabel}>รวมทั้งหมด:</Text>
-                            <Text style={styles.totalValue}>{stagedSeals.length} <Text style={{ fontSize: 16, fontWeight: 'normal' }}>ชิ้น</Text></Text>
+                            <Text style={styles.totalValue}>{stagedSeals.reduce((sum, item) => sum + (item.type === 'Range' ? (item.rangeCount || 0) : 1), 0)} <Text style={{ fontSize: 16, fontWeight: 'normal' }}>ชิ้น/Seals</Text></Text>
                         </View>
                         <View style={styles.actionButtons}>
                             <TouchableOpacity style={styles.cancelBtn} onPress={() => setStagedSeals([])}>
