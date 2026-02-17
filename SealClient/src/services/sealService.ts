@@ -1,6 +1,13 @@
 import api from './api';
 import { SealReport, Seal } from '@/types';
 
+export interface SealCheckResult {
+    seal_number: string;
+    is_available: boolean;
+    status: string;
+    reason: string;
+}
+
 export const sealService = {
     getReport: async (): Promise<SealReport | null> => {
         try {
@@ -52,10 +59,10 @@ export const sealService = {
     },
 
     // New methods for Assignment Screen
-    checkSeals: async (sealNumbers: string[]): Promise<{ found: string[]; unavailable: string[] }> => {
+    checkSeals: async (sealNumbers: string[]): Promise<SealCheckResult[]> => {
         try {
             const response = await api.post('/api/seals/check', { seal_numbers: sealNumbers });
-            return response.data;
+            return response.data.results;
         } catch (error) {
             console.error('Error checking seals:', error);
             throw error;

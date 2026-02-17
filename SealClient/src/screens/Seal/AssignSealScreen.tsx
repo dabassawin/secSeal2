@@ -79,12 +79,19 @@ export const AssignSealScreen: React.FC = () => {
         setSearchTechQuery('');
     };
 
-    const checkSealAvailability = async (sealNum: string): Promise<'available' | 'unavailable'> => {
+    const checkSealAvailability = async (sealNum: string): Promise<{ status: 'available' | 'unavailable'; reason?: string }> => {
         try {
-            const result = await sealService.checkSeals([sealNum]);
-            return result.found.includes(sealNum) ? 'available' : 'unavailable';
+            const results = await sealService.checkSeals([sealNum]);
+            if (results.length > 0) {
+                const result = results[0];
+                return {
+                    status: result.is_available ? 'available' : 'unavailable',
+                    reason: result.reason
+                };
+            }
+            return { status: 'unavailable', reason: 'ไม่พบข้อมูล' };
         } catch (error) {
-            return 'unavailable';
+            return { status: 'unavailable', reason: 'เกิดข้อผิดพลาดในการตรวจสอบ' };
         }
     };
 
@@ -99,57 +106,61 @@ export const AssignSealScreen: React.FC = () => {
             return; // Or show error toast
         }
 
-        // Add with 'checking' status initially
+        // Perform check BEFORE adding to list
+        const checkResult = await checkSealAvailability(sealNum);
+
+        if (checkResult.status === 'unavailable') {
+            setModalStatus('error');
+            setModalMessage(`ไม่สามารถเพิ่มซีล ${sealNum} ได้\nเหตุผล: ${checkResult.reason || 'ไม่พร้อมใช้งาน'}`);
+            setModalVisible(true);
+            setSingleSealInput('');
+            return;
+        }
+
+        // Add to list only if available
         const newEntry: StagedSeal = {
             id: Date.now().toString(),
             sealNumber: sealNum,
             type: 'Single',
-            status: 'checking'
+            status: 'available' // We know it's available now
         };
 
         setStagedSeals(prev => [newEntry, ...prev]);
         setSingleSealInput('');
-
-        // Perform check
-        const status = await checkSealAvailability(sealNum);
-
-        setStagedSeals(prev => prev.map(s =>
-            s.id === newEntry.id ? { ...s, status: status } : s
-        ));
     };
 
     const handleAddRangeSeals = async () => {
         if (!rangeStartInput.trim() || !rangeEndInput.trim()) return;
 
-        // Basic range validation implies we need to generate the list or just treat as a block
-        // For this demo, we'll treat it as a block entry that represents multiple seals
-        // In a real app, we might need to expand this or validate the whole range
+        // Determine availability of start and end as a proxy check
+        const startCheck = await checkSealAvailability(rangeStartInput);
+        const endCheck = await checkSealAvailability(rangeEndInput);
 
-        // Simple alphanumeric range logic is complex. 
-        // For this UI demo, we will check the start and end and assume the range.
+        if (startCheck.status === 'unavailable') {
+            setModalStatus('error');
+            setModalMessage(`ซีลเริ่มต้น ${rangeStartInput} ไม่พร้อมใช้งาน\nเหตุผล: ${startCheck.reason}`);
+            setModalVisible(true);
+            return;
+        }
+        if (endCheck.status === 'unavailable') {
+            setModalStatus('error');
+            setModalMessage(`ซีลสิ้นสุด ${rangeEndInput} ไม่พร้อมใช้งาน\nเหตุผล: ${endCheck.reason}`);
+            setModalVisible(true);
+            return;
+        }
 
         const newEntry: StagedSeal = {
             id: Date.now().toString(),
             sealNumber: `${rangeStartInput} - ${rangeEndInput}`,
             type: 'Range',
-            status: 'checking',
+            status: 'available', // Assumed available if start/end are okay
             rangeEnd: rangeEndInput,
-            count: 0 // We'd calculate count if numeric
+            count: 0
         };
 
         setStagedSeals(prev => [newEntry, ...prev]);
         setRangeStartInput('');
         setRangeEndInput('');
-
-        // Determine availability of start and end as a proxy check
-        const startStatus = await checkSealAvailability(rangeStartInput);
-        const endStatus = await checkSealAvailability(rangeEndInput);
-
-        const finalStatus = (startStatus === 'available' && endStatus === 'available') ? 'available' : 'unavailable';
-
-        setStagedSeals(prev => prev.map(s =>
-            s.id === newEntry.id ? { ...s, status: finalStatus } : s
-        ));
     };
 
     const handleRemoveSeal = (id: string) => {

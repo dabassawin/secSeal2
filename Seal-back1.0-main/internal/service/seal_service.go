@@ -11,6 +11,7 @@ import (
 
 	"github.com/Kev2406/PEA/internal/domain/model"
 	"github.com/Kev2406/PEA/internal/domain/repository"
+	"github.com/Kev2406/PEA/internal/dto"
 	"gorm.io/gorm"
 )
 
@@ -577,26 +578,52 @@ func (s *SealService) CheckMultipleSeals(sealNumbers []string) ([]string, error)
 	return unavailable, nil
 }
 
-func (s *SealService) CheckSealAvailability(sealNumbers []string) ([]string, []string, error) {
-	var foundSeals []string
-	var missingSeals []string
+func (s *SealService) CheckSealAvailability(sealNumbers []string) ([]dto.SealCheckResult, error) {
+	var results []dto.SealCheckResult
 
-	var seals []model.Seal
-	if err := s.db.Where("seal_number IN ? AND status = ?", sealNumbers, "พร้อมใช้งาน").Find(&seals).Error; err != nil {
-		return nil, nil, err
+	// 1. Find all seals that exist in the database
+	var existingSeals []model.Seal
+	if err := s.db.Where("seal_number IN ?", sealNumbers).Find(&existingSeals).Error; err != nil {
+		return nil, err
 	}
-	sealMap := make(map[string]bool)
-	for _, seal := range seals {
-		sealMap[seal.SealNumber] = true
+
+	// 2. Create a map for quick lookup
+	existingSealMap := make(map[string]model.Seal)
+	for _, seal := range existingSeals {
+		existingSealMap[seal.SealNumber] = seal
 	}
+
+	// 3. Iterate through requested seal numbers and build results
 	for _, sn := range sealNumbers {
-		if sealMap[sn] {
-			foundSeals = append(foundSeals, sn)
+		seal, exists := existingSealMap[sn]
+
+		if !exists {
+			results = append(results, dto.SealCheckResult{
+				SealNumber:  sn,
+				IsAvailable: false,
+				Status:      "Not Found",
+				Reason:      "ไม่พบในระบบ",
+			})
+			continue
+		}
+
+		if seal.Status == "พร้อมใช้งาน" {
+			results = append(results, dto.SealCheckResult{
+				SealNumber:  sn,
+				IsAvailable: true,
+				Status:      seal.Status,
+				Reason:      "",
+			})
 		} else {
-			missingSeals = append(missingSeals, sn)
+			results = append(results, dto.SealCheckResult{
+				SealNumber:  sn,
+				IsAvailable: false,
+				Status:      seal.Status,
+				Reason:      fmt.Sprintf("สถานะ: %s", seal.Status),
+			})
 		}
 	}
-	return foundSeals, missingSeals, nil
+	return results, nil
 }
 
 func (s *SealService) AssignSealsByTechCode(techCode string, sealNumbers []string, remark string) error {

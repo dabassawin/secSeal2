@@ -555,13 +555,14 @@ func (sc *SealController) CheckSealsHandler(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "seal_numbers is required"})
 	}
 
-	foundSeals, missingSeals, err := sc.sealService.CheckSealAvailability(request.SealNumbers)
+	results, err := sc.sealService.CheckSealAvailability(request.SealNumbers)
 	if err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "Database query failed"})
 	}
+	
+	// Return the results directly
 	return c.JSON(fiber.Map{
-		"found":       foundSeals,
-		"unavailable": missingSeals,
+		"results": results,
 	})
 }
 
