@@ -179,36 +179,51 @@ export const AssignSealScreen: React.FC = () => {
         // For better UX on large batches, we might just check start/end or rely on backend validation during assign.
         // Let's stick to check all for now to be safe.
 
+
         try {
             const results = await sealService.checkSeals(generatedSeals);
+            const available = results.filter(r => r.is_available);
             const unavailable = results.filter(r => !r.is_available);
 
+            // Add available ones first
+            if (available.length > 0) {
+                const newEntries: StagedSeal[] = available.map((result, index) => ({
+                    id: Date.now().toString() + '-' + index,
+                    sealNumber: result.seal_number, // Use the returned seal number to be safe
+                    type: 'Single',
+                    status: 'available'
+                }));
+                setStagedSeals(prev => [...newEntries, ...prev]);
+            }
+
+            // If there are unavailable ones, show error
             if (unavailable.length > 0) {
                 // Show error with first few unavailable
-                const reasons = unavailable.slice(0, 3).map(r => `${r.seal_number}: ${r.reason}`).join('\n');
+                const reasons = unavailable.slice(0, 5).map(r => `${r.seal_number}: ${r.reason}`).join('\n');
                 setModalStatus('error');
-                setModalMessage(`พบซีลที่ไม่พร้อมใช้งาน ${unavailable.length} รายการ:\n${reasons}${unavailable.length > 3 ? '\n...' : ''}`);
+
+                let message = `พบซีลที่ไม่พร้อมใช้งาน ${unavailable.length} รายการ:\n${reasons}${unavailable.length > 5 ? '\n...' : ''}`;
+
+                if (available.length > 0) {
+                    message += `\n\n✅ เพิ่มซีลที่พร้อมใช้งาน ${available.length} รายการเรียบร้อยแล้ว`;
+                }
+
+                setModalMessage(message);
                 setModalVisible(true);
-                return;
             }
+
+            // Clear inputs if at least some were added or if we just want to reset
+            if (available.length > 0) {
+                setRangeStartInput('');
+                setRangeCountInput('');
+            }
+
         } catch (error) {
             setModalStatus('error');
             setModalMessage('เกิดข้อผิดพลาดในการตรวจสอบสถานะซีล');
             setModalVisible(true);
             return;
         }
-
-        // Expand to individual Single items
-        const newEntries: StagedSeal[] = generatedSeals.map((seal, index) => ({
-            id: Date.now().toString() + '-' + index,
-            sealNumber: seal,
-            type: 'Single',
-            status: 'available'
-        }));
-
-        setStagedSeals(prev => [...newEntries, ...prev]);
-        setRangeStartInput('');
-        setRangeCountInput('');
     };
 
     const handleRemoveSeal = (id: string) => {
