@@ -51,7 +51,8 @@ const ActivityItem: React.FC<{ log: Log; isLast?: boolean }> = ({ log, isLast })
 export const SealHistoryScreen: React.FC = () => {
     const route = useRoute();
     const navigation = useNavigation();
-    const { sealNumber } = route.params as { sealNumber: string };
+    const params = route.params as { sealNumber?: string } | undefined;
+    const sealNumber = params?.sealNumber;
 
     const [seal, setSeal] = useState<Seal | null>(null);
     const [logs, setLogs] = useState<Log[]>([]);
@@ -59,10 +60,15 @@ export const SealHistoryScreen: React.FC = () => {
     const [confirmModalVisible, setConfirmModalVisible] = useState(false);
 
     useEffect(() => {
-        fetchData();
+        if (sealNumber) {
+            fetchData();
+        } else {
+            setLoading(false);
+        }
     }, [sealNumber]);
 
     const fetchData = async () => {
+        if (!sealNumber) return;
         try {
             setLoading(true);
             const [sealData, logData] = await Promise.all([
@@ -79,6 +85,7 @@ export const SealHistoryScreen: React.FC = () => {
     };
 
     const handleCancelSeal = async () => {
+        if (!sealNumber) return;
         try {
             await sealService.cancelSeal(sealNumber);
             setConfirmModalVisible(false);
@@ -89,6 +96,17 @@ export const SealHistoryScreen: React.FC = () => {
             Alert.alert("เกิดข้อผิดพลาด", "ไม่สามารถยกเลิกซีลได้");
         }
     };
+
+    if (!sealNumber) {
+        return (
+            <View style={styles.centerContainer}>
+                <Text style={styles.emptyText}>ไม่พบข้อมูลหมายเลขซีล (No Seal Number provided)</Text>
+                <TouchableOpacity onPress={() => navigation.goBack()} style={[styles.purpleBtn, { marginTop: 20, width: 200 }]}>
+                    <Text style={styles.purpleBtnText}>กลับ (Go Back)</Text>
+                </TouchableOpacity>
+            </View>
+        );
+    }
 
     if (loading) {
         return (

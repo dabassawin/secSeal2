@@ -12,8 +12,8 @@ export const TechnicianListScreen: React.FC = () => {
     const [technicians, setTechnicians] = useState<Technician[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
-    const [companyFilter, setCompanyFilter] = useState('ทุกบริษัท / สังกัด');
-    const [deptFilter, setDeptFilter] = useState('ทุกแผนก');
+    const [companyFilter, setCompanyFilter] = useState('');
+    const [deptFilter, setDeptFilter] = useState('');
 
     useEffect(() => {
         fetchData();
@@ -37,16 +37,14 @@ export const TechnicianListScreen: React.FC = () => {
                 (tech.first_name + ' ' + tech.last_name).toLowerCase().includes(searchQuery.toLowerCase()) ||
                 tech.technician_code.toLowerCase().includes(searchQuery.toLowerCase());
 
-            const matchesCompany = companyFilter === 'ทุกบริษัท / สังกัด' || tech.company_name === companyFilter;
-            const matchesDept = deptFilter === 'ทุกแผนก' || tech.department === deptFilter;
+            const matchesCompany = companyFilter === '' || (tech.company_name && tech.company_name.toLowerCase().includes(companyFilter.toLowerCase()));
+            const matchesDept = deptFilter === '' || (tech.department && tech.department.toLowerCase().includes(deptFilter.toLowerCase()));
 
             return matchesSearch && matchesCompany && matchesDept;
         });
     }, [technicians, searchQuery, companyFilter, deptFilter]);
 
-    // Unique companies and departments for filters
-    const companies = useMemo(() => ['ทุกบริษัท / สังกัด', ...new Set(technicians.map(t => t.company_name).filter(Boolean))], [technicians]);
-    const departments = useMemo(() => ['ทุกแผนก', ...new Set(technicians.map(t => t.department).filter(Boolean))], [technicians]);
+
 
     return (
         <View style={styles.mainContainer}>
@@ -67,12 +65,20 @@ export const TechnicianListScreen: React.FC = () => {
 
                     <View style={styles.filterContainer}>
                         <View style={styles.filterItem}>
-                            <Text style={styles.filterValue}>{companyFilter}</Text>
-                            <Text style={styles.arrow}>▼</Text>
+                            <TextInput
+                                style={styles.filterInput}
+                                placeholder="ระบุบริษัท / สังกัด"
+                                value={companyFilter}
+                                onChangeText={setCompanyFilter}
+                            />
                         </View>
                         <View style={[styles.filterItem, { marginLeft: sizes.sm }]}>
-                            <Text style={styles.filterValue}>{deptFilter}</Text>
-                            <Text style={styles.arrow}>▼</Text>
+                            <TextInput
+                                style={styles.filterInput}
+                                placeholder="ระบุแผนก"
+                                value={deptFilter}
+                                onChangeText={setDeptFilter}
+                            />
                         </View>
                     </View>
 
@@ -231,13 +237,10 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: '#e0e0e0',
     },
-    filterValue: {
+    filterInput: {
+        flex: 1,
         fontSize: 14,
-        color: '#666',
-    },
-    arrow: {
-        fontSize: 10,
-        color: '#999',
+        color: '#333',
     },
     buttonGroup: {
         flex: 2,
