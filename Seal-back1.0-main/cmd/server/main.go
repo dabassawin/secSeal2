@@ -136,18 +136,28 @@ func main() {
 	transactionRepo := repository.NewTransactionRepository(config.DB)
 	logRepo := repository.NewLogRepository(config.DB)
 	technicianRepo := repository.NewTechnicianRepository(config.DB)
+	masPeaRepo := repository.NewMasPeaRepository(config.DB)
 
 	// services
 	userService := service.NewUserService(userRepo)
 	sealService := service.NewSealService(sealRepo, transactionRepo, logRepo, config.DB, technicianRepo)
 	logService := service.NewLogService(logRepo)
 	technicianService := service.NewTechnicianService(technicianRepo)
+	masPeaService := service.NewMasPeaService(masPeaRepo)
 
 	// controllers
 	technicianController := controller.NewTechnicianController(technicianService, sealService)
 	userController := controller.NewUserController(userService)
 	sealController := controller.NewSealController(sealService)
 	logController := controller.NewLogController(logService)
+	masPeaController := controller.NewMasPeaController(masPeaService)
+
+	// ... (Login API code remains same)
+
+	// routes
+	publicGroup := app.Group("")
+	route.SetupTechnicianRoutes(publicGroup, technicianController)
+	route.SetupMasPeaRoutes(publicGroup, masPeaController) // Public for now, or move to secure if needed
 
 	// ✅ Login API endpoint
 	app.Post("/api/auth/login", func(c *fiber.Ctx) error {
@@ -245,8 +255,7 @@ func main() {
 	})
 
 	// routes
-	publicGroup := app.Group("")
-	route.SetupTechnicianRoutes(publicGroup, technicianController)
+
 
 	secureGroup := app.Group("", middleware.JWTMiddleware())
 	route.SetupSealRoutes(secureGroup, sealController) // ✅ ย้ายกลับมาใน secure group
