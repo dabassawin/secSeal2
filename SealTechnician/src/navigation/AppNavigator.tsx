@@ -5,14 +5,19 @@ import ScanScreen from '../views/ScanScreen';
 
 const Stack = createNativeStackNavigator();
 
-export default function AppNavigator() {
+interface AppNavigatorProps {
+    onLogout: () => void;
+}
+
+export default function AppNavigator({ onLogout }: AppNavigatorProps) {
     return (
         <Stack.Navigator initialRouteName="Home">
             <Stack.Screen
                 name="Home"
-                component={HomeScreen}
-                options={{ title: 'Home Dashboard' }}
-            />
+                options={{ headerShown: false }}
+            >
+                {(props) => <HomeScreen {...props} onLogout={onLogout} />}
+            </Stack.Screen>
             <Stack.Screen
                 name="Scan"
                 component={ScanScreen}

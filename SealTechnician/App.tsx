@@ -42,7 +42,7 @@ export default function App() {
   return (
     <NavigationContainer>
       {isAuthenticated ? (
-        <AppNavigator />
+        <AppNavigator onLogout={() => setIsAuthenticated(false)} />
       ) : (
         <LoginScreen onLoginSuccess={handleLoginSuccess} />
       )}

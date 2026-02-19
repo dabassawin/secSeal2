@@ -8,7 +8,7 @@ import (
 
 type MasPea struct {
 	ID        uint           `gorm:"primaryKey" json:"id"`
-	Code      string         `gorm:"uniqueIndex;not null" json:"code"` // รหัส กฟฟ.
+	PeaCode      string         `gorm:"size:10;not null" json:"pea_code"` // รหัสกฟฟ.
 	NameEng   string         `gorm:"size:255" json:"name_eng"`
 	NameTh    string         `gorm:"size:255" json:"name_th"`
 	Level     string         `gorm:"size:50" json:"level"` // Region, District, Sub

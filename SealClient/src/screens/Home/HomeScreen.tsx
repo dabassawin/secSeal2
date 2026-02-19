@@ -101,6 +101,14 @@ export const HomeScreen: React.FC = () => {
                         iconBgColor="#d7ccc8"
                         onPress={() => (navigation as any).navigate('AssignSeal')}
                     />
+                    <ActionCard
+                        title="สร้างผู้ใช้งาน"
+                        subtitle="เพิ่ม Admin/User ใหม่"
+                        icon="👤"
+                        iconColor="#2e7d32"
+                        iconBgColor="#e8f5e9"
+                        onPress={() => (navigation as any).navigate('CreateUser')}
+                    />
                     {/* Ghost items for left alignment when centered */}
                     <View style={{ width: '30%', minWidth: 250, marginHorizontal: sizes.xs }} />
                     <View style={{ width: '30%', minWidth: 250, marginHorizontal: sizes.xs }} />
