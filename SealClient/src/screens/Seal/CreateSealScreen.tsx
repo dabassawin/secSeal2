@@ -43,7 +43,12 @@ export const CreateSealScreen: React.FC = () => {
     const filteredPeaList = masPeaList.filter(p => {
         const code = p.pea_code || p.PeaCode || p.code || '';
         const name = p.name_th || p.NameTh || '';
+        const level = p.level || p.Level || '';
         const q = peaSearch.toLowerCase();
+
+        // Filter only Level 1
+        if (level !== '1') return false;
+
         return code.toLowerCase().includes(q) || name.toLowerCase().includes(q);
     });
 

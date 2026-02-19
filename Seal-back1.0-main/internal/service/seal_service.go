@@ -58,10 +58,14 @@ func (s *SealService) GetLatestSealNumber() (string, error) {
 	return latestSeal.SealNumber, nil
 }
 
-// GetAllSeals returns all seals
-func (s *SealService) GetAllSeals() ([]model.Seal, error) {
+// GetAllSeals returns seals, optionally filtered by pea_code
+func (s *SealService) GetAllSeals(peaCode string) ([]model.Seal, error) {
 	var seals []model.Seal
-	if err := s.db.Find(&seals).Error; err != nil {
+	query := s.db
+	if peaCode != "" {
+		query = query.Where("pea_code = ?", peaCode)
+	}
+	if err := query.Find(&seals).Error; err != nil {
 		return nil, err
 	}
 	return seals, nil
@@ -368,18 +372,25 @@ func GenerateNextSealNumbers(latest string, count int) ([]string, error) {
 // -------------------------------------------------------------------
 // GetSealReport (4 statuses)
 // -------------------------------------------------------------------
-func (s *SealService) GetSealReport() (map[string]interface{}, error) {
+func (s *SealService) GetSealReport(peaCode string) (map[string]interface{}, error) {
 	var total, ready, paid, installed, used int64
-	if err := s.db.Model(&model.Seal{}).Where("status = ?", "พร้อมใช้งาน").Count(&ready).Error; err != nil {
+
+	query := s.db.Model(&model.Seal{})
+	if peaCode != "" {
+		query = query.Where("pea_code = ?", peaCode)
+	}
+
+	// Clone query for each count to avoid interference
+	if err := query.Session(&gorm.Session{}).Where("status = ?", "พร้อมใช้งาน").Count(&ready).Error; err != nil {
 		return nil, err
 	}
-	if err := s.db.Model(&model.Seal{}).Where("status = ?", "จ่าย").Count(&paid).Error; err != nil {
+	if err := query.Session(&gorm.Session{}).Where("status = ?", "จ่าย").Count(&paid).Error; err != nil {
 		return nil, err
 	}
-	if err := s.db.Model(&model.Seal{}).Where("status = ?", "ติดตั้งแล้ว").Count(&installed).Error; err != nil {
+	if err := query.Session(&gorm.Session{}).Where("status = ?", "ติดตั้งแล้ว").Count(&installed).Error; err != nil {
 		return nil, err
 	}
-	if err := s.db.Model(&model.Seal{}).Where("status = ?", "ใช้งานแล้ว").Count(&used).Error; err != nil {
+	if err := query.Session(&gorm.Session{}).Where("status = ?", "ใช้งานแล้ว").Count(&used).Error; err != nil {
 		return nil, err
 	}
 	total = ready + paid + installed + used

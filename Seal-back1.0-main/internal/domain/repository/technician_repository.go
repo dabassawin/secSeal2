@@ -89,9 +89,13 @@ func (r *TechnicianRepository) FindByTechCode(code string) (*model.Technician, e
 	}
 	return &tech, nil
 }
-func (r *TechnicianRepository) GetAllTechnicians() ([]model.Technician, error) {
+func (r *TechnicianRepository) GetAllTechnicians(peaCode string) ([]model.Technician, error) {
 	var technicians []model.Technician
-	if err := r.db.Find(&technicians).Error; err != nil {
+	query := r.db
+	if peaCode != "" {
+		query = query.Where("pea_code = ?", peaCode)
+	}
+	if err := query.Find(&technicians).Error; err != nil {
 		return nil, err
 	}
 	return technicians, nil

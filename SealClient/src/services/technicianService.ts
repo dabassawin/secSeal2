@@ -2,9 +2,10 @@ import api from './api';
 import { Technician } from '@/types';
 
 export const technicianService = {
-    getTechnicians: async (): Promise<Technician[]> => {
+    getTechnicians: async (peaCode?: string): Promise<Technician[]> => {
         try {
-            const response = await api.get('/api/technician/list');
+            const url = peaCode ? `/api/technician/list?pea_code=${encodeURIComponent(peaCode)}` : '/api/technician/list';
+            const response = await api.get(url);
             return response.data || [];
         } catch (error) {
             console.error('Error fetching technicians:', error);

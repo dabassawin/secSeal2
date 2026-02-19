@@ -9,9 +9,10 @@ export interface SealCheckResult {
 }
 
 export const sealService = {
-    getReport: async (): Promise<SealReport | null> => {
+    getReport: async (peaCode?: string): Promise<SealReport | null> => {
         try {
-            const response = await api.get('/api/seals/report');
+            const url = peaCode ? `/api/seals/report?pea_code=${encodeURIComponent(peaCode)}` : '/api/seals/report';
+            const response = await api.get(url);
             return response.data;
         } catch (error) {
             console.error('Error fetching seal report:', error);
@@ -19,10 +20,10 @@ export const sealService = {
         }
     },
 
-    getSeals: async (): Promise<Seal[]> => {
+    getSeals: async (peaCode?: string): Promise<Seal[]> => {
         try {
-            const response = await api.get('/api/seals');
-            // Backend returns a direct array of seals
+            const url = peaCode ? `/api/seals?pea_code=${encodeURIComponent(peaCode)}` : '/api/seals';
+            const response = await api.get(url);
             return Array.isArray(response.data) ? response.data : (response.data.seals || []);
         } catch (error) {
             console.error('Error fetching seals:', error);

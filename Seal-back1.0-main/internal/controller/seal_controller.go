@@ -24,7 +24,7 @@ func NewSealController(sealService *service.SealService) *SealController {
 // 0) GetAllSealsHandler - Get all seals
 // -------------------------------------------------------------------
 func (sc *SealController) GetAllSealsHandler(c *fiber.Ctx) error {
-	seals, err := sc.sealService.GetAllSeals()
+	seals, err := sc.sealService.GetAllSeals(c.Query("pea_code", ""))
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": err.Error(),
@@ -181,7 +181,8 @@ func (sc *SealController) ScanSealHandler(c *fiber.Ctx) error {
 // GET /api/seals/report
 // -------------------------------------------------------------------
 func (sc *SealController) GetSealReportHandler(c *fiber.Ctx) error {
-	report, err := sc.sealService.GetSealReport()
+	peaCode := c.Query("pea_code", "")
+	report, err := sc.sealService.GetSealReport(peaCode)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to generate report"})
 	}

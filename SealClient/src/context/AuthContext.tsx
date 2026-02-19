@@ -1,5 +1,7 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
 import { authService, User } from '../services/authService';
+import { userService } from '../services/userService';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { setAuthToken } from '../services/api';
 
 interface AuthContextType {
@@ -8,6 +10,7 @@ interface AuthContextType {
     isLoading: boolean;
     login: (username: string, password: string, type: 'staff' | 'technician') => Promise<void>;
     logout: () => Promise<void>;
+    refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({} as AuthContextType);
@@ -77,8 +80,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     };
 
+    const refreshUser = async () => {
+        try {
+            const storedUser = await authService.getUser();
+            if (storedUser?.username) {
+                const updatedUser = await userService.getUser(storedUser.username);
+                if (updatedUser) {
+                    setUser(updatedUser);
+                    await AsyncStorage.setItem('user', JSON.stringify(updatedUser));
+                }
+            }
+        } catch (error) {
+            console.error('Failed to refresh user', error);
+        }
+    };
+
     return (
-        <AuthContext.Provider value={{ user, role, isLoading, login, logout }}>
+        <AuthContext.Provider value={{ user, role, isLoading, login, logout, refreshUser }}>
             {children}
         </AuthContext.Provider>
     );

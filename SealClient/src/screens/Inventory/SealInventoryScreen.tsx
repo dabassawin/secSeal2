@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TextInput, TouchableOpacity, Image } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TextInput, TouchableOpacity } from 'react-native';
 import { colors, sizes } from '@/constants';
 import { Header } from '@/components/dashboard';
 import { sealService } from '@/services/sealService';
+import { userService } from '@/services/userService';
 import { Seal } from '@/types';
 import { useNavigation } from '@react-navigation/native';
+import { useAuth } from '@/context/AuthContext';
 
 const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
     let bgColor: string = colors.bgLight;
@@ -43,11 +45,15 @@ const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
 
 export const SealInventoryScreen: React.FC = () => {
     const navigation = useNavigation();
+    const { user } = useAuth(); // ✅ ดึง user จาก AuthContext
+    const userPeaCode = user?.pea_code as string | undefined;
+
     const [seals, setSeals] = useState<Seal[]>([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState('สถานะทั้งหมด');
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+    const [masPeaList, setMasPeaList] = useState<any[]>([]);
     const statuses = [
         'สถานะทั้งหมด',
         'พร้อมใช้งาน',
@@ -68,12 +74,29 @@ export const SealInventoryScreen: React.FC = () => {
 
     useEffect(() => {
         fetchSeals();
-    }, []);
+        fetchMasPea();
+    }, [userPeaCode]); // re-fetch if userPeaCode changes
+
+    const fetchMasPea = async () => {
+        try {
+            const data = await userService.getMasPea();
+            setMasPeaList(data);
+        } catch (e) { console.error('MasPea fetch error', e); }
+    };
+
+    const getPeaName = (code?: string) => {
+        if (!code) return '-';
+        const found = masPeaList.find(p =>
+            (p.pea_code || p.PeaCode || p.code) === code
+        );
+        return found ? (found.name_th || found.NameTh || code) : code;
+    };
 
     const fetchSeals = async () => {
         try {
             setLoading(true);
-            const data = await sealService.getSeals();
+            // ✅ ส่ง pea_code ให้ backend filter ฝั่ง server
+            const data = await sealService.getSeals(userPeaCode);
             setSeals(data);
         } catch (error) {
             console.error('Error fetching seals:', error);
@@ -96,9 +119,9 @@ export const SealInventoryScreen: React.FC = () => {
             <Header />
 
             <View style={styles.content}>
-                {/* Fixed Title Label (matching mockup) */}
+                {/* Fixed Title Label */}
                 <View style={[styles.titleLabelContainer, { position: 'absolute', top: -15, left: 20, zIndex: 10 }]}>
-                    <Text style={styles.titleLabelText}>📑 รายการซีลทั้งหมด</Text>
+                    <Text style={styles.titleLabelText}>📑 ซีลในคลัง {userPeaCode ? `(${userPeaCode})` : ''}</Text>
                 </View>
 
                 {/* Toolbar */}
@@ -156,57 +179,74 @@ export const SealInventoryScreen: React.FC = () => {
                     </TouchableOpacity>
                 </View>
 
-                <View style={styles.tableHeader}>
-                    <Text style={[styles.headerText, { flex: 2.5 }]}>SERIAL NUMBER</Text>
-                    <Text style={[styles.headerText, { flex: 1.5 }]}>สถานะ</Text>
-                    <Text style={[styles.headerText, { flex: 1.5 }]}>อัปเดตเมื่อ</Text>
-                </View>
-
-                {/* Table Body */}
-                <ScrollView contentContainerStyle={styles.scrollContent}>
-                    {loading ? (
-                        <View style={styles.centerContainer}>
-                            <ActivityIndicator size="large" color={colors.primaryPurple} />
+                <ScrollView style={{ flex: 1 }}>
+                    <View style={{ width: '100%' }}>
+                        <View style={styles.tableHeader}>
+                            <Text style={[styles.headerText, { flex: 2 }]}>SERIAL NUMBER</Text>
+                            <Text style={[styles.headerText, { flex: 1.5 }]}>รหัสการไฟฟ้า</Text>
+                            <Text style={[styles.headerText, { flex: 2.5 }]}>ชื่อการไฟฟ้า</Text>
+                            <Text style={[styles.headerText, { flex: 1.5 }]}>สถานะ</Text>
+                            <Text style={[styles.headerText, { flex: 1.5 }]}>อัปเดตเมื่อ</Text>
                         </View>
-                    ) : filteredSeals.length === 0 ? (
-                        <View style={styles.centerContainer}>
-                            <Text style={styles.emptyText}>ไม่พบข้อมูลซีล</Text>
+
+                        {/* Table Body */}
+                        <View style={styles.scrollContent}>
+                            {loading ? (
+                                <View style={styles.centerContainer}>
+                                    <ActivityIndicator size="large" color={colors.primaryPurple} />
+                                </View>
+                            ) : filteredSeals.length === 0 ? (
+                                <View style={styles.centerContainer}>
+                                    <Text style={styles.emptyText}>ไม่พบข้อมูลซีล</Text>
+                                </View>
+                            ) : (
+                                filteredSeals.map((seal) => (
+                                    <TouchableOpacity
+                                        key={seal.id}
+                                        style={styles.tableRow}
+                                        onPress={() => (navigation as any).navigate('SealHistory', { sealNumber: seal.seal_number })}
+                                    >
+                                        {/* Serial Number */}
+                                        <View style={[styles.cell, { flex: 2 }]}>
+                                            <Text style={styles.serialText}>{seal.seal_number}</Text>
+                                            <Text style={styles.batchText}>Batch: {seal.box_number || '-'}</Text>
+                                        </View>
+
+                                        {/* PEA Code */}
+                                        <View style={[styles.cell, { flex: 1.5 }]}>
+                                            <Text style={styles.peaCodeText}>{seal.pea_code || '-'}</Text>
+                                        </View>
+
+                                        {/* PEA Name */}
+                                        <View style={[styles.cell, { flex: 2.5 }]}>
+                                            <Text style={styles.peaNameText}>{getPeaName(seal.pea_code)}</Text>
+                                        </View>
+
+                                        {/* Status */}
+                                        <View style={[styles.cell, { flex: 1.5 }]}>
+                                            <StatusBadge status={seal.status} />
+                                        </View>
+
+                                        {/* Updated Date */}
+                                        <View style={[styles.cell, { flex: 1.5 }]}>
+                                            <Text style={styles.dateText}>
+                                                {new Date(seal.updated_at || seal.created_at || Date.now()).toLocaleDateString('th-TH', {
+                                                    day: 'numeric', month: 'short', year: 'numeric'
+                                                })}
+                                            </Text>
+                                            <Text style={styles.timeText}>
+                                                {new Date(seal.updated_at || seal.created_at || Date.now()).toLocaleTimeString('th-TH', {
+                                                    hour: '2-digit', minute: '2-digit'
+                                                })} น.
+                                            </Text>
+                                        </View>
+                                    </TouchableOpacity>
+                                ))
+                            )}
                         </View>
-                    ) : (
-                        filteredSeals.map((seal) => (
-                            <TouchableOpacity
-                                key={seal.id}
-                                style={styles.tableRow}
-                                onPress={() => (navigation as any).navigate('SealHistory', { sealNumber: seal.seal_number })}
-                            >
-                                {/* Serial Number */}
-                                <View style={[styles.cell, { flex: 2.5 }]}>
-                                    <Text style={styles.serialText}>{seal.seal_number}</Text>
-                                    <Text style={styles.batchText}>Batch: {seal.box_number || '-'}</Text>
-                                </View>
-
-                                {/* Status */}
-                                <View style={[styles.cell, { flex: 1.5 }]}>
-                                    <StatusBadge status={seal.status} />
-                                </View>
-
-                                {/* Updated Date */}
-                                <View style={[styles.cell, { flex: 1.5 }]}>
-                                    <Text style={styles.dateText}>
-                                        {new Date(seal.updated_at || seal.created_at || Date.now()).toLocaleDateString('th-TH', {
-                                            day: 'numeric', month: 'short', year: 'numeric'
-                                        })}
-                                    </Text>
-                                    <Text style={styles.timeText}>
-                                        {new Date(seal.updated_at || seal.created_at || Date.now()).toLocaleTimeString('th-TH', {
-                                            hour: '2-digit', minute: '2-digit'
-                                        })} น.
-                                    </Text>
-                                </View>
-                            </TouchableOpacity>
-                        ))
-                    )}
+                    </View>
                 </ScrollView>
+
 
                 {/* Footer / Pagination Placeholder */}
                 <View style={styles.footer}>
@@ -398,6 +438,15 @@ const styles = StyleSheet.create({
         color: '#999',
     },
     cellText: {
+        fontSize: sizes.fontSm,
+        color: '#444',
+    },
+    peaCodeText: {
+        fontSize: sizes.fontSm,
+        fontWeight: '600',
+        color: colors.primaryPurple,
+    },
+    peaNameText: {
         fontSize: sizes.fontSm,
         color: '#444',
     },

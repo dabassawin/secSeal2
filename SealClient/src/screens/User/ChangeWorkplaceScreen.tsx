@@ -8,7 +8,7 @@ import { useAuth } from '@/context/AuthContext';
 
 export const ChangeWorkplaceScreen: React.FC = () => {
     const navigation = useNavigation();
-    const { user } = useAuth(); // We need user info to update
+    const { user, refreshUser } = useAuth(); // We need user info to update
     const [loading, setLoading] = useState(false);
 
     // Modal State
@@ -36,8 +36,10 @@ export const ChangeWorkplaceScreen: React.FC = () => {
     const fetchMasPea = async () => {
         try {
             const data = await userService.getMasPea();
-            setMasPeaList(data);
-            setFilteredPeaList(data);
+            // Filter only Level 1
+            const level1Data = data.filter((item: any) => (item.level || item.Level) === '1');
+            setMasPeaList(level1Data);
+            setFilteredPeaList(level1Data);
         } catch (error) {
             console.error('Failed to fetch MasPea:', error);
         }
@@ -94,6 +96,9 @@ export const ChangeWorkplaceScreen: React.FC = () => {
             };
 
             await userService.updateUser(user.username, payload);
+
+            // Refresh user in context so the rest of the app sees new pea_code/pea_name immediately
+            await refreshUser();
 
             setModalStatus('success');
             setModalMessage('บันทึกข้อมูลเรียบร้อยแล้ว');
