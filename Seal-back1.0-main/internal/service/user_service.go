@@ -32,3 +32,8 @@ func (s *UserService) CreateUser(user *model.User) error {
 	}
 	return s.userRepo.Create(user)
 }
+
+// ✅ อัปเดตข้อมูลผู้ใช้
+func (s *UserService) UpdateUser(user *model.User) error {
+	return s.userRepo.Update(user)
+}

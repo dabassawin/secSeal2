@@ -51,6 +51,7 @@ export interface Technician {
     phone_number: string;
     company_name: string;
     department: string;
+    pea_code?: string; // Added field for PEA Code
     created_at?: string;
     updated_at?: string;
 }

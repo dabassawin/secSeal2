@@ -25,10 +25,12 @@ export const Header: React.FC = () => {
                 </TouchableOpacity>
             </View>
             <View style={styles.rightSection}>
-                <View style={styles.statusBadge}>
-                    <Text style={styles.statusText}>Admin Status</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                    <Text style={styles.userName}>{user?.username || 'User'}</Text>
+                    {user?.pea_name ? (
+                        <Text style={styles.userPea}> (ทำงานที่: {user.pea_name})</Text>
+                    ) : null}
                 </View>
-                <Text style={styles.userName}>{user?.username || 'Admin'} (Staff)</Text>
             </View>
         </View>
     );
@@ -85,9 +87,15 @@ const styles = StyleSheet.create({
         fontSize: sizes.fontXs,
     },
     userName: {
-        color: colors.textDark,
-        fontSize: sizes.fontSm,
-        fontWeight: '500',
-        marginRight: sizes.md,
+        color: 'white',
+        fontSize: sizes.fontMd,
+        fontWeight: 'bold',
+    },
+    userPea: {
+        color: 'rgba(255, 255, 255, 0.9)',
+        fontSize: sizes.fontSm, // Increased size slightly to match better
+        fontWeight: 'normal',
+        marginLeft: 5, // Add spacing
+        marginTop: 0, // Remove top margin
     },
 });

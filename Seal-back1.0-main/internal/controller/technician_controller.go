@@ -40,6 +40,7 @@ func (tc *TechnicianController) RegisterHandler(c *fiber.Ctx) error {
 		// เพิ่มฟิลด์ใหม่
 		CompanyName string `json:"company_name"`
 		Department  string `json:"department"`
+		PeaCode     string `json:"pea_code"` // ✅ เพิ่ม PeaCode
 	}
 
 	if err := c.BodyParser(&req); err != nil {
@@ -57,6 +58,7 @@ func (tc *TechnicianController) RegisterHandler(c *fiber.Ctx) error {
 		LastName:       req.LastName,
 		Email:          req.Email,
 		PhoneNumber:    req.PhoneNumber,
+		PeaCode:        req.PeaCode, // ✅ Map ค่า
 
 		// ใส่ค่านี้ด้วย
 		CompanyName: req.CompanyName,

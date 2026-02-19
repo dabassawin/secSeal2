@@ -26,8 +26,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 if (token && storedRole) {
                     setAuthToken(token);
                     setRole(storedRole);
-                    // Only implementing basic restore. Ideally, verify token or fetch user profile here.
-                    setUser({ id: 0, username: 'Restored User', role: storedRole });
+
+                    const storedUser = await authService.getUser();
+                    if (storedUser) {
+                        setUser(storedUser);
+                    } else {
+                        // Fallback if not found but token exists (shouldn't happen often)
+                        setUser({ id: 0, username: 'Restored User', role: storedRole });
+                    }
                 }
             } catch (e) {
                 console.error('Failed to load auth data', e);

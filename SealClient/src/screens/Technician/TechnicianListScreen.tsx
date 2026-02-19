@@ -4,6 +4,7 @@ import { useNavigation } from '@react-navigation/native';
 import { colors, sizes } from '@/constants';
 import { Header } from '@/components/dashboard';
 import { technicianService } from '@/services/technicianService';
+import { userService } from '@/services/userService';
 import { Technician } from '@/types';
 
 export const TechnicianListScreen: React.FC = () => {
@@ -15,9 +16,27 @@ export const TechnicianListScreen: React.FC = () => {
     const [companyFilter, setCompanyFilter] = useState('');
     const [deptFilter, setDeptFilter] = useState('');
 
+    const [masPeaList, setMasPeaList] = useState<any[]>([]);
+
     useEffect(() => {
         fetchData();
+        fetchMasPea();
     }, []);
+
+    const fetchMasPea = async () => {
+        try {
+            const data = await userService.getMasPea();
+            setMasPeaList(data);
+        } catch (error) {
+            console.error('Failed to fetch MasPea:', error);
+        }
+    };
+
+    const getPeaName = (code?: string) => {
+        if (!code) return '';
+        const pea = masPeaList.find(p => p.pea_code === code || p.PeaCode === code || p.code === code);
+        return pea ? (pea.name_th || pea.NameTh) : '';
+    };
 
     const fetchData = async () => {
         try {
@@ -37,12 +56,13 @@ export const TechnicianListScreen: React.FC = () => {
                 (tech.first_name + ' ' + tech.last_name).toLowerCase().includes(searchQuery.toLowerCase()) ||
                 tech.technician_code.toLowerCase().includes(searchQuery.toLowerCase());
 
-            const matchesCompany = companyFilter === '' || (tech.company_name && tech.company_name.toLowerCase().includes(companyFilter.toLowerCase()));
-            const matchesDept = deptFilter === '' || (tech.department && tech.department.toLowerCase().includes(deptFilter.toLowerCase()));
+            const peaName = getPeaName(tech.pea_code);
+            const matchesPeaCode = companyFilter === '' || (tech.pea_code && tech.pea_code.toLowerCase().includes(companyFilter.toLowerCase()));
+            const matchesPeaName = deptFilter === '' || (peaName && peaName.toLowerCase().includes(deptFilter.toLowerCase()));
 
-            return matchesSearch && matchesCompany && matchesDept;
+            return matchesSearch && matchesPeaCode && matchesPeaName;
         });
-    }, [technicians, searchQuery, companyFilter, deptFilter]);
+    }, [technicians, searchQuery, companyFilter, deptFilter, masPeaList]);
 
 
 
@@ -67,7 +87,7 @@ export const TechnicianListScreen: React.FC = () => {
                         <View style={styles.filterItem}>
                             <TextInput
                                 style={styles.filterInput}
-                                placeholder="ระบุบริษัท / สังกัด"
+                                placeholder="ระบุรหัสการไฟฟ้า"
                                 value={companyFilter}
                                 onChangeText={setCompanyFilter}
                             />
@@ -75,7 +95,7 @@ export const TechnicianListScreen: React.FC = () => {
                         <View style={[styles.filterItem, { marginLeft: sizes.sm }]}>
                             <TextInput
                                 style={styles.filterInput}
-                                placeholder="ระบุแผนก"
+                                placeholder="ระบุชื่อการไฟฟ้า"
                                 value={deptFilter}
                                 onChangeText={setDeptFilter}
                             />
@@ -105,8 +125,8 @@ export const TechnicianListScreen: React.FC = () => {
                         <Text style={[styles.headerText, { flex: 0.5 }]}>#</Text>
                         <Text style={[styles.headerText, { flex: 2.5 }]}>ชื่อ - นามสกุล</Text>
                         <Text style={[styles.headerText, { flex: 1.5 }]}>รหัสช่าง / ID</Text>
-                        <Text style={[styles.headerText, { flex: 2 }]}>บริษัท / สังกัด</Text>
-                        <Text style={[styles.headerText, { flex: 2 }]}>แผนก / ทีม</Text>
+                        <Text style={[styles.headerText, { flex: 2 }]}>รหัสการไฟฟ้า</Text>
+                        <Text style={[styles.headerText, { flex: 2 }]}>ชื่อการไฟฟ้า</Text>
                         <Text style={[styles.headerText, { flex: 1.2, textAlign: 'center' }]}>สถานะ</Text>
                         <Text style={[styles.headerText, { flex: 1.2, textAlign: 'center' }]}>จัดการ</Text>
                     </View>
@@ -141,11 +161,11 @@ export const TechnicianListScreen: React.FC = () => {
 
                                     <View style={[styles.cell, { flex: 2, flexDirection: 'row', alignItems: 'center' }]}>
                                         <Text style={{ marginRight: 5 }}>🏢</Text>
-                                        <Text style={styles.cellText}>{tech.company_name || '-'}</Text>
+                                        <Text style={styles.cellText}>{tech.pea_code || '-'}</Text>
                                     </View>
 
                                     <View style={[styles.cell, { flex: 2 }]}>
-                                        <Text style={styles.cellText}>{tech.department || '-'}</Text>
+                                        <Text style={styles.cellText}>{getPeaName(tech.pea_code) || '-'}</Text>
                                     </View>
 
                                     <View style={[styles.cell, { flex: 1.2, alignItems: 'center' }]}>

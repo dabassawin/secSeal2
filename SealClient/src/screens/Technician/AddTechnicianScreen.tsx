@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, ActivityIndicator, Modal } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, ActivityIndicator, Modal, FlatList } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { colors, sizes } from '@/constants';
 import { Header } from '@/components/dashboard';
 import { technicianService } from '@/services/technicianService';
+import { userService } from '@/services/userService'; // Import userService
 
 export const AddTechnicianScreen: React.FC = () => {
     const navigation = useNavigation();
@@ -14,6 +15,12 @@ export const AddTechnicianScreen: React.FC = () => {
     const [modalStatus, setModalStatus] = useState<'success' | 'error'>('success');
     const [modalMessage, setModalMessage] = useState('');
 
+    // MasPea Selection State
+    const [showPeaModal, setShowPeaModal] = useState(false);
+    const [masPeaList, setMasPeaList] = useState<any[]>([]);
+    const [searchPeaQuery, setSearchPeaQuery] = useState('');
+    const [selectedPeaName, setSelectedPeaName] = useState('');
+
     // Form State
     const [formData, setFormData] = useState({
         firstName: '',
@@ -21,11 +28,23 @@ export const AddTechnicianScreen: React.FC = () => {
         phoneNumber: '',
         email: '',
         technicianCode: `TECH-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
-        companyName: '',
-        department: '',
+        peaCode: '',
     });
 
     const [errors, setErrors] = useState<Record<string, string>>({});
+
+    useEffect(() => {
+        fetchMasPea();
+    }, []);
+
+    const fetchMasPea = async () => {
+        try {
+            const data = await userService.getMasPea();
+            setMasPeaList(data);
+        } catch (error) {
+            console.error('Failed to fetch MasPea:', error);
+        }
+    };
 
     const validate = () => {
         const newErrors: Record<string, string> = {};
@@ -33,7 +52,7 @@ export const AddTechnicianScreen: React.FC = () => {
         if (!formData.lastName) newErrors.lastName = 'กรุณากรอกนามสกุล';
         if (!formData.phoneNumber) newErrors.phoneNumber = 'กรุณากรอกเบอร์โทรศัพท์';
         if (!formData.technicianCode) newErrors.technicianCode = 'กรุณากรอกรหัสช่าง';
-        if (!formData.companyName) newErrors.companyName = 'กรุณากรอกบริษัท/สังกัด';
+        if (!formData.peaCode) newErrors.peaCode = 'กรุณาเลือกสังกัดการไฟฟ้า';
 
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
@@ -53,8 +72,9 @@ export const AddTechnicianScreen: React.FC = () => {
                 last_name: formData.lastName,
                 email: formData.email || `${formData.technicianCode}@pea.co.th`,
                 phone_number: formData.phoneNumber,
-                company_name: formData.companyName,
-                department: formData.department,
+                pea_code: formData.peaCode, // Send pea_code instead of company/dept
+                company_name: selectedPeaName, // Optional: send name as company_name for backwards compatibility if needed
+                department: '-',
             };
 
             await technicianService.registerTechnician(payload);
@@ -84,6 +104,24 @@ export const AddTechnicianScreen: React.FC = () => {
             ...formData,
             technicianCode: `TECH-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`
         });
+    };
+
+    // Filter MasPea list
+    const filteredPeas = masPeaList.filter(item => {
+        const code = item.pea_code || item.PeaCode || item.code || '';
+        const nameTh = item.name_th || item.NameTh || '';
+        const nameEng = item.name_eng || item.NameEng || '';
+        const query = searchPeaQuery.toLowerCase();
+        return code.toLowerCase().includes(query) || nameTh.includes(query) || nameEng.toLowerCase().includes(query);
+    });
+
+    const handleSelectPea = (item: any) => {
+        const code = item.pea_code || item.PeaCode || item.code || '';
+        const nameTh = item.name_th || item.NameTh || '';
+
+        setFormData({ ...formData, peaCode: code });
+        setSelectedPeaName(nameTh);
+        setShowPeaModal(false);
     };
 
     return (
@@ -189,29 +227,21 @@ export const AddTechnicianScreen: React.FC = () => {
                             </View>
                             <Text style={styles.hint}>รหัสถูกสร้างอัตโนมัติจากระบบ</Text>
                         </View>
-                        <View style={styles.fieldItem}>
-                            <Text style={styles.label}>บริษัท / สังกัด <Text style={styles.required}>*</Text></Text>
-                            <TextInput
-                                style={[styles.input, errors.companyName && styles.inputError]}
-                                placeholder="เช่น PEA (สำนักงานใหญ่)"
-                                value={formData.companyName}
-                                onChangeText={(text) => setFormData({ ...formData, companyName: text })}
-                            />
-                            {errors.companyName && <Text style={styles.errorText}>{errors.companyName}</Text>}
-                        </View>
-                    </View>
 
-                    <View style={styles.fieldRow}>
+                        {/* MasPea Selection */}
                         <View style={styles.fieldItem}>
-                            <Text style={styles.label}>แผนก / ทีมช่าง</Text>
-                            <TextInput
-                                style={styles.input}
-                                placeholder="เช่น ทีมซ่อมบำรุง A"
-                                value={formData.department}
-                                onChangeText={(text) => setFormData({ ...formData, department: text })}
-                            />
+                            <Text style={styles.label}>สังกัดการไฟฟ้า <Text style={styles.required}>*</Text></Text>
+                            <TouchableOpacity
+                                style={[styles.input, styles.selectInput, errors.peaCode && styles.inputError]}
+                                onPress={() => setShowPeaModal(true)}
+                            >
+                                <Text style={formData.peaCode ? styles.inputText : styles.placeholderText}>
+                                    {formData.peaCode ? `${selectedPeaName || formData.peaCode}` : 'เลือกสังกัด...'}
+                                </Text>
+                                <Text>▼</Text>
+                            </TouchableOpacity>
+                            {errors.peaCode && <Text style={styles.errorText}>{errors.peaCode}</Text>}
                         </View>
-                        <View style={styles.fieldItem} />
                     </View>
                 </View>
 
@@ -275,6 +305,53 @@ export const AddTechnicianScreen: React.FC = () => {
                             onPress={handleModalClose}
                         >
                             <Text style={styles.modalBtnText}>ตกลง</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
+
+            {/* MasPea Selection Modal */}
+            <Modal
+                transparent={true}
+                visible={showPeaModal}
+                animationType="slide"
+                onRequestClose={() => setShowPeaModal(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={[styles.modalContent, { height: '80%', width: '90%' }]}>
+                        <Text style={styles.modalTitle}>เลือกสังกัด</Text>
+                        <TextInput
+                            style={[styles.input, { width: '100%', marginBottom: 15 }]}
+                            placeholder="ค้นหาชื่อ หรือรหัส..."
+                            value={searchPeaQuery}
+                            onChangeText={setSearchPeaQuery}
+                        />
+
+                        <FlatList
+                            data={filteredPeas}
+                            keyExtractor={(item, index) => index.toString()}
+                            style={{ width: '100%' }}
+                            renderItem={({ item }) => {
+                                const code = item.pea_code || item.PeaCode || item.code || '';
+                                const name = item.name_th || item.NameTh || '';
+                                return (
+                                    <TouchableOpacity
+                                        style={styles.peaItem}
+                                        onPress={() => handleSelectPea(item)}
+                                    >
+                                        <Text style={styles.peaCode}>{code}</Text>
+                                        <Text style={styles.peaName}>{name}</Text>
+                                    </TouchableOpacity>
+                                );
+                            }}
+                            ListEmptyComponent={<Text style={{ textAlign: 'center', marginTop: 20, color: '#999' }}>ไม่พบข้อมูล</Text>}
+                        />
+
+                        <TouchableOpacity
+                            style={[styles.cancelBtn, { marginTop: 15, width: '100%' }]}
+                            onPress={() => setShowPeaModal(false)}
+                        >
+                            <Text style={styles.cancelBtnText}>ปิด</Text>
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -552,5 +629,32 @@ const styles = StyleSheet.create({
         color: 'white',
         fontSize: 16,
         fontWeight: 'bold',
+    },
+    selectInput: {
+        justifyContent: 'space-between',
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    inputText: {
+        color: '#333',
+    },
+    placeholderText: {
+        color: '#aaa',
+    },
+    peaItem: {
+        paddingVertical: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: '#eee',
+        width: '100%',
+    },
+    peaCode: {
+        fontWeight: 'bold',
+        fontSize: 14,
+        color: colors.primaryPurple,
+        marginBottom: 2,
+    },
+    peaName: {
+        fontSize: 14,
+        color: '#333',
     },
 });

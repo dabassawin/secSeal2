@@ -50,6 +50,15 @@ func CreateStoreTable(db *gorm.DB) error {
 	}
 	log.Println("✅ Log Table Migrated Successfully!")
 
+	log.Println("🔄 Migrating MasPea Table...")
+	// 🔄 Renaming Logic Removed: We are mapping struct field PeaCode to DB column "code" directly.
+	// if db.Migrator().HasColumn(&model.MasPea{}, "code") { ... }
+	if err := db.AutoMigrate(&model.MasPea{}); err != nil {
+		log.Printf("❌ Failed to migrate MasPea: %v", err)
+		return err
+	}
+	log.Println("✅ MasPea Table Migrated Successfully!")
+
 	log.Println("✅ Migration successful!")
 
 	// ✅ เปิด foreign key constraints กลับมา หลังจาก migration เสร็จสิ้น
