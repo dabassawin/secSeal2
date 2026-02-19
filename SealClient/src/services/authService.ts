@@ -28,6 +28,9 @@ export const authService = {
             if (token) {
                 await AsyncStorage.setItem('token', token);
                 await AsyncStorage.setItem('userRole', 'staff');
+                if (user) {
+                    await AsyncStorage.setItem('user', JSON.stringify(user));
+                }
                 setAuthToken(token);
             }
 
@@ -35,6 +38,11 @@ export const authService = {
         } catch (error) {
             throw error;
         }
+    },
+
+    getUser: async (): Promise<User | null> => {
+        const userStr = await AsyncStorage.getItem('user');
+        return userStr ? JSON.parse(userStr) : null;
     },
 
     // Technician Login
@@ -66,6 +74,7 @@ export const authService = {
     logout: async () => {
         await AsyncStorage.removeItem('token');
         await AsyncStorage.removeItem('userRole');
+        await AsyncStorage.removeItem('user');
         setAuthToken(null);
     },
 

@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { colors, sizes } from '@/constants';
 import { Header, StatusCard, ActionCard } from '@/components/dashboard';
+import { useAuth } from '@/context/AuthContext';
 
 import { sealService } from '@/services/sealService';
 import { SealReport } from '@/types';
@@ -9,6 +10,7 @@ import { useNavigation } from '@react-navigation/native';
 
 export const HomeScreen: React.FC = () => {
     const navigation = useNavigation();
+    const { user } = useAuth();
     const [stats, setStats] = React.useState<SealReport | null>(null);
     const [loading, setLoading] = React.useState(true);
 
@@ -101,13 +103,23 @@ export const HomeScreen: React.FC = () => {
                         iconBgColor="#d7ccc8"
                         onPress={() => (navigation as any).navigate('AssignSeal')}
                     />
+                    {user?.role === 'admin' && (
+                        <ActionCard
+                            title="สร้างผู้ใช้งาน"
+                            subtitle="เพิ่ม Admin/User ใหม่"
+                            icon="👤"
+                            iconColor="#2e7d32"
+                            iconBgColor="#e8f5e9"
+                            onPress={() => (navigation as any).navigate('CreateUser')}
+                        />
+                    )}
                     <ActionCard
-                        title="สร้างผู้ใช้งาน"
-                        subtitle="เพิ่ม Admin/User ใหม่"
-                        icon="👤"
-                        iconColor="#2e7d32"
-                        iconBgColor="#e8f5e9"
-                        onPress={() => (navigation as any).navigate('CreateUser')}
+                        title="เปลี่ยนที่ทำงาน"
+                        subtitle="แก้ไขข้อมูลสังกัด"
+                        icon="🏢"
+                        iconColor="#0288d1"
+                        iconBgColor="#e1f5fe"
+                        onPress={() => (navigation as any).navigate('ChangeWorkplace')}
                     />
                     {/* Ghost items for left alignment when centered */}
                     <View style={{ width: '30%', minWidth: 250, marginHorizontal: sizes.xs }} />

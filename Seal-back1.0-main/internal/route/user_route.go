@@ -13,4 +13,5 @@ func SetupUserRoutes(router fiber.Router, userController *controller.UserControl
 
 	user.Get("/:username", userController.GetUserHandler)
 	user.Post("/", userController.CreateUserHandler)
+	user.Put("/:username", userController.UpdateUserHandler)
 }

@@ -1,12 +1,14 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, ActivityIndicator, Modal } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { colors, sizes } from '@/constants';
 import { Header } from '@/components/dashboard';
 import { userService } from '@/services/userService';
+import { useAuth } from '@/context/AuthContext';
 
-export const CreateUserScreen: React.FC = () => {
+export const ChangeWorkplaceScreen: React.FC = () => {
     const navigation = useNavigation();
+    const { user } = useAuth(); // We need user info to update
     const [loading, setLoading] = useState(false);
 
     // Modal State
@@ -21,25 +23,15 @@ export const CreateUserScreen: React.FC = () => {
     const [searchText, setSearchText] = useState('');
     const [showPeaModal, setShowPeaModal] = useState(false);
 
-    // Form State
-    const [formData, setFormData] = useState({
-        empId: '',
-        title: '',
-        firstName: '',
-        lastName: '',
-        username: '',
-        email: '',
-        role: 'user', // Default role
-        peaCode: '',
-        peaShort: '',
-        peaName: '',
-    });
+    // Selected Data
+    const [selectedPeaData, setSelectedPeaData] = useState<any>(null);
 
-    const [errors, setErrors] = useState<Record<string, string>>({});
-
-    React.useEffect(() => {
+    useEffect(() => {
         fetchMasPea();
-    }, []);
+        if (user) {
+            setSelectedPea(`${user.pea_code} - ${user.pea_name}`);
+        }
+    }, [user]);
 
     const fetchMasPea = async () => {
         try {
@@ -74,58 +66,42 @@ export const CreateUserScreen: React.FC = () => {
         const nameTh = item.name_th || item.NameTh || '';
         const nameEng = item.name_eng || item.NameEng || '';
 
-        setFormData({
-            ...formData,
-            peaCode: code,
-            peaShort: nameEng,
-            peaName: nameTh
+        setSelectedPeaData({
+            ...item,
+            pea_code: code,
+            name_th: nameTh,
+            name_eng: nameEng
         });
         setSelectedPea(code ? `${code} - ${nameTh}` : nameTh);
         setShowPeaModal(false);
     };
 
-    const validate = () => {
-        const newErrors: Record<string, string> = {};
-        if (!formData.empId) newErrors.empId = 'กรุณากรอกรหัสพนักงาน';
-        if (!formData.title) newErrors.title = 'กรุณากรอกคำนำหน้า';
-        if (!formData.firstName) newErrors.firstName = 'กรุณากรอกชื่อจริง';
-        if (!formData.lastName) newErrors.lastName = 'กรุณากรอกนามสกุล';
-        if (!formData.username) newErrors.username = 'กรุณากรอกชื่อผู้ใช้';
-        if (!formData.email) newErrors.email = 'กรุณากรอกอีเมล';
-        if (!formData.peaCode) newErrors.peaCode = 'กรุณาเลือกสังกัด (หรือข้อมูลสังกัดไม่สมบูรณ์)';
-
-        setErrors(newErrors);
-        return Object.keys(newErrors).length === 0;
-    };
-
     const handleSave = async () => {
-        if (!validate()) return;
+        if (!selectedPeaData || !user?.username) {
+            setModalStatus('error');
+            setModalMessage('กรุณาเลือกหน่วยงานใหม่');
+            setModalVisible(true);
+            return;
+        }
 
         try {
             setLoading(true);
 
             const payload = {
-                emp_id: parseInt(formData.empId),
-                title_s_desc: formData.title,
-                first_name: formData.firstName,
-                last_name: formData.lastName,
-                username: formData.username,
-                email: formData.email,
-                role: formData.role,
-                pea_code: formData.peaCode,
-                pea_short: formData.peaShort,
-                pea_name: formData.peaName,
+                pea_code: selectedPeaData.pea_code,
+                pea_short: selectedPeaData.name_eng, // Mapping name_eng to pea_short for now
+                pea_name: selectedPeaData.name_th,
             };
 
-            await userService.createUser(payload);
+            await userService.updateUser(user.username, payload);
 
             setModalStatus('success');
-            setModalMessage('สร้างผู้ใช้งานเรียบร้อยแล้ว');
+            setModalMessage('บันทึกข้อมูลเรียบร้อยแล้ว');
             setModalVisible(true);
         } catch (error: any) {
-            console.error('Error creating user:', error);
+            console.error('Error updating workplace:', error);
             setModalStatus('error');
-            setModalMessage(error.response?.data?.error || 'ไม่สามารถสร้างผู้ใช้งานได้ กรุณาลองใหม่');
+            setModalMessage(error.response?.data?.error || 'ไม่สามารถบันทึกข้อมูลได้');
             setModalVisible(true);
         } finally {
             setLoading(false);
@@ -146,110 +122,16 @@ export const CreateUserScreen: React.FC = () => {
             <ScrollView style={styles.content}>
                 <View style={styles.card}>
                     <View style={styles.cardHeader}>
-                        <Text style={styles.cardIcon}>👤</Text>
-                        <Text style={styles.cardTitle}>ข้อมูลผู้ใช้งานใหม่</Text>
+                        <Text style={styles.cardIcon}>🏢</Text>
+                        <Text style={styles.cardTitle}>เปลี่ยนที่ทำงาน (Workplace)</Text>
                     </View>
 
                     <View style={styles.formFields}>
-                        {/* Row 1: Employee ID & Username */}
-                        <View style={styles.fieldRow}>
-                            <View style={styles.fieldItem}>
-                                <Text style={styles.label}>รหัสพนักงาน <Text style={styles.required}>*</Text></Text>
-                                <TextInput
-                                    style={[styles.input, errors.empId && styles.inputError]}
-                                    placeholder="เช่น 123456"
-                                    value={formData.empId}
-                                    onChangeText={(text) => setFormData({ ...formData, empId: text.replace(/[^0-9]/g, '') })}
-                                    keyboardType="numeric"
-                                />
-                                {errors.empId && <Text style={styles.errorText}>{errors.empId}</Text>}
-                            </View>
-                            <View style={styles.fieldItem}>
-                                <Text style={styles.label}>ชื่อผู้ใช้ (Username) <Text style={styles.required}>*</Text></Text>
-                                <TextInput
-                                    style={[styles.input, errors.username && styles.inputError]}
-                                    placeholder="เช่น somchai.j"
-                                    value={formData.username}
-                                    onChangeText={(text) => setFormData({ ...formData, username: text })}
-                                    autoCapitalize="none"
-                                />
-                                {errors.username && <Text style={styles.errorText}>{errors.username}</Text>}
-                            </View>
-                        </View>
-
-                        {/* Row 2: Title, First Name, Last Name */}
-                        <View style={styles.fieldRow}>
-                            <View style={{ flex: 0.5, marginHorizontal: 10 }}>
-                                <Text style={styles.label}>คำนำหน้า <Text style={styles.required}>*</Text></Text>
-                                <TextInput
-                                    style={[styles.input, errors.title && styles.inputError]}
-                                    placeholder="นาย/นาง/นางสาว"
-                                    value={formData.title}
-                                    onChangeText={(text) => setFormData({ ...formData, title: text })}
-                                />
-                                {errors.title && <Text style={styles.errorText}>{errors.title}</Text>}
-                            </View>
-                            <View style={styles.fieldItem}>
-                                <Text style={styles.label}>ชื่อจริง <Text style={styles.required}>*</Text></Text>
-                                <TextInput
-                                    style={[styles.input, errors.firstName && styles.inputError]}
-                                    placeholder="สมชาย"
-                                    value={formData.firstName}
-                                    onChangeText={(text) => setFormData({ ...formData, firstName: text })}
-                                />
-                                {errors.firstName && <Text style={styles.errorText}>{errors.firstName}</Text>}
-                            </View>
-                            <View style={styles.fieldItem}>
-                                <Text style={styles.label}>นามสกุล <Text style={styles.required}>*</Text></Text>
-                                <TextInput
-                                    style={[styles.input, errors.lastName && styles.inputError]}
-                                    placeholder="ใจดี"
-                                    value={formData.lastName}
-                                    onChangeText={(text) => setFormData({ ...formData, lastName: text })}
-                                />
-                                {errors.lastName && <Text style={styles.errorText}>{errors.lastName}</Text>}
-                            </View>
-                        </View>
-
-                        {/* Row 3: Email & Role */}
-                        <View style={styles.fieldRow}>
-                            <View style={styles.fieldItem}>
-                                <Text style={styles.label}>อีเมล <Text style={styles.required}>*</Text></Text>
-                                <TextInput
-                                    style={[styles.input, errors.email && styles.inputError]}
-                                    placeholder="example@pea.co.th"
-                                    value={formData.email}
-                                    onChangeText={(text) => setFormData({ ...formData, email: text })}
-                                    keyboardType="email-address"
-                                    autoCapitalize="none"
-                                />
-                                {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
-                            </View>
-                            <View style={styles.fieldItem}>
-                                <Text style={styles.label}>สิทธิ์การใช้งาน (Role)</Text>
-                                <View style={styles.radioGroup}>
-                                    <TouchableOpacity
-                                        style={[styles.radioButton, formData.role === 'user' && styles.radioButtonSelected]}
-                                        onPress={() => setFormData({ ...formData, role: 'user' })}
-                                    >
-                                        <Text style={[styles.radioText, formData.role === 'user' && styles.radioTextSelected]}>User</Text>
-                                    </TouchableOpacity>
-                                    <TouchableOpacity
-                                        style={[styles.radioButton, formData.role === 'admin' && styles.radioButtonSelected]}
-                                        onPress={() => setFormData({ ...formData, role: 'admin' })}
-                                    >
-                                        <Text style={[styles.radioText, formData.role === 'admin' && styles.radioTextSelected]}>Admin</Text>
-                                    </TouchableOpacity>
-                                </View>
-                            </View>
-                        </View>
-
-                        {/* Row 4: Organization (MasPea) */}
                         <View style={styles.fieldRow}>
                             <View style={styles.fieldItem}>
                                 <Text style={styles.label}>สังกัด / หน่วยงาน (PEA) <Text style={styles.required}>*</Text></Text>
                                 <TouchableOpacity
-                                    style={[styles.input, styles.dropdownBtn, errors.peaCode && styles.inputError]}
+                                    style={[styles.input, styles.dropdownBtn]}
                                     onPress={() => {
                                         setSearchText('');
                                         setFilteredPeaList(masPeaList);
@@ -261,10 +143,8 @@ export const CreateUserScreen: React.FC = () => {
                                     </Text>
                                     <Text>▼</Text>
                                 </TouchableOpacity>
-                                {errors.peaCode && <Text style={styles.errorText}>{errors.peaCode}</Text>}
                             </View>
                         </View>
-
                     </View>
                 </View>
 
@@ -451,44 +331,6 @@ const styles = StyleSheet.create({
         paddingHorizontal: 15,
         fontSize: 14,
         backgroundColor: '#fafafa',
-    },
-    inputError: {
-        borderColor: '#ff4d4f',
-    },
-    errorText: {
-        color: '#ff4d4f',
-        fontSize: 12,
-        marginTop: 4,
-    },
-    radioGroup: {
-        flexDirection: 'row',
-        height: 48,
-        backgroundColor: '#f0f2f5',
-        borderRadius: 8,
-        padding: 4,
-    },
-    radioButton: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        borderRadius: 6,
-    },
-    radioButtonSelected: {
-        backgroundColor: 'white',
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 2,
-        elevation: 2,
-    },
-    radioText: {
-        fontSize: 14,
-        color: '#666',
-        fontWeight: '500',
-    },
-    radioTextSelected: {
-        color: colors.primaryPurple,
-        fontWeight: 'bold',
     },
     dropdownBtn: {
         flexDirection: 'row',

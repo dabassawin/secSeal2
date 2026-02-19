@@ -177,7 +177,9 @@ func main() {
 
 		log.Printf("🔍 [LOGIN] Attempting login for username: %s", loginReq.Username)
 
-		// Mock users - ในระบบจริงจะดึงจาก database
+		var targetUser *model.User
+
+		// 1️⃣ Check Mock Users first
 		mockUsers := map[string]map[string]interface{}{
 			"admin": {
 				"password": "admin123",
@@ -195,8 +197,40 @@ func main() {
 			},
 		}
 
-		user, exists := mockUsers[loginReq.Username]
-		if !exists || user["password"] != loginReq.Password {
+		if mockData, exists := mockUsers[loginReq.Username]; exists {
+			if mockData["password"] == loginReq.Password {
+				nameParts := strings.SplitN(mockData["name"].(string), " ", 2)
+				lastName := ""
+				if len(nameParts) > 1 {
+					lastName = nameParts[1]
+				}
+				targetUser = &model.User{
+					ID:        uint(mockData["user_id"].(int)),
+					Username:  loginReq.Username,
+					Email:     mockData["email"].(string),
+					Role:      mockData["role"].(string),
+					FirstName: nameParts[0],
+					LastName:  lastName,
+				}
+			}
+		}
+
+		// 2️⃣ If not Mock, Check Database
+		if targetUser == nil {
+			dbUser, err := userService.GetUserByUsername(loginReq.Username)
+			if err == nil && dbUser != nil {
+				// ✅ Default Password for DB Users
+				if loginReq.Password == "123456" {
+					targetUser = dbUser
+				} else {
+					log.Printf("❌ [LOGIN] Incorrect password for DB user %s", loginReq.Username)
+				}
+			} else {
+				log.Printf("❌ [LOGIN] User not found in DB: %s", loginReq.Username)
+			}
+		}
+
+		if targetUser == nil {
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 				"error": "Invalid username or password",
 			})
@@ -207,36 +241,19 @@ func main() {
 		var wg sync.WaitGroup
 		wg.Add(1)
 
-		mockUser := &model.User{
-			ID:       uint(user["user_id"].(int)),
-			Username: loginReq.Username,
-			Email:    user["email"].(string),
-			Role:     user["role"].(string),
-		}
-
-		go generateToken(mockUser, &wg, tokenChan)
+		go generateToken(targetUser, &wg, tokenChan)
 		wg.Wait()
 		token := <-tokenChan
 
-		// ✅ บันทึก User ลง Database ถ้ายังไม่มี
-		existingUser, err := userService.GetUserByUsername(loginReq.Username)
-		if err != nil || existingUser == nil {
-			dbUser := &model.User{
-				EmpID:    uint(user["user_id"].(int)),
-				Username: loginReq.Username,
-				Email:    user["email"].(string),
-				Role:     user["role"].(string),
-			}
-			// แยกชื่อจาก name
-			nameParts := strings.SplitN(user["name"].(string), " ", 2)
-			dbUser.FirstName = nameParts[0]
-			if len(nameParts) > 1 {
-				dbUser.LastName = nameParts[1]
-			}
-			if createErr := userService.CreateUser(dbUser); createErr != nil {
-				log.Printf("⚠️ [LOGIN] Could not save user to DB: %v", createErr)
-			} else {
-				log.Printf("✅ [LOGIN] User '%s' saved to database", loginReq.Username)
+		// ✅ บันทึก Mock User ลง Database ถ้ายังไม่มี (DB User มีอยู่แล้ว)
+		if _, exists := mockUsers[loginReq.Username]; exists {
+			existingUser, err := userService.GetUserByUsername(loginReq.Username)
+			if err != nil || existingUser == nil {
+				if createErr := userService.CreateUser(targetUser); createErr != nil {
+					log.Printf("⚠️ [LOGIN] Could not save mock user to DB: %v", createErr)
+				} else {
+					log.Printf("✅ [LOGIN] Mock User '%s' saved to database", loginReq.Username)
+				}
 			}
 		}
 
@@ -245,11 +262,13 @@ func main() {
 			"message": "Login successful",
 			"token":   token,
 			"user": fiber.Map{
-				"id":       user["user_id"],
-				"username": loginReq.Username,
-				"role":     user["role"],
-				"name":     user["name"],
-				"email":    user["email"],
+				"id":       targetUser.ID,
+				"username": targetUser.Username,
+				"role":     targetUser.Role,
+				"name":     fmt.Sprintf("%s %s", targetUser.FirstName, targetUser.LastName),
+				"email":    targetUser.Email,
+				"pea_code": targetUser.PeaCode,
+				"pea_name": targetUser.PeaName,
 			},
 		})
 	})

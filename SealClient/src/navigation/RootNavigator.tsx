@@ -16,7 +16,8 @@ import {
     AddTechnicianScreen,
     ImportTechnicianScreen,
     AssignSealScreen,
-    CreateUserScreen
+    CreateUserScreen,
+    ChangeWorkplaceScreen
 } from '../screens';
 import TechnicianHomeScreen from '../screens/TechnicianHomeScreen';
 
@@ -112,6 +113,14 @@ const StaffNavigator = () => {
                 component={CreateUserScreen}
                 options={{
                     title: 'สร้างผู้ใช้งาน',
+                    drawerItemStyle: { display: 'none' }
+                }}
+            />
+            <Drawer.Screen
+                name="ChangeWorkplace"
+                component={ChangeWorkplaceScreen}
+                options={{
+                    title: 'เปลี่ยนที่ทำงาน',
                     drawerItemStyle: { display: 'none' }
                 }}
             />

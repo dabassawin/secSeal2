@@ -34,6 +34,9 @@ func (uc *UserController) CreateUserHandler(c *fiber.Ctx) error {
 		Username  string `json:"username"`
 		Email     string `json:"email"`
 		Role      string `json:"role"`
+		PeaCode   string `json:"pea_code"`
+		PeaShort  string `json:"pea_short"`
+		PeaName   string `json:"pea_name"`
 	}
 	if err := c.BodyParser(&request); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request format"})
@@ -52,6 +55,9 @@ func (uc *UserController) CreateUserHandler(c *fiber.Ctx) error {
 		Username:  request.Username,
 		Email:     request.Email,
 		Role:      request.Role,
+		PeaCode:   request.PeaCode,
+		PeaShort:  request.PeaShort,
+		PeaName:   request.PeaName,
 	}
 
 	err := uc.userService.CreateUser(&user)
@@ -60,4 +66,33 @@ func (uc *UserController) CreateUserHandler(c *fiber.Ctx) error {
 	}
 
 	return c.Status(fiber.StatusCreated).JSON(fiber.Map{"message": "User created successfully", "user": user})
+}
+
+func (uc *UserController) UpdateUserHandler(c *fiber.Ctx) error {
+	username := c.Params("username")
+	var request struct {
+		PeaCode  string `json:"pea_code"`
+		PeaShort string `json:"pea_short"`
+		PeaName  string `json:"pea_name"`
+	}
+
+	if err := c.BodyParser(&request); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request format"})
+	}
+
+	user, err := uc.userService.GetUserByUsername(username)
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "User not found"})
+	}
+
+	// Update fields
+	user.PeaCode = request.PeaCode
+	user.PeaShort = request.PeaShort
+	user.PeaName = request.PeaName
+
+	if err := uc.userService.UpdateUser(user); err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to update user"})
+	}
+
+	return c.JSON(fiber.Map{"message": "User updated successfully", "user": user})
 }

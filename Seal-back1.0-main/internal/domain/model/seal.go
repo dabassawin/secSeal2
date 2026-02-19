@@ -9,7 +9,7 @@ import (
 type Seal struct {
 	ID                   uint           `gorm:"primaryKey" json:"id"`
 	SealNumber           string         `gorm:"unique;not null" json:"seal_number"`
-	PeaCode              string         `gorm:"size:10;not null" json:"pea_code"` // รหัสกฟฟ.
+	PeaCode              string         `gorm:"size:10;not null;default:''" json:"pea_code"` // รหัสกฟฟ.
 	Status               string         `gorm:"not null" json:"status"`
 	IssuedBy             *uint          `json:"issued_by,omitempty"`
 	IssuedTo             *uint          `json:"issued_to,omitempty"`

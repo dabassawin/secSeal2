@@ -67,3 +67,16 @@ func (r *UserRepository) Create(user *model.User) error {
 	log.Printf("✅ [CreateUser] User created successfully: %+v\n", user)
 	return nil
 }
+
+// ✅ อัปเดตข้อมูลผู้ใช้
+func (r *UserRepository) Update(user *model.User) error {
+	log.Printf("🔄 [UpdateUser] Updating user: %+v\n", user)
+
+	if err := r.db.Save(user).Error; err != nil {
+		log.Println("❌ [UpdateUser] Error:", err)
+		return err
+	}
+
+	log.Println("✅ [UpdateUser] User updated successfully")
+	return nil
+}
