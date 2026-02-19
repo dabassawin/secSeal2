@@ -111,6 +111,7 @@ func (sc *SealController) GenerateSealsMultipleBatchesHandler(c *fiber.Ctx) erro
 		Batches []struct {
 			SealNumber string `json:"seal_number"`
 			Count      int    `json:"count"`
+			PeaCode    string `json:"pea_code"` // ✅ รับ PeaCode
 		} `json:"batches"`
 	}
 
@@ -139,7 +140,7 @@ func (sc *SealController) GenerateSealsMultipleBatchesHandler(c *fiber.Ctx) erro
 			})
 		}
 
-		seals, err := sc.sealService.GenerateAndCreateSealsFromNumber(batch.SealNumber, batch.Count, userID)
+		seals, err := sc.sealService.GenerateAndCreateSealsFromNumber(batch.SealNumber, batch.Count, userID, batch.PeaCode)
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 		}
@@ -309,6 +310,7 @@ func (sc *SealController) GenerateSealsHandler(c *fiber.Ctx) error {
 	var request struct {
 		SealNumber string `json:"seal_number"`
 		Count      int    `json:"count"`
+		PeaCode    string `json:"pea_code"` // ✅ รับ PeaCode
 	}
 	if err := c.BodyParser(&request); err != nil || request.Count <= 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid input"})
@@ -317,7 +319,7 @@ func (sc *SealController) GenerateSealsHandler(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Seal number is required"})
 	}
 
-	seals, err := sc.sealService.GenerateAndCreateSealsFromNumber(request.SealNumber, request.Count, userID)
+	seals, err := sc.sealService.GenerateAndCreateSealsFromNumber(request.SealNumber, request.Count, userID, request.PeaCode)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
@@ -337,6 +339,7 @@ func (sc *SealController) CreateSealHandler(c *fiber.Ctx) error {
 	var request struct {
 		SealNumber string `json:"seal_number"`
 		Count      int    `json:"count"`
+		PeaCode    string `json:"pea_code"` // ✅ รับ PeaCode
 	}
 	if err := c.BodyParser(&request); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid input"})
@@ -348,7 +351,7 @@ func (sc *SealController) CreateSealHandler(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Count must be greater than zero"})
 	}
 
-	seals, err := sc.sealService.GenerateAndCreateSealsFromNumber(request.SealNumber, request.Count, userID)
+	seals, err := sc.sealService.GenerateAndCreateSealsFromNumber(request.SealNumber, request.Count, userID, request.PeaCode)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}

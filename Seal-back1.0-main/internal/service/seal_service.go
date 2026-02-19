@@ -155,7 +155,7 @@ func (s *SealService) GenerateAndCreateSeals(count int, userID uint) ([]model.Se
 	return seals, nil
 }
 
-func (s *SealService) GenerateAndCreateSealsFromNumber(startingSealNumber string, count int, userID uint) ([]model.Seal, error) {
+func (s *SealService) GenerateAndCreateSealsFromNumber(startingSealNumber string, count int, userID uint, peaCode string) ([]model.Seal, error) {
 	sealNumbers, err := GenerateNextSealNumbers(startingSealNumber, count)
 	if err != nil {
 		return nil, err
@@ -175,6 +175,7 @@ func (s *SealService) GenerateAndCreateSealsFromNumber(startingSealNumber string
 
 		newSeals = append(newSeals, model.Seal{
 			SealNumber: sn,
+			PeaCode:    peaCode, // ✅ ใส่ PeaCode
 			Status:     "พร้อมใช้งาน",
 			CreatedAt:  now,
 			UpdatedAt:  now,
@@ -187,7 +188,7 @@ func (s *SealService) GenerateAndCreateSealsFromNumber(startingSealNumber string
 		}
 		logEntry := model.Log{
 			UserID: userID,
-			Action: fmt.Sprintf("สร้างซีลใหม่ %d อัน จากเลขเริ่ม %s", count, startingSealNumber),
+			Action: fmt.Sprintf("สร้างซีลใหม่ %d อัน จากเลขเริ่ม %s (PEA: %s)", count, startingSealNumber, peaCode),
 		}
 		return s.logRepo.Create(&logEntry)
 	})

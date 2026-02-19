@@ -1,8 +1,12 @@
-import React, { useState } from 'react';
-import { View, Text, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator, Modal } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import {
+    View, Text, StyleSheet, TextInput, TouchableOpacity,
+    ActivityIndicator, Modal, FlatList, ScrollView
+} from 'react-native';
 import { colors, sizes } from '@/constants';
 import { Header } from '@/components/dashboard';
 import { sealService } from '@/services/sealService';
+import { userService } from '@/services/userService';
 import { useNavigation } from '@react-navigation/native';
 
 export const CreateSealScreen: React.FC = () => {
@@ -11,15 +15,57 @@ export const CreateSealScreen: React.FC = () => {
     const [count, setCount] = useState('');
     const [loading, setLoading] = useState(false);
 
-    // Modal State
+    // PEA Selection
+    const [masPeaList, setMasPeaList] = useState<any[]>([]);
+    const [selectedPeaCode, setSelectedPeaCode] = useState('');
+    const [selectedPeaName, setSelectedPeaName] = useState('');
+    const [showPeaModal, setShowPeaModal] = useState(false);
+    const [peaSearch, setPeaSearch] = useState('');
+
+    // Status Modal
     const [modalVisible, setModalVisible] = useState(false);
     const [modalStatus, setModalStatus] = useState<'success' | 'error'>('success');
     const [modalMessage, setModalMessage] = useState('');
+
+    useEffect(() => {
+        fetchMasPea();
+    }, []);
+
+    const fetchMasPea = async () => {
+        try {
+            const data = await userService.getMasPea();
+            setMasPeaList(data);
+        } catch (error) {
+            console.error('Failed to fetch MasPea:', error);
+        }
+    };
+
+    const filteredPeaList = masPeaList.filter(p => {
+        const code = p.pea_code || p.PeaCode || p.code || '';
+        const name = p.name_th || p.NameTh || '';
+        const q = peaSearch.toLowerCase();
+        return code.toLowerCase().includes(q) || name.toLowerCase().includes(q);
+    });
+
+    const handleSelectPea = (item: any) => {
+        const code = item.pea_code || item.PeaCode || item.code || '';
+        const name = item.name_th || item.NameTh || '';
+        setSelectedPeaCode(code);
+        setSelectedPeaName(name);
+        setShowPeaModal(false);
+        setPeaSearch('');
+    };
 
     const handleCreate = async () => {
         if (!sealNumber || !count) {
             setModalStatus('error');
             setModalMessage('กรุณากรอกข้อมูลให้ครบทุกช่อง');
+            setModalVisible(true);
+            return;
+        }
+        if (!selectedPeaCode) {
+            setModalStatus('error');
+            setModalMessage('กรุณาเลือกสังกัดการไฟฟ้า (PEA Code)');
             setModalVisible(true);
             return;
         }
@@ -36,16 +82,17 @@ export const CreateSealScreen: React.FC = () => {
         try {
             await sealService.createSeal({
                 seal_number: sealNumber,
-                count: countNum
+                count: countNum,
+                pea_code: selectedPeaCode,
             });
 
             setModalStatus('success');
-            setModalMessage('สร้างซีลชุดใหม่เรียบร้อยแล้ว');
+            setModalMessage(`สร้างซีลชุดใหม่จำนวน ${countNum} อัน เรียบร้อยแล้ว`);
             setModalVisible(true);
         } catch (error: any) {
             console.error('Error creating seals:', error);
             setModalStatus('error');
-            setModalMessage('ไม่สามารถสร้างซีลได้ กรุณาลองใหม่');
+            setModalMessage(error.response?.data?.error || 'ไม่สามารถสร้างซีลได้ กรุณาลองใหม่');
             setModalVisible(true);
         } finally {
             setLoading(false);
@@ -62,11 +109,28 @@ export const CreateSealScreen: React.FC = () => {
     return (
         <View style={styles.mainContainer}>
             <Header />
-            <View style={styles.container}>
+            <ScrollView style={styles.scroll} contentContainerStyle={styles.container}>
                 <View style={styles.card}>
                     <Text style={styles.title}>สร้างซีลใหม่ (Batch)</Text>
                     <Text style={styles.subtitle}>ระบบจะทำการสร้าง Serial Number ให้อัตโนมัติตามจำนวนที่ระบุ</Text>
 
+                    {/* PEA Selector */}
+                    <View style={styles.formGroup}>
+                        <Text style={styles.label}>สังกัดการไฟฟ้า (PEA Code) <Text style={styles.required}>*</Text></Text>
+                        <TouchableOpacity style={styles.peaSelector} onPress={() => setShowPeaModal(true)}>
+                            {selectedPeaCode ? (
+                                <View>
+                                    <Text style={styles.peaCode}>{selectedPeaCode}</Text>
+                                    <Text style={styles.peaName}>{selectedPeaName}</Text>
+                                </View>
+                            ) : (
+                                <Text style={styles.peaPlaceholder}>เลือกการไฟฟ้า...</Text>
+                            )}
+                            <Text style={styles.dropdownIcon}>▼</Text>
+                        </TouchableOpacity>
+                    </View>
+
+                    {/* Seal Number */}
                     <View style={styles.formGroup}>
                         <Text style={styles.label}>เลขซีลเริ่มต้น (Start Seal Number)</Text>
                         <TextInput
@@ -77,6 +141,7 @@ export const CreateSealScreen: React.FC = () => {
                         />
                     </View>
 
+                    {/* Count */}
                     <View style={styles.formGroup}>
                         <Text style={styles.label}>จำนวน (Count)</Text>
                         <TextInput
@@ -100,15 +165,45 @@ export const CreateSealScreen: React.FC = () => {
                         )}
                     </TouchableOpacity>
                 </View>
-            </View>
+            </ScrollView>
+
+            {/* PEA Selection Modal */}
+            <Modal visible={showPeaModal} transparent animationType="slide" onRequestClose={() => setShowPeaModal(false)}>
+                <View style={styles.peaModalOverlay}>
+                    <View style={styles.peaModalContent}>
+                        <View style={styles.peaModalHeader}>
+                            <Text style={styles.peaModalTitle}>เลือกสังกัดการไฟฟ้า</Text>
+                            <TouchableOpacity onPress={() => setShowPeaModal(false)}>
+                                <Text style={styles.closeBtn}>✕</Text>
+                            </TouchableOpacity>
+                        </View>
+                        <TextInput
+                            style={styles.peaSearchInput}
+                            placeholder="ค้นหาด้วยรหัสหรือชื่อ..."
+                            value={peaSearch}
+                            onChangeText={setPeaSearch}
+                        />
+                        <FlatList
+                            data={filteredPeaList}
+                            keyExtractor={(_, i) => i.toString()}
+                            renderItem={({ item }) => {
+                                const code = item.pea_code || item.PeaCode || item.code || '';
+                                const name = item.name_th || item.NameTh || '';
+                                return (
+                                    <TouchableOpacity style={styles.peaItem} onPress={() => handleSelectPea(item)}>
+                                        <Text style={styles.peaItemCode}>{code}</Text>
+                                        <Text style={styles.peaItemName}>{name}</Text>
+                                    </TouchableOpacity>
+                                );
+                            }}
+                            ItemSeparatorComponent={() => <View style={styles.separator} />}
+                        />
+                    </View>
+                </View>
+            </Modal>
 
             {/* Status Modal */}
-            <Modal
-                transparent={true}
-                visible={modalVisible}
-                animationType="fade"
-                onRequestClose={handleModalClose}
-            >
+            <Modal transparent={true} visible={modalVisible} animationType="fade" onRequestClose={handleModalClose}>
                 <View style={styles.modalOverlay}>
                     <View style={styles.modalContent}>
                         <View style={[
@@ -122,13 +217,10 @@ export const CreateSealScreen: React.FC = () => {
                                 {modalStatus === 'success' ? '✅' : '❌'}
                             </Text>
                         </View>
-
                         <Text style={styles.modalTitle}>
                             {modalStatus === 'success' ? 'สำเร็จ' : 'เกิดข้อผิดพลาด'}
                         </Text>
-
                         <Text style={styles.modalMessage}>{modalMessage}</Text>
-
                         <TouchableOpacity
                             style={[
                                 styles.modalBtn,
@@ -146,14 +238,9 @@ export const CreateSealScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-    mainContainer: {
-        flex: 1,
-        backgroundColor: colors.bgLight,
-    },
-    container: {
-        padding: sizes.md,
-        flex: 1,
-    },
+    mainContainer: { flex: 1, backgroundColor: colors.bgLight },
+    scroll: { flex: 1 },
+    container: { padding: sizes.md, paddingBottom: 40 },
     card: {
         backgroundColor: '#fff',
         padding: sizes.lg,
@@ -175,15 +262,9 @@ const styles = StyleSheet.create({
         color: colors.textLight,
         marginBottom: sizes.lg,
     },
-    formGroup: {
-        marginBottom: sizes.md,
-    },
-    label: {
-        fontSize: sizes.fontSm,
-        color: colors.text,
-        marginBottom: 8,
-        fontWeight: '500',
-    },
+    formGroup: { marginBottom: sizes.md },
+    label: { fontSize: sizes.fontSm, color: colors.text, marginBottom: 8, fontWeight: '500' },
+    required: { color: '#f44336' },
     input: {
         borderWidth: 1,
         borderColor: colors.border,
@@ -192,6 +273,21 @@ const styles = StyleSheet.create({
         fontSize: sizes.fontMd,
         backgroundColor: '#fafafa',
     },
+    peaSelector: {
+        borderWidth: 1,
+        borderColor: colors.border,
+        borderRadius: sizes.radiusMd,
+        padding: 12,
+        backgroundColor: '#fafafa',
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        minHeight: 50,
+    },
+    peaCode: { fontSize: 15, fontWeight: 'bold', color: colors.primaryPurple },
+    peaName: { fontSize: 13, color: '#555', marginTop: 2 },
+    peaPlaceholder: { fontSize: sizes.fontMd, color: '#aaa' },
+    dropdownIcon: { color: '#999', fontSize: 14 },
     button: {
         backgroundColor: colors.primaryPurple,
         padding: 14,
@@ -199,14 +295,45 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         marginTop: sizes.md,
     },
-    buttonDisabled: {
-        opacity: 0.7,
+    buttonDisabled: { opacity: 0.7 },
+    buttonText: { color: '#fff', fontWeight: 'bold', fontSize: sizes.fontMd },
+
+    // PEA Modal
+    peaModalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.4)',
+        justifyContent: 'flex-end',
     },
-    buttonText: {
-        color: '#fff',
-        fontWeight: 'bold',
-        fontSize: sizes.fontMd,
+    peaModalContent: {
+        backgroundColor: '#fff',
+        borderTopLeftRadius: 20,
+        borderTopRightRadius: 20,
+        padding: 20,
+        maxHeight: '80%',
     },
+    peaModalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 15,
+    },
+    peaModalTitle: { fontSize: 18, fontWeight: 'bold', color: colors.primaryPurple },
+    closeBtn: { fontSize: 18, color: '#999', padding: 5 },
+    peaSearchInput: {
+        borderWidth: 1,
+        borderColor: '#ddd',
+        borderRadius: 10,
+        padding: 10,
+        marginBottom: 10,
+        fontSize: 15,
+        backgroundColor: '#fafafa',
+    },
+    peaItem: { paddingVertical: 12, paddingHorizontal: 5 },
+    peaItemCode: { fontSize: 15, fontWeight: 'bold', color: colors.primaryPurple },
+    peaItemName: { fontSize: 13, color: '#555', marginTop: 2 },
+    separator: { height: 1, backgroundColor: '#f0f0f0' },
+
+    // Status Modal
     modalOverlay: {
         flex: 1,
         backgroundColor: 'rgba(0,0,0,0.5)',
@@ -226,39 +353,12 @@ const styles = StyleSheet.create({
         elevation: 10,
     },
     modalIconCircle: {
-        width: 80,
-        height: 80,
-        borderRadius: 40,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginBottom: 20,
+        width: 80, height: 80, borderRadius: 40,
+        justifyContent: 'center', alignItems: 'center', marginBottom: 20,
     },
-    modalIcon: {
-        fontSize: 40,
-    },
-    modalTitle: {
-        fontSize: 22,
-        fontWeight: 'bold',
-        color: '#333',
-        marginBottom: 10,
-    },
-    modalMessage: {
-        fontSize: 16,
-        color: '#666',
-        textAlign: 'center',
-        marginBottom: 25,
-        lineHeight: 22,
-    },
-    modalBtn: {
-        width: '100%',
-        height: 50,
-        borderRadius: 12,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    modalBtnText: {
-        color: 'white',
-        fontSize: 16,
-        fontWeight: 'bold',
-    },
+    modalIcon: { fontSize: 40 },
+    modalTitle: { fontSize: 22, fontWeight: 'bold', color: '#333', marginBottom: 10 },
+    modalMessage: { fontSize: 16, color: '#666', textAlign: 'center', marginBottom: 25, lineHeight: 22 },
+    modalBtn: { width: '100%', height: 50, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
+    modalBtnText: { color: 'white', fontSize: 16, fontWeight: 'bold' },
 });
