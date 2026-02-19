@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, ActivityIndicator, Modal, FlatList } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { colors, sizes } from '@/constants';
 import { Header } from '@/components/dashboard';
 import { technicianService } from '@/services/technicianService';
+import { userService } from '@/services/userService'; // Import userService
 import { Technician } from '@/types';
 
 type ImportTab = 'file' | 'json';
@@ -20,6 +21,28 @@ export const ImportTechnicianScreen: React.FC = () => {
     const [modalVisible, setModalVisible] = useState(false);
     const [modalStatus, setModalStatus] = useState<'success' | 'error'>('success');
     const [modalMessage, setModalMessage] = useState('');
+
+    // MasPea Data
+    const [masPeaList, setMasPeaList] = useState<any[]>([]);
+
+    useEffect(() => {
+        fetchMasPea();
+    }, []);
+
+    const fetchMasPea = async () => {
+        try {
+            const data = await userService.getMasPea();
+            setMasPeaList(data);
+        } catch (error) {
+            console.error('Failed to fetch MasPea:', error);
+        }
+    };
+
+    const getPeaName = (code?: string) => {
+        if (!code) return '';
+        const pea = masPeaList.find(p => p.pea_code === code || p.PeaCode === code || p.code === code);
+        return pea ? (pea.name_th || pea.NameTh) : '';
+    };
 
     const handlePreview = () => {
         if (activeTab === 'json') {
@@ -84,8 +107,8 @@ export const ImportTechnicianScreen: React.FC = () => {
                         <Text style={[styles.headerCell, { width: 120 }]}>รหัสช่าง</Text>
                         <Text style={[styles.headerCell, { width: 150 }]}>ชื่อ-นามสกุล</Text>
                         <Text style={[styles.headerCell, { width: 120 }]}>เบอร์โทรศัพท์</Text>
-                        <Text style={[styles.headerCell, { width: 180 }]}>บริษัท / สังกัด</Text>
-                        <Text style={[styles.headerCell, { width: 150 }]}>แผนก</Text>
+                        <Text style={[styles.headerCell, { width: 120 }]}>รหัสการไฟฟ้า</Text>
+                        <Text style={[styles.headerCell, { width: 180 }]}>ชื่อการไฟฟ้า</Text>
                     </View>
                     <FlatList
                         data={previewData}
@@ -95,8 +118,8 @@ export const ImportTechnicianScreen: React.FC = () => {
                                 <Text style={[styles.cell, { width: 120 }]}>{item.technician_code || item.id || '-'}</Text>
                                 <Text style={[styles.cell, { width: 150 }]}>{`${item.first_name || ''} ${item.last_name || ''}`}</Text>
                                 <Text style={[styles.cell, { width: 120 }]}>{item.phone_number || '-'}</Text>
-                                <Text style={[styles.cell, { width: 180 }]}>{item.company_name || '-'}</Text>
-                                <Text style={[styles.cell, { width: 150 }]}>{item.department || '-'}</Text>
+                                <Text style={[styles.cell, { width: 120 }]}>{item.pea_code || '-'}</Text>
+                                <Text style={[styles.cell, { width: 180 }]}>{getPeaName(item.pea_code) || '-'}</Text>
                             </View>
                         )}
                         scrollEnabled={false}
@@ -154,7 +177,7 @@ export const ImportTechnicianScreen: React.FC = () => {
                                 <TextInput
                                     style={styles.jsonTextArea}
                                     multiline
-                                    placeholder='[ {"technician_code": "T001", "first_name": "Somchai", ...} ]'
+                                    placeholder='[ {"technician_code": "T001", "first_name": "Somchai", "pea_code": "B00001", ...} ]'
                                     value={jsonInput}
                                     onChangeText={setJsonInput}
                                 />
