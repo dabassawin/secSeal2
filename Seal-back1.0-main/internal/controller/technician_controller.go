@@ -11,6 +11,7 @@ import (
 	"github.com/Kev2406/PEA/internal/uploads"
 
 	"github.com/gofiber/fiber/v2"
+	"golang.org/x/crypto/bcrypt"
 )
 
 // TechnicianController รับผิดชอบ endpoint สำหรับช่าง (Technician)
@@ -259,6 +260,72 @@ func (tc *TechnicianController) ImportTechniciansHandler(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(fiber.Map{"message": "Imported successfully", "count": len(techList)})
+}
+
+// SetPasswordHandler forcefully sets a single technician's password
+// POST /api/technician/set-password
+// Body: { "username": "...", "new_password": "..." }
+func (tc *TechnicianController) SetPasswordHandler(c *fiber.Ctx) error {
+	var req struct {
+		Username    string `json:"username"`
+		NewPassword string `json:"new_password"`
+	}
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(400).JSON(fiber.Map{"error": "invalid request"})
+	}
+	if req.Username == "" || req.NewPassword == "" {
+		return c.Status(400).JSON(fiber.Map{"error": "username and new_password are required"})
+	}
+	hashed, err := bcrypt.GenerateFromPassword([]byte(req.NewPassword), bcrypt.DefaultCost)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "failed to hash password"})
+	}
+	technicians, err := tc.technicianService.GetAllTechnicians("", false)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "failed to fetch technicians"})
+	}
+	for _, tech := range technicians {
+		if tech.Username == req.Username {
+			if err := tc.technicianService.UpdateTechnicianPassword(tech.ID, string(hashed)); err != nil {
+				return c.Status(500).JSON(fiber.Map{"error": "failed to update password"})
+			}
+			return c.JSON(fiber.Map{"message": "Password updated successfully", "username": req.Username})
+		}
+	}
+	return c.Status(404).JSON(fiber.Map{"error": "technician not found"})
+}
+
+// ResetAllPasswordsHandler re-hashes all passwords that are stored as plain text
+// POST /api/technician/reset-passwords
+func (tc *TechnicianController) ResetAllPasswordsHandler(c *fiber.Ctx) error {
+	technicians, err := tc.technicianService.GetAllTechnicians("", false)
+	if err != nil {
+		return c.Status(500).JSON(fiber.Map{"error": "Failed to fetch technicians"})
+	}
+
+	fixed := 0
+	for i := range technicians {
+		tech := &technicians[i]
+		// bcrypt hashes always start with "$2a$" or "$2b$"
+		if len(tech.Password) > 0 && tech.Password[:1] != "$" {
+			hashed, err := bcrypt.GenerateFromPassword([]byte(tech.Password), bcrypt.DefaultCost)
+			if err != nil {
+				log.Printf("❌ Failed to hash password for %s: %v", tech.Username, err)
+				continue
+			}
+			tech.Password = string(hashed)
+			if err := tc.technicianService.UpdateTechnicianPassword(tech.ID, tech.Password); err != nil {
+				log.Printf("❌ Failed to update password for %s: %v", tech.Username, err)
+				continue
+			}
+			fixed++
+		}
+	}
+
+	return c.JSON(fiber.Map{
+		"message": fmt.Sprintf("Password reset complete"),
+		"fixed":   fixed,
+	})
 }
 func (tc *TechnicianController) GetAllTechniciansHandler(c *fiber.Ctx) error {
 	peaCode := c.Query("pea_code", "")

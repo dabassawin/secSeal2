@@ -11,10 +11,12 @@ func SetupTechnicianRoutes(router fiber.Router, techController *controller.Techn
 	tech := router.Group("/api/technician")
 
 	// ✅ Public Routes (ไม่ต้องใช้ JWT)
-	tech.Post("/register", techController.RegisterHandler)        // สมัครช่างใหม่
-	tech.Post("/login", techController.LoginHandler)              // ล็อกอิน
-	tech.Post("/import", techController.ImportTechniciansHandler) // Import รายชื่อช่าง
-	tech.Get("/list", techController.GetAllTechniciansHandler)    // ดูรายชื่อช่างทั้งหมด
+	tech.Post("/register", techController.RegisterHandler)                 // สมัครช่างใหม่
+	tech.Post("/login", techController.LoginHandler)                       // ล็อกอิน
+	tech.Post("/import", techController.ImportTechniciansHandler)          // Import รายชื่อช่าง
+	tech.Post("/reset-passwords", techController.ResetAllPasswordsHandler) // Fix un-hashed passwords
+	tech.Post("/set-password", techController.SetPasswordHandler)          // Force set password for a user
+	tech.Get("/list", techController.GetAllTechniciansHandler)             // ดูรายชื่อช่างทั้งหมด
 
 	tech.Put("/update/:id", techController.UpdateTechnicianHandler)    // อัปเดตข้อมูลช่าง
 	tech.Delete("/delete/:id", techController.DeleteTechnicianHandler) // ลบข้อมูลช่าง

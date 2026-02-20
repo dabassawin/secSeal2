@@ -210,6 +210,11 @@ func (s *TechnicianService) DeleteTechnician(techID uint) error {
 	return s.repo.DeleteTechnician(techID)
 }
 
+// UpdateTechnicianPassword updates only the password field for a technician
+func (s *TechnicianService) UpdateTechnicianPassword(techID uint, hashedPassword string) error {
+	return s.repo.UpdatePasswordByID(techID, hashedPassword)
+}
+
 // ✅ **อัปโหลดรูปภาพหลังจากติดตั้งซีล**
 func (s *TechnicianService) UploadSealImages(sealNumber string, techID uint, image1, image2 string) error {
 	seal, err := s.repo.FindSealByNumber(sealNumber)
