@@ -389,7 +389,7 @@ export const AssignSealScreen: React.FC = () => {
                                     style={styles.scanInput}
                                     placeholder="ยิงบาร์โค้ด หรือพิมพ์ Serial..."
                                     value={singleSealInput}
-                                    onChangeText={setSingleSealInput}
+                                    onChangeText={(text) => setSingleSealInput(text.replace(/^PEA\s+/i, ''))}
                                     onSubmitEditing={handleAddSingleSeal}
                                     autoFocus={true}
                                 />
@@ -404,7 +404,7 @@ export const AssignSealScreen: React.FC = () => {
                                             style={styles.rangeInput}
                                             placeholder="Ex. SL-001"
                                             value={rangeStartInput}
-                                            onChangeText={setRangeStartInput}
+                                            onChangeText={(text) => setRangeStartInput(text.replace(/^PEA\s+/i, ''))}
                                         />
                                     </View>
                                     <View style={{ flex: 1 }}>

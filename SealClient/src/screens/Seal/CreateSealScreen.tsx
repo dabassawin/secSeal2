@@ -142,7 +142,7 @@ export const CreateSealScreen: React.FC = () => {
                             style={styles.input}
                             placeholder="Ex. F0001"
                             value={sealNumber}
-                            onChangeText={setSealNumber}
+                            onChangeText={(text) => setSealNumber(text.replace(/^PEA\s+/i, ''))}
                         />
                     </View>
 
