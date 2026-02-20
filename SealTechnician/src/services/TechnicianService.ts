@@ -18,6 +18,8 @@ export const TechnicianService = {
             const token = await SecureStore.getItemAsync('userToken');
             if (!token) throw new Error('No token found');
 
+            console.log('Sending Token:', token);
+
             const response = await fetch(`${API_URL}/technician/my-seals`, {
                 method: 'GET',
                 headers: {
@@ -28,7 +30,7 @@ export const TechnicianService = {
 
             if (!response.ok) {
                 const data = await response.json();
-                throw new Error(data.message || 'Failed to fetch seals');
+                throw new Error(data.message || data.error || 'Failed to fetch seals');
             }
 
             const data = await response.json();

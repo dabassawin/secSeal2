@@ -1,5 +1,5 @@
-import React, { useCallback, useState } from 'react';
-import { View, Text, StyleSheet, FlatList, RefreshControl, TouchableOpacity, TextInput, Image, Dimensions } from 'react-native';
+import React, { useCallback, useState, useEffect } from 'react';
+import { View, Text, StyleSheet, FlatList, RefreshControl, TouchableOpacity, TextInput, Image, Dimensions, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
@@ -32,6 +32,15 @@ export default function HomeScreen({ onLogout }: HomeScreenProps) {
         await AuthService.logout();
         onLogout();
     };
+
+    useEffect(() => {
+        if (error === 'Invalid token') {
+            Alert.alert('Session Expired', 'Your session has expired or is invalid. Please log in again.');
+            handleLogout();
+        } else if (error) {
+            Alert.alert('Error', error);
+        }
+    }, [error]);
 
     const onRefresh = useCallback(() => {
         fetchSeals();
