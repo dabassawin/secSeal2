@@ -27,7 +27,7 @@ export default function ScanScreen() {
         setResult("Processing...");
 
         let sealNumber = data;
-        if (sealNumber.startsWith("PEA ")) {
+        if (sealNumber.toLowerCase().startsWith("pea ")) {
             sealNumber = sealNumber.slice(4);
         }
 
