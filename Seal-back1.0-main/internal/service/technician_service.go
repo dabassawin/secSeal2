@@ -177,8 +177,8 @@ func (s *TechnicianService) UpdateTechnician(techID uint, req struct {
 	return nil
 }
 
-func (s *TechnicianService) GetAllTechnicians(peaCode string) ([]model.Technician, error) {
-	return s.repo.GetAllTechnicians(peaCode)
+func (s *TechnicianService) GetAllTechnicians(peaCode string, isPrefix bool) ([]model.Technician, error) {
+	return s.repo.GetAllTechnicians(peaCode, isPrefix)
 }
 
 // func (s *TechnicianService) UpdateTechnician(techID uint, req map[string]interface{}) error {

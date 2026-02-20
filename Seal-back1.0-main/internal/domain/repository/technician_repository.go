@@ -89,11 +89,15 @@ func (r *TechnicianRepository) FindByTechCode(code string) (*model.Technician, e
 	}
 	return &tech, nil
 }
-func (r *TechnicianRepository) GetAllTechnicians(peaCode string) ([]model.Technician, error) {
+func (r *TechnicianRepository) GetAllTechnicians(peaCode string, isPrefix bool) ([]model.Technician, error) {
 	var technicians []model.Technician
 	query := r.db
 	if peaCode != "" {
-		query = query.Where("pea_code = ?", peaCode)
+		if isPrefix {
+			query = query.Where("pea_code LIKE ?", peaCode+"%")
+		} else {
+			query = query.Where("pea_code = ?", peaCode)
+		}
 	}
 	if err := query.Find(&technicians).Error; err != nil {
 		return nil, err

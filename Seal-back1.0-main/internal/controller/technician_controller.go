@@ -262,7 +262,8 @@ func (tc *TechnicianController) ImportTechniciansHandler(c *fiber.Ctx) error {
 }
 func (tc *TechnicianController) GetAllTechniciansHandler(c *fiber.Ctx) error {
 	peaCode := c.Query("pea_code", "")
-	technicians, err := tc.technicianService.GetAllTechnicians(peaCode)
+	isPrefix := c.Query("is_prefix", "false") == "true"
+	technicians, err := tc.technicianService.GetAllTechnicians(peaCode, isPrefix)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch technicians"})
 	}
