@@ -90,7 +90,7 @@ func (s *AuthService) verifyWithPEAAPI(tokenString string) (*model.User, error) 
 func (s *AuthService) VerifyMockJWT(tokenString string) (*model.User, error) {
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		return secretKey, nil
-	})
+	}, jwt.WithoutClaimsValidation())
 
 	if err != nil {
 		log.Println("❌ [VerifyMockJWT] Invalid JWT:", err)

@@ -73,20 +73,16 @@ export default function HomeScreen({ onLogout }: HomeScreenProps) {
 
             <View style={styles.cardRight}>
                 <View style={[styles.statusBadge,
-                item.status === 'ติดตั้งแล้ว' ? styles.statusSuccess : styles.statusPending
+                (item.status === 'ติดตั้งแล้ว' || item.status === 'ใช้งานแล้ว') ? styles.statusSuccess : styles.statusPending
                 ]}>
                     <Text style={[styles.statusText,
-                    item.status === 'ติดตั้งแล้ว' ? styles.textSuccess : styles.textPending
+                    (item.status === 'ติดตั้งแล้ว' || item.status === 'ใช้งานแล้ว') ? styles.textSuccess : styles.textPending
                     ]}>
-                        {item.status === 'ติดตั้งแล้ว' ? 'ติดตั้งแล้ว' : 'ยังไม่ติดตั้ง'}
+                        {(item.status === 'ติดตั้งแล้ว' || item.status === 'ใช้งานแล้ว') ? 'ติดตั้งแล้ว' : 'ยังไม่ติดตั้ง'}
                     </Text>
                 </View>
 
-                {activeTab === 'pending' && (
-                    <TouchableOpacity style={styles.actionButton}>
-                        <Text style={styles.actionButtonText}>ติดตั้ง</Text>
-                    </TouchableOpacity>
-                )}
+
             </View>
         </View>
     );

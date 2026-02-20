@@ -157,7 +157,8 @@ func main() {
 	// routes
 	publicGroup := app.Group("")
 	route.SetupTechnicianRoutes(publicGroup, technicianController)
-	route.SetupMasPeaRoutes(publicGroup, masPeaController) // Public for now, or move to secure if needed
+	route.SetupMasPeaRoutes(publicGroup, masPeaController)   // Public for now, or move to secure if needed
+	route.SetupPublicSealRoutes(publicGroup, sealController) // ✅ Public seal routes (scan-use)
 
 	// ✅ Login API endpoint
 	app.Post("/api/auth/login", func(c *fiber.Ctx) error {
@@ -274,7 +275,6 @@ func main() {
 	})
 
 	// routes
-
 
 	secureGroup := app.Group("", middleware.JWTMiddleware())
 	route.SetupSealRoutes(secureGroup, sealController) // ✅ ย้ายกลับมาใน secure group

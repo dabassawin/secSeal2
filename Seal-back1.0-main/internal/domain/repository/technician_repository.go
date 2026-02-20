@@ -107,3 +107,8 @@ func (r *TechnicianRepository) GetAllTechnicians(peaCode string, isPrefix bool) 
 func (r *TechnicianRepository) DeleteTechnician(techID uint) error {
 	return r.db.Where("id = ?", techID).Delete(&model.Technician{}).Error
 }
+
+// UpdatePasswordByID updates only the password column for a given technician ID
+func (r *TechnicianRepository) UpdatePasswordByID(techID uint, hashedPassword string) error {
+	return r.db.Model(&model.Technician{}).Where("id = ?", techID).Update("password", hashedPassword).Error
+}

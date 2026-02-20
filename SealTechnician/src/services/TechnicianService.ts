@@ -1,6 +1,5 @@
 import * as SecureStore from 'expo-secure-store';
-
-const API_URL = 'http://192.168.1.38:3000/api';
+import { API_CONFIG, getApiUrl } from '../config/api.config';
 
 export interface Seal {
     id: number;
@@ -20,7 +19,7 @@ export const TechnicianService = {
 
             console.log('Sending Token:', token);
 
-            const response = await fetch(`${API_URL}/technician/my-seals`, {
+            const response = await fetch(getApiUrl(API_CONFIG.endpoints.TECHNICIAN_MY_SEALS), {
                 method: 'GET',
                 headers: {
                     'Authorization': `Bearer ${token}`,

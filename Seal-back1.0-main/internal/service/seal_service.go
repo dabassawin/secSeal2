@@ -716,3 +716,47 @@ func (s *SealService) CancelSeal(sealNumber string, userID uint) error {
 func (s *SealService) GetAllAssignedSeals() ([]model.Seal, error) {
 	return s.repo.GetAllAssignedSeals()
 }
+
+// -------------------------------------------------------------------
+// ScanAndUseSeal (Scan & Mark Used Immediately)
+// -------------------------------------------------------------------
+func (s *SealService) ScanAndUseSeal(sealNumber string, userID uint) (string, error) {
+	seal, err := s.repo.FindByNumber(sealNumber)
+	if err != nil {
+		return "", errors.New("ไม่พบซิลในระบบ")
+	}
+
+	// 1. Check if already used
+	if seal.Status == "ใช้งานแล้ว" {
+		return "", errors.New("ซีลนี้ถูกใช้งานไปแล้ว")
+	}
+
+	// 2. Allow ANY status -> Used (as per user request)
+	// if seal.Status != "พร้อมใช้งาน" && seal.Status != "จ่าย" && seal.Status != "ติดตั้งแล้ว" {
+	// 	return "", fmt.Errorf("สถานะซีลปัจจุบัน (%s) ไม่สามารถเปลี่ยนเป็น 'ใช้งานแล้ว' ได้ทันที", seal.Status)
+	// }
+
+	now := time.Now()
+	seal.Status = "ใช้งานแล้ว"
+	seal.UsedAt = &now
+	// If we want to track who scanned it, we use userID (even if 0 for public Scan)
+	if userID != 0 {
+		seal.UsedBy = &userID
+	}
+
+	err = s.db.Transaction(func(tx *gorm.DB) error {
+		if err := s.repo.Update(seal); err != nil {
+			return err
+		}
+		logEntry := model.Log{
+			UserID: userID,
+			Action: fmt.Sprintf("สแกนและใช้งานซีล %s ทันที", sealNumber),
+		}
+		return s.logRepo.Create(&logEntry)
+	})
+
+	if err != nil {
+		return "", err
+	}
+	return "ใช้งานสำเร็จ", nil
+}
