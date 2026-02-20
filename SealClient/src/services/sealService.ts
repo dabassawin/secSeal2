@@ -35,6 +35,19 @@ export const sealService = {
         return await api.post('/api/seals', data);
     },
 
+    generateBatches: async (batches: { seal_number: string; count: number; pea_code: string }[]) => {
+        return await api.post('/api/seals/generate-batches', { batches });
+    },
+
+    checkSealExists: async (sealNumber: string) => {
+        try {
+            const response = await api.get(`/api/seals/check/${sealNumber}`);
+            return response.data;
+        } catch (error) {
+            throw error;
+        }
+    },
+
     assignSeal: async (data: any) => {
         return await api.post('/api/seals/assign', data);
     },

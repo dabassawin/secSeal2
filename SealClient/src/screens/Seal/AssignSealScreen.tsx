@@ -391,7 +391,7 @@ export const AssignSealScreen: React.FC = () => {
                                     value={singleSealInput}
                                     onChangeText={(text) => setSingleSealInput(text.replace(/^PEA\s+/i, ''))}
                                     onSubmitEditing={handleAddSingleSeal}
-                                    autoFocus={true}
+                                    blurOnSubmit={false}
                                 />
                                 <Text style={styles.helperText}>กด Enter เพื่อเพิ่มรายการลงตะกร้าทันที</Text>
                             </View>

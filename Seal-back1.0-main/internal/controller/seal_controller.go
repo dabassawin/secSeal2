@@ -101,9 +101,9 @@ func (sc *SealController) GetSealByIDAndStatusHandler(c *fiber.Ctx) error {
 func (sc *SealController) GenerateSealsMultipleBatchesHandler(c *fiber.Ctx) error {
 	userID, ok := c.Locals("user_id").(uint)
 	role, roleOk := c.Locals("role").(string)
-	if !ok || !roleOk || role != "admin" {
+	if !ok || !roleOk || (role != "admin" && role != "user") {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
-			"error": "Access denied, admin only",
+			"error": "Access denied",
 		})
 	}
 
@@ -395,14 +395,12 @@ func (sc *SealController) CheckSealExistsHandler(c *fiber.Ctx) error {
 	sealNumber := c.Params("seal_number")
 	log.Println("🔍 Checking Seal:", sealNumber)
 
-	lastNumbers := []int{16, 17, 18}
-	exists, err := sc.sealService.CheckSealBeforeGenerate(sealNumber[:len(sealNumber)-2], lastNumbers)
-	if err != nil {
-		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
-	}
-	if exists {
+	seal, err := sc.sealService.GetSealByNumber(sealNumber)
+	if err == nil && seal != nil && seal.ID != 0 {
 		return c.Status(fiber.StatusConflict).JSON(fiber.Map{"message": "Seal number already exists", "seal_number": sealNumber})
 	}
+	
+	// If seal does not exist (not found)
 	return c.JSON(fiber.Map{"message": "Seal number is available", "seal_number": sealNumber})
 }
 
