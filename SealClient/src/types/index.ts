@@ -32,6 +32,7 @@ export interface Seal {
     id: number;
     seal_number: string;
     qr_code?: string;
+    pea_code?: string; // ✅ รหัสการไฟฟ้าที่ออกซีล
     status: 'พร้อมใช้งาน' | 'จ่าย' | 'ติดตั้งแล้ว' | 'ใช้งานแล้ว' | 'เสียหาย' | 'สูญหาย';
     box_number?: string;
     created_at?: string;

@@ -20,6 +20,9 @@ func SetupSealRoutes(router fiber.Router, sealController *controller.SealControl
 	// -- 2) POST /api/seals/generate : admin can generate multiple seals (public for testing)
 	seal.Post("/generate", sealController.GenerateSealsHandler)
 
+	// -- 2.1) POST /api/seals/generate-batches : admin can generate multiple batches
+	seal.Post("/generate-batches", middleware.JWTMiddleware(), sealController.GenerateSealsMultipleBatchesHandler)
+
 	// -- 3) PUT /api/seals/:seal_number/assign : assign a seal to a technician (public for testing)
 	seal.Put("/:seal_number/assign", sealController.AssignSealToTechnicianHandler)
 

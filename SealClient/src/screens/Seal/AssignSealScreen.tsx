@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, ActivityIndicator, Modal, FlatList } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { colors, sizes } from '@/constants';
 import { Header } from '@/components/dashboard';
 import { technicianService } from '@/services/technicianService';
 import { sealService } from '@/services/sealService';
+import { useAuth } from '@/context/AuthContext';
 import { Technician } from '@/types';
 
 type EntryMode = 'scan' | 'range';
@@ -20,6 +21,7 @@ interface StagedSeal {
 
 export const AssignSealScreen: React.FC = () => {
     const navigation = useNavigation();
+    const { user, refreshUser } = useAuth(); // ดึงประวัติ user และฟังก์ชันอัปเดต
 
     // Data & Loading
     const [technicians, setTechnicians] = useState<Technician[]>([]);
@@ -45,13 +47,25 @@ export const AssignSealScreen: React.FC = () => {
     const [modalStatus, setModalStatus] = useState<'success' | 'error'>('success');
     const [modalMessage, setModalMessage] = useState('');
 
+    useFocusEffect(
+        React.useCallback(() => {
+            refreshUser();
+        }, [])
+    );
+
     useEffect(() => {
-        fetchTechnicians();
-    }, []);
+        if (user?.pea_code) {
+            fetchTechnicians();
+        }
+    }, [user?.pea_code]);
 
     const fetchTechnicians = async () => {
         try {
-            const data = await technicianService.getTechnicians();
+            // ดึงเฉพาะ 4 หลักแรกของ PEA Code
+            const peaPrefix = user?.pea_code ? user.pea_code.substring(0, 4) : undefined;
+
+            // ส่ง parameter peaCode และ isPrefix = true
+            const data = await technicianService.getTechnicians(peaPrefix, true);
             setTechnicians(data);
         } catch (error) {
             console.error('Failed to fetch technicians', error);
@@ -375,9 +389,9 @@ export const AssignSealScreen: React.FC = () => {
                                     style={styles.scanInput}
                                     placeholder="ยิงบาร์โค้ด หรือพิมพ์ Serial..."
                                     value={singleSealInput}
-                                    onChangeText={setSingleSealInput}
+                                    onChangeText={(text) => setSingleSealInput(text.replace(/^PEA\s+/i, ''))}
                                     onSubmitEditing={handleAddSingleSeal}
-                                    autoFocus={true}
+                                    blurOnSubmit={false}
                                 />
                                 <Text style={styles.helperText}>กด Enter เพื่อเพิ่มรายการลงตะกร้าทันที</Text>
                             </View>
@@ -390,7 +404,7 @@ export const AssignSealScreen: React.FC = () => {
                                             style={styles.rangeInput}
                                             placeholder="Ex. SL-001"
                                             value={rangeStartInput}
-                                            onChangeText={setRangeStartInput}
+                                            onChangeText={(text) => setRangeStartInput(text.replace(/^PEA\s+/i, ''))}
                                         />
                                     </View>
                                     <View style={{ flex: 1 }}>

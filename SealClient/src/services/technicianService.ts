@@ -2,9 +2,22 @@ import api from './api';
 import { Technician } from '@/types';
 
 export const technicianService = {
-    getTechnicians: async (): Promise<Technician[]> => {
+    getTechnicians: async (peaCode?: string, isPrefix?: boolean): Promise<Technician[]> => {
         try {
-            const response = await api.get('/api/technician/list');
+            let url = '/api/technician/list';
+            const params = new URLSearchParams();
+            if (peaCode) {
+                params.append('pea_code', peaCode);
+            }
+            if (isPrefix) {
+                params.append('is_prefix', 'true');
+            }
+
+            if (params.toString()) {
+                url += `?${params.toString()}`;
+            }
+
+            const response = await api.get(url);
             return response.data || [];
         } catch (error) {
             console.error('Error fetching technicians:', error);

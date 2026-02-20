@@ -5,10 +5,12 @@ import { colors, sizes } from '@/constants';
 import { Header } from '@/components/dashboard';
 import { technicianService } from '@/services/technicianService';
 import { userService } from '@/services/userService';
+import { useAuth } from '@/context/AuthContext';
 import { Technician } from '@/types';
 
 export const TechnicianListScreen: React.FC = () => {
     const navigation = useNavigation();
+    const { user } = useAuth();
 
     const [technicians, setTechnicians] = useState<Technician[]>([]);
     const [loading, setLoading] = useState(true);
@@ -19,9 +21,11 @@ export const TechnicianListScreen: React.FC = () => {
     const [masPeaList, setMasPeaList] = useState<any[]>([]);
 
     useEffect(() => {
-        fetchData();
-        fetchMasPea();
-    }, []);
+        if (user?.pea_code) {
+            fetchData();
+            fetchMasPea();
+        }
+    }, [user?.pea_code]);
 
     const fetchMasPea = async () => {
         try {
@@ -41,7 +45,7 @@ export const TechnicianListScreen: React.FC = () => {
     const fetchData = async () => {
         try {
             setLoading(true);
-            const data = await technicianService.getTechnicians();
+            const data = await technicianService.getTechnicians(user?.pea_code);
             setTechnicians(data);
         } catch (error) {
             console.error('Error fetching technicians:', error);

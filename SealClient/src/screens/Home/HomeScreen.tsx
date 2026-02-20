@@ -16,11 +16,11 @@ export const HomeScreen: React.FC = () => {
 
     React.useEffect(() => {
         fetchData();
-    }, []);
+    }, [user?.pea_code]);
 
     const fetchData = async () => {
         try {
-            const reportResponse = await sealService.getReport();
+            const reportResponse = await sealService.getReport(user?.pea_code);
 
             if (reportResponse) {
                 setStats(reportResponse);
@@ -46,7 +46,7 @@ export const HomeScreen: React.FC = () => {
                 {/* Status Cards Grid */}
                 <View style={styles.gridContainer}>
                     <StatusCard
-                        title="ซีลทั้งหมดในระบบ"
+                        title="ซีลทั้งหมดในคลัง"
                         count={stats ? stats.total_seals.toLocaleString() : "-"}
                         color={colors.primaryPurple}
                         onPress={() => (navigation as any).navigate('Inventory')}
