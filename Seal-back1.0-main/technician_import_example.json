@@ -1,0 +1,22 @@
+[
+    {
+        "technician_code": "TECH-2026-8689",
+        "first_name": "สมชาย",
+        "last_name": "บริการดี",
+        "email": "somchai.tech@example.com",
+        "phone_number": "089-123-4567",
+        "company_name": "PEA สำนักงานใหญ่",
+        "department": "แผนกซ่อมบำรุง",
+        "pea_code": "B001"
+    },
+    {
+        "technician_code": "TECH-2026-9999",
+        "first_name": "วิชัย",
+        "last_name": "เก่งมาก",
+        "email": "wichai.tech@example.com",
+        "phone_number": "081-987-6543",
+        "company_name": "PEA สาขาย่อย",
+        "department": "แผนกติดตั้ง",
+        "pea_code": "B002"
+    }
+]

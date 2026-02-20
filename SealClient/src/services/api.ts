@@ -1,10 +1,12 @@
 import axios from 'axios';
 import { Platform } from 'react-native';
 
-// For Android Emulator use 10.0.2.2, for iOS/Web use localhost
-const BASE_URL = Platform.OS === 'android'
-    ? 'http://10.0.2.2:3000'
-    : 'http://localhost:3000';
+// For testing on physical devices/Expo, use actual server IP
+// For emulator testing, use 10.0.2.2 (Android) or localhost (iOS)
+// For web/emulator use localhost. For physical device use LAN IP (e.g. 172.22.1.40)
+const BASE_URL = 'http://localhost:3000';
+// Alternative for Android Emulator: 'http://10.0.2.2:3000'
+// Alternative for iOS Simulator: 'http://localhost:3000'
 
 const api = axios.create({
     baseURL: BASE_URL,

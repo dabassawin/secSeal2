@@ -1,11 +1,10 @@
 import * as SecureStore from 'expo-secure-store';
-
-const API_URL = 'http://192.168.1.38:3000/api'; // Updated to local IP for device testing
+import { API_CONFIG, getApiUrl } from '../config/api.config';
 
 export const AuthService = {
     async login(username: string, password: string): Promise<any> {
         try {
-            const response = await fetch(`${API_URL}/technician/login`, {
+            const response = await fetch(getApiUrl(API_CONFIG.endpoints.TECHNICIAN_LOGIN), {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',

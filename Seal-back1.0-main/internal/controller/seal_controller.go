@@ -559,7 +559,7 @@ func (sc *SealController) CheckSealsHandler(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "Database query failed"})
 	}
-	
+
 	// Return the results directly
 	return c.JSON(fiber.Map{
 		"results": results,
@@ -611,5 +611,45 @@ func (sc *SealController) CancelSealHandler(c *fiber.Ctx) error {
 
 	return c.JSON(fiber.Map{
 		"message": fmt.Sprintf("ซีล %s ถูกคืนสำเร็จ และกลับเป็นสถานะ 'พร้อมใช้งาน'", sealNumber),
+	})
+}
+
+// -------------------------------------------------------------------
+// 19) ScanAndUseSealHandler
+// POST /api/seals/scan-use
+// Body: { "seal_number": "..." }
+// -------------------------------------------------------------------
+func (sc *SealController) ScanAndUseSealHandler(c *fiber.Ctx) error {
+	var request struct {
+		SealNumber string `json:"seal_number"`
+	}
+	if err := c.BodyParser(&request); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
+	}
+
+	if request.SealNumber == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Seal number is required"})
+	}
+
+	// For now, allow unauthenticated usage (userID = 0) as per mobile app state
+	// Or use context if available
+	var userID uint = 0
+	if id, ok := c.Locals("user_id").(uint); ok {
+		userID = id
+	}
+
+	message, err := sc.sealService.ScanAndUseSeal(request.SealNumber, userID)
+	if err != nil {
+		// Differentiate errors? simple for now
+		if err.Error() == "ซีลนี้ถูกใช้งานไปแล้ว" {
+			return c.Status(fiber.StatusConflict).JSON(fiber.Map{"error": err.Error()})
+		}
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	return c.JSON(fiber.Map{
+		"message":     "บันทึกการใช้งานสำเร็จ",
+		"seal_number": request.SealNumber,
+		"logs":        message,
 	})
 }
