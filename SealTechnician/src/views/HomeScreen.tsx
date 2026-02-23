@@ -12,6 +12,7 @@ import { AuthService } from '../services/AuthService';
 type RootStackParamList = {
     Home: undefined;
     Scan: undefined;
+    History: undefined;
 };
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'Home'>;
@@ -185,7 +186,7 @@ export default function HomeScreen({ onLogout }: HomeScreenProps) {
                 </TouchableOpacity>
 
                 {/* History Tab */}
-                <TouchableOpacity style={styles.footerItem}>
+                <TouchableOpacity style={styles.footerItem} onPress={() => navigation.navigate('History')}>
                     <Ionicons name="time-outline" size={24} color="#BDBDBD" />
                     <Text style={styles.footerText}>ประวัติ</Text>
                 </TouchableOpacity>

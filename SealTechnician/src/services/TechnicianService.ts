@@ -9,6 +9,10 @@ export interface Seal {
     image1?: string;
     image2?: string;
     installed_serial?: string;
+    issued_at?: string;
+    used_at?: string;
+    created_at?: string;
+    updated_at?: string;
 }
 
 export const TechnicianService = {
