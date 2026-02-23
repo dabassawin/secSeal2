@@ -1,5 +1,5 @@
-import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, RefreshControl, TouchableOpacity, TextInput, Dimensions } from 'react-native';
+import React, { useState, useCallback, useMemo } from 'react';
+import { View, Text, StyleSheet, SectionList, RefreshControl, TouchableOpacity, TextInput, Dimensions } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
@@ -31,23 +31,58 @@ const formatDate = (dateString?: string) => {
     const monthStr = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
     return `${day} ${monthStr[month]} ${year} ${time}`;
 };
+
+const formatGroupDate = (dateString?: string) => {
+    if (!dateString) return 'ไม่ระบุวันที่';
+    const date = new Date(dateString);
+    if (isNaN(date.getTime())) return 'ไม่ระบุวันที่';
+
+    const day = date.getDate();
+    const month = date.getMonth();
+    const year = date.getFullYear() + 543;
+    const monthStr = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+    return `${day} ${monthStr[month]} ${year}`;
+};
+
 export default function HistoryScreen() {
     const navigation = useNavigation<NavigationProp>();
     const { historySeals, activeSeals, isLoading, fetchSeals } = useHomeViewModel();
     const insets = useSafeAreaInsets();
     const [searchText, setSearchText] = useState('');
+    const [activeTab, setActiveTab] = useState<'pending' | 'history'>('pending');
 
     const onRefresh = useCallback(() => {
         fetchSeals();
     }, []);
 
-    // Also include activeSeals if we want to show all logs, but user asked for "completed" logs
-    // Let's combine them into a single log list, or just show historySeals. The user asked for "history seal as logs"
-    const allLogs = [...historySeals, ...activeSeals].sort((a, b) => b.id - a.id); // Sort by ID descending
+    const groupedData = useMemo(() => {
+        const sourceData = activeTab === 'pending' ? [...activeSeals, ...historySeals] : historySeals;
+        const filteredData = sourceData.filter(
+            seal => seal.seal_number.toLowerCase().includes(searchText.toLowerCase())
+        ).sort((a, b) => {
+            // Sort by relevant date (newest first)
+            const dateA = activeTab === 'pending' ? a.issued_at : a.used_at;
+            const dateB = activeTab === 'pending' ? b.issued_at : b.used_at;
+            const timeA = dateA ? new Date(dateA).getTime() : 0;
+            const timeB = dateB ? new Date(dateB).getTime() : 0;
+            return timeB - timeA;
+        });
 
-    const displayedLogs = allLogs.filter(
-        seal => seal.seal_number.toLowerCase().includes(searchText.toLowerCase())
-    );
+        const groups: { [key: string]: Seal[] } = {};
+        filteredData.forEach(seal => {
+            const dateToUse = activeTab === 'pending' ? seal.issued_at : seal.used_at;
+            const groupKey = formatGroupDate(dateToUse);
+            if (!groups[groupKey]) {
+                groups[groupKey] = [];
+            }
+            groups[groupKey].push(seal);
+        });
+
+        return Object.keys(groups).map(key => ({
+            title: key,
+            data: groups[key]
+        }));
+    }, [activeSeals, historySeals, activeTab, searchText]);
 
     const renderLogItem = ({ item }: { item: Seal }) => {
         const isCompleted = item.status === 'ติดตั้งแล้ว' || item.status === 'ใช้งานแล้ว';
@@ -117,6 +152,28 @@ export default function HistoryScreen() {
 
             {/* Content Section */}
             <View style={[styles.body, { paddingBottom: 80 + insets.bottom }]}>
+                {/* Tabs */}
+                <View style={styles.tabContainer}>
+                    <TouchableOpacity
+                        style={[styles.tab, activeTab === 'pending' && styles.activeTab]}
+                        onPress={() => setActiveTab('pending')}
+                    >
+                        <Ionicons name="time-outline" size={20} color={activeTab === 'pending' ? '#6A0DAD' : '#757575'} style={{ marginRight: 8 }} />
+                        <Text style={[styles.tabText, activeTab === 'pending' && styles.activeTabText]}>
+                            ซีลที่ถูกจ่าย
+                        </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        style={[styles.tab, activeTab === 'history' && styles.activeTab]}
+                        onPress={() => setActiveTab('history')}
+                    >
+                        <Ionicons name="checkmark-done-outline" size={20} color={activeTab === 'history' ? '#6A0DAD' : '#757575'} style={{ marginRight: 8 }} />
+                        <Text style={[styles.tabText, activeTab === 'history' && styles.activeTabText]}>
+                            ใช้งานแล้ว
+                        </Text>
+                    </TouchableOpacity>
+                </View>
+
                 {/* Search */}
                 <View style={styles.searchContainer}>
                     <Ionicons name="search-outline" size={20} color="#9E9E9E" style={styles.searchIcon} />
@@ -129,9 +186,14 @@ export default function HistoryScreen() {
                 </View>
 
                 {/* List */}
-                <FlatList
-                    data={displayedLogs}
+                <SectionList
+                    sections={groupedData}
                     renderItem={renderLogItem}
+                    renderSectionHeader={({ section: { title } }) => (
+                        <View style={styles.sectionHeader}>
+                            <Text style={styles.sectionHeaderText}>{title}</Text>
+                        </View>
+                    )}
                     keyExtractor={(item) => item.seal_number + item.id}
                     contentContainerStyle={styles.listContent}
                     showsVerticalScrollIndicator={false}
@@ -230,6 +292,34 @@ const styles = StyleSheet.create({
         paddingHorizontal: 20,
         paddingBottom: 80, // Space for footer
     },
+    tabContainer: {
+        flexDirection: 'row',
+        backgroundColor: '#fff',
+        borderRadius: 12,
+        padding: 4,
+        marginBottom: 16,
+        elevation: 2,
+    },
+    tab: {
+        flex: 1,
+        flexDirection: 'row',
+        paddingVertical: 12,
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderRadius: 10,
+    },
+    activeTab: {
+        backgroundColor: '#F3E5F5',
+    },
+    tabText: {
+        color: '#757575',
+        fontWeight: '600',
+        fontSize: 14,
+    },
+    activeTabText: {
+        color: '#6A0DAD',
+        fontWeight: 'bold',
+    },
     searchContainer: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -250,6 +340,17 @@ const styles = StyleSheet.create({
     },
     listContent: {
         paddingBottom: 100,
+    },
+    sectionHeader: {
+        backgroundColor: '#f5f5f5',
+        paddingVertical: 8,
+        paddingHorizontal: 4,
+        marginBottom: 8,
+    },
+    sectionHeaderText: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: '#6A0DAD',
     },
     card: {
         backgroundColor: '#fff',
