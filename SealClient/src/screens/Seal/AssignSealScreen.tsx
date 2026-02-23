@@ -5,6 +5,7 @@ import { colors, sizes } from '@/constants';
 import { Header } from '@/components/dashboard';
 import { technicianService } from '@/services/technicianService';
 import { sealService } from '@/services/sealService';
+import { userService } from '@/services/userService';
 import { useAuth } from '@/context/AuthContext';
 import { Technician } from '@/types';
 
@@ -25,6 +26,7 @@ export const AssignSealScreen: React.FC = () => {
 
     // Data & Loading
     const [technicians, setTechnicians] = useState<Technician[]>([]);
+    const [masPeaList, setMasPeaList] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
     const [initialLoading, setInitialLoading] = useState(true);
 
@@ -56,8 +58,25 @@ export const AssignSealScreen: React.FC = () => {
     useEffect(() => {
         if (user?.pea_code) {
             fetchTechnicians();
+            fetchMasPea();
         }
     }, [user?.pea_code]);
+
+    const fetchMasPea = async () => {
+        try {
+            const data = await userService.getMasPea();
+            setMasPeaList(data);
+        } catch (error) {
+            console.error('Failed to fetch MasPea:', error);
+        }
+    };
+
+    const getPeaName = (code?: string) => {
+        if (!code) return '-';
+        const pea = masPeaList.find(p => p.pea_code === code || p.PeaCode === code || p.code === code);
+        const nameTh = pea ? (pea.name_th || pea.NameTh) : null;
+        return nameTh ? `${nameTh} (${code})` : code;
+    };
 
     const fetchTechnicians = async () => {
         try {
@@ -75,7 +94,7 @@ export const AssignSealScreen: React.FC = () => {
     };
 
     const filterTechnicians = () => {
-        if (!searchTechQuery) return [];
+        if (!searchTechQuery) return technicians;
         return technicians.filter(t =>
             (t.first_name + ' ' + t.last_name).toLowerCase().includes(searchTechQuery.toLowerCase()) ||
             t.technician_code.toLowerCase().includes(searchTechQuery.toLowerCase())
@@ -316,36 +335,14 @@ export const AssignSealScreen: React.FC = () => {
                         <Text style={styles.sectionTitle}>1. ระบุตัวผู้รับ (Technician)</Text>
 
                         {!selectedTech ? (
-                            <View style={{ zIndex: 10 }}>
-                                <TextInput
-                                    style={styles.searchInput}
-                                    placeholder="🔍 พิมพ์ชื่อ หรือรหัสช่าง..."
-                                    value={searchTechQuery}
-                                    onChangeText={(text) => {
-                                        setSearchTechQuery(text);
-                                        setShowTechDropdown(true);
-                                    }}
-                                    onFocus={() => setShowTechDropdown(true)}
-                                />
-                                {showTechDropdown && searchTechQuery.length > 0 && (
-                                    <View style={styles.dropdownList}>
-                                        {filterTechnicians().map(tech => (
-                                            <TouchableOpacity
-                                                key={tech.id}
-                                                style={styles.dropdownItem}
-                                                onPress={() => handleSelectTechnician(tech)}
-                                            >
-                                                <Text style={styles.dropdownText}>{tech.first_name} {tech.last_name}</Text>
-                                                <Text style={styles.dropdownSubText}>{tech.technician_code} • {tech.department}</Text>
-                                            </TouchableOpacity>
-                                        ))}
-                                        {filterTechnicians().length === 0 && (
-                                            <View style={styles.dropdownItem}>
-                                                <Text style={styles.dropdownText}>ไม่พบข้อมูล</Text>
-                                            </View>
-                                        )}
-                                    </View>
-                                )}
+                            <View style={styles.formGroup}>
+                                <TouchableOpacity style={styles.techSelector} onPress={() => {
+                                    setSearchTechQuery('');
+                                    setShowTechDropdown(true);
+                                }}>
+                                    <Text style={styles.techPlaceholder}>เลือกช่างรับซีล...</Text>
+                                    <Text style={styles.dropdownIcon}>▼</Text>
+                                </TouchableOpacity>
                             </View>
                         ) : (
                             <View style={styles.selectedTechCard}>
@@ -354,7 +351,7 @@ export const AssignSealScreen: React.FC = () => {
                                 </View>
                                 <View style={styles.techInfo}>
                                     <Text style={styles.techName}>{selectedTech.first_name} {selectedTech.last_name}</Text>
-                                    <Text style={styles.techDetail}>ID: {selectedTech.technician_code}</Text>
+                                    <Text style={styles.techDetail}>รหัส: {selectedTech.technician_code} • สังกัด: {getPeaName(selectedTech.pea_code)}</Text>
                                     <View style={styles.techBadge}><Text style={styles.techBadgeText}>Active</Text></View>
                                 </View>
                                 <TouchableOpacity onPress={handleClearTechnician} style={styles.removeTechBtn}>
@@ -500,6 +497,49 @@ export const AssignSealScreen: React.FC = () => {
                 </View>
             </View>
 
+            {/* Technician Selection Modal */}
+            <Modal visible={showTechDropdown} transparent animationType="slide" onRequestClose={() => setShowTechDropdown(false)}>
+                <View style={styles.techModalOverlay}>
+                    <View style={styles.techModalContent}>
+                        <View style={styles.techModalHeader}>
+                            <Text style={styles.techModalTitle}>เลือกช่าง</Text>
+                            <TouchableOpacity onPress={() => setShowTechDropdown(false)}>
+                                <Text style={styles.closeBtn}>✕</Text>
+                            </TouchableOpacity>
+                        </View>
+                        <TextInput
+                            style={styles.techSearchInput}
+                            placeholder="🔍 พิมพ์ชื่อ หรือรหัสช่าง..."
+                            value={searchTechQuery}
+                            onChangeText={setSearchTechQuery}
+                        />
+
+                        <ScrollView style={styles.techList}>
+                            {filterTechnicians().map(tech => (
+                                <TouchableOpacity
+                                    key={tech.id}
+                                    style={styles.techItem}
+                                    onPress={() => handleSelectTechnician(tech)}
+                                >
+                                    <View style={styles.techAvatarSmall}>
+                                        <Text style={styles.techAvatarTextSmall}>{tech.first_name.charAt(0)}</Text>
+                                    </View>
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={styles.techItemName}>{tech.first_name} {tech.last_name}</Text>
+                                        <Text style={styles.techItemSub}>รหัส: {tech.technician_code} • สังกัด: {getPeaName(tech.pea_code)}</Text>
+                                    </View>
+                                </TouchableOpacity>
+                            ))}
+                            {filterTechnicians().length === 0 && (
+                                <View style={styles.emptyTechList}>
+                                    <Text style={styles.emptyTechText}>ไม่พบข้อมูลช่าง</Text>
+                                </View>
+                            )}
+                        </ScrollView>
+                    </View>
+                </View>
+            </Modal>
+
             {/* Status Modal */}
             <Modal transparent={true} visible={modalVisible} animationType="fade" onRequestClose={handleModalClose}>
                 <View style={styles.modalOverlay}>
@@ -529,11 +569,100 @@ const styles = StyleSheet.create({
     sectionTitle: { fontSize: 16, fontWeight: 'bold', color: colors.primaryPurple, marginBottom: 15 },
 
     // Tech Selection
-    searchInput: { borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 12, fontSize: 14, backgroundColor: '#fff' },
-    dropdownList: { position: 'absolute', top: 50, left: 0, right: 0, backgroundColor: 'white', borderWidth: 1, borderColor: '#eee', borderRadius: 8, elevation: 5, maxHeight: 200 },
-    dropdownItem: { padding: 12, borderBottomWidth: 1, borderBottomColor: '#f5f5f5' },
-    dropdownText: { fontSize: 14, fontWeight: 'bold', color: '#333' },
-    dropdownSubText: { fontSize: 12, color: '#666' },
+    formGroup: { marginBottom: 15 },
+    techSelector: {
+        borderWidth: 1,
+        borderColor: '#ddd',
+        borderRadius: 8,
+        padding: 12,
+        backgroundColor: '#fafafa',
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        minHeight: 50,
+    },
+    techPlaceholder: { fontSize: 14, color: '#aaa' },
+    dropdownIcon: { color: '#999', fontSize: 14 },
+
+    techModalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    techModalContent: {
+        width: '90%',
+        height: '80%',
+        backgroundColor: 'white',
+        borderRadius: 12,
+        padding: 20,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.25,
+        shadowRadius: 15,
+        elevation: 10,
+    },
+    techModalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 15,
+    },
+    techModalTitle: { fontSize: 20, fontWeight: 'bold', color: colors.primaryPurple },
+    closeBtn: { fontSize: 24, color: '#999' },
+    techSearchInput: {
+        height: 48,
+        borderWidth: 1,
+        borderColor: '#e0e0e0',
+        borderRadius: 8,
+        paddingHorizontal: 15,
+        fontSize: 14,
+        backgroundColor: '#fafafa',
+        marginBottom: 10,
+    },
+    techList: {
+        flex: 1,
+    },
+    techItem: {
+        paddingVertical: 12,
+        paddingHorizontal: 10,
+        borderBottomWidth: 1,
+        borderBottomColor: '#f0f0f0',
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    techAvatarSmall: {
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        backgroundColor: colors.primaryPurple,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 10,
+    },
+    techAvatarTextSmall: {
+        color: 'white',
+        fontSize: 14,
+        fontWeight: 'bold',
+    },
+    techItemName: {
+        fontSize: 14,
+        fontWeight: 'bold',
+        color: '#333',
+    },
+    techItemSub: {
+        fontSize: 12,
+        color: '#666',
+        marginTop: 2,
+    },
+    emptyTechList: {
+        padding: 20,
+        alignItems: 'center',
+    },
+    emptyTechText: {
+        color: '#999',
+        fontSize: 14,
+    },
 
     selectedTechCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f9f9f9', padding: 12, borderRadius: 10, borderWidth: 1, borderColor: '#eee' },
     techAvatar: { width: 45, height: 45, borderRadius: 25, backgroundColor: colors.primaryPurple, justifyContent: 'center', alignItems: 'center', marginRight: 12 },

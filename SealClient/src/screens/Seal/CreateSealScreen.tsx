@@ -5,6 +5,7 @@ import { colors, sizes } from '@/constants';
 import { Header } from '@/components/dashboard';
 import { sealService } from '@/services/sealService';
 import { userService } from '@/services/userService';
+import { useAuth } from '@/context/AuthContext';
 
 type EntryMode = 'scan' | 'range';
 
@@ -19,6 +20,7 @@ interface StagedBatch {
 
 export const CreateSealScreen: React.FC = () => {
     const navigation = useNavigation();
+    const { user } = useAuth();
 
     // Data & Loading
     const [loading, setLoading] = useState(false);
@@ -47,12 +49,24 @@ export const CreateSealScreen: React.FC = () => {
 
     useEffect(() => {
         fetchMasPea();
-    }, []);
+    }, [user?.pea_code]);
 
     const fetchMasPea = async () => {
         try {
             const data = await userService.getMasPea();
             setMasPeaList(data);
+
+            if (user?.pea_code) {
+                const defaultPea = data.find((p: any) =>
+                    (p.pea_code || p.PeaCode || p.code) === user.pea_code
+                );
+                if (defaultPea) {
+                    setSelectedPea(defaultPea);
+                    const code = defaultPea.pea_code || defaultPea.PeaCode || defaultPea.code || '';
+                    const name = defaultPea.name_th || defaultPea.NameTh || '';
+                    setSearchPeaQuery(`${code} - ${name}`);
+                }
+            }
         } catch (error) {
             console.error('Failed to fetch MasPea:', error);
         }
