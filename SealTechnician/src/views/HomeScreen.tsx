@@ -5,7 +5,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
 import { useHomeViewModel } from '../viewmodels/HomeViewModel';
 import { Seal } from '../services/TechnicianService';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { AuthService } from '../services/AuthService';
 
@@ -25,6 +25,7 @@ const { width } = Dimensions.get('window');
 export default function HomeScreen({ onLogout }: HomeScreenProps) {
     const navigation = useNavigation<NavigationProp>();
     const { activeSeals, historySeals, userInfo, isLoading, error, fetchSeals } = useHomeViewModel();
+    const insets = useSafeAreaInsets();
     const [activeTab, setActiveTab] = useState<'pending' | 'history'>('pending');
     const [searchText, setSearchText] = useState('');
 
@@ -121,7 +122,7 @@ export default function HomeScreen({ onLogout }: HomeScreenProps) {
             </View>
 
             {/* Content Section */}
-            <View style={styles.body}>
+            <View style={[styles.body, { paddingBottom: 80 + insets.bottom }]}>
                 {/* Tabs */}
                 <View style={styles.tabContainer}>
                     <TouchableOpacity
@@ -176,7 +177,7 @@ export default function HomeScreen({ onLogout }: HomeScreenProps) {
             </View>
 
             {/* Custom Footer */}
-            <View style={styles.footerContainer}>
+            <View style={[styles.footerContainer, { paddingBottom: insets.bottom, height: 70 + insets.bottom }]}>
                 {/* Home Tab */}
                 <TouchableOpacity style={styles.footerItem}>
                     <Ionicons name="home" size={24} color="#6A0DAD" />
@@ -207,7 +208,7 @@ export default function HomeScreen({ onLogout }: HomeScreenProps) {
 
             {/* Floating Scan Button */}
             <TouchableOpacity
-                style={styles.scanButton}
+                style={[styles.scanButton, { bottom: 25 + insets.bottom }]}
                 onPress={() => navigation.navigate('Scan')}
                 activeOpacity={0.9}
             >
@@ -519,8 +520,8 @@ const styles = StyleSheet.create({
         position: 'absolute',
         bottom: 25,
         alignSelf: 'center',
-        width: 70,
-        height: 70,
+        width: 75,
+        height: 80,
         borderRadius: 35,
         backgroundColor: '#FBC02D',
         justifyContent: 'center',
