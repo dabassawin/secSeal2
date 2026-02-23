@@ -112,6 +112,7 @@ func (sc *SealController) GenerateSealsMultipleBatchesHandler(c *fiber.Ctx) erro
 			SealNumber string `json:"seal_number"`
 			Count      int    `json:"count"`
 			PeaCode    string `json:"pea_code"` // ✅ รับ PeaCode
+			Status     string `json:"status"`   // ✅ รับ status
 		} `json:"batches"`
 	}
 
@@ -140,7 +141,7 @@ func (sc *SealController) GenerateSealsMultipleBatchesHandler(c *fiber.Ctx) erro
 			})
 		}
 
-		seals, err := sc.sealService.GenerateAndCreateSealsFromNumber(batch.SealNumber, batch.Count, userID, batch.PeaCode)
+		seals, err := sc.sealService.GenerateAndCreateSealsFromNumber(batch.SealNumber, batch.Count, userID, batch.PeaCode, batch.Status)
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 		}
@@ -312,6 +313,7 @@ func (sc *SealController) GenerateSealsHandler(c *fiber.Ctx) error {
 		SealNumber string `json:"seal_number"`
 		Count      int    `json:"count"`
 		PeaCode    string `json:"pea_code"` // ✅ รับ PeaCode
+		Status     string `json:"status"`   // ✅ รับ status
 	}
 	if err := c.BodyParser(&request); err != nil || request.Count <= 0 {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid input"})
@@ -320,7 +322,7 @@ func (sc *SealController) GenerateSealsHandler(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Seal number is required"})
 	}
 
-	seals, err := sc.sealService.GenerateAndCreateSealsFromNumber(request.SealNumber, request.Count, userID, request.PeaCode)
+	seals, err := sc.sealService.GenerateAndCreateSealsFromNumber(request.SealNumber, request.Count, userID, request.PeaCode, request.Status)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
@@ -341,6 +343,7 @@ func (sc *SealController) CreateSealHandler(c *fiber.Ctx) error {
 		SealNumber string `json:"seal_number"`
 		Count      int    `json:"count"`
 		PeaCode    string `json:"pea_code"` // ✅ รับ PeaCode
+		Status     string `json:"status"`   // ✅ รับ status
 	}
 	if err := c.BodyParser(&request); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid input"})
@@ -352,7 +355,7 @@ func (sc *SealController) CreateSealHandler(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Count must be greater than zero"})
 	}
 
-	seals, err := sc.sealService.GenerateAndCreateSealsFromNumber(request.SealNumber, request.Count, userID, request.PeaCode)
+	seals, err := sc.sealService.GenerateAndCreateSealsFromNumber(request.SealNumber, request.Count, userID, request.PeaCode, request.Status)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
@@ -653,5 +656,41 @@ func (sc *SealController) ScanAndUseSealHandler(c *fiber.Ctx) error {
 		"message":     "บันทึกการใช้งานสำเร็จ",
 		"seal_number": request.SealNumber,
 		"logs":        message,
+	})
+}
+
+// -------------------------------------------------------------------
+// 20) UpdateSealStatusAdminHandler
+// PUT /api/seals/:seal_number/status
+// Body: { "status": "ชำรุด" }
+// -------------------------------------------------------------------
+func (sc *SealController) UpdateSealStatusAdminHandler(c *fiber.Ctx) error {
+	var request struct {
+		Status string `json:"status"`
+	}
+	if err := c.BodyParser(&request); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
+	}
+
+	if request.Status == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Status is required"})
+	}
+
+	sealNumber := c.Params("seal_number")
+
+	var userID uint = 0
+	if id, ok := c.Locals("user_id").(uint); ok {
+		userID = id
+	}
+
+	err := sc.sealService.UpdateSealStatusAdmin(sealNumber, request.Status, userID)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	return c.JSON(fiber.Map{
+		"message":     fmt.Sprintf("เปลี่ยนสถานะซีล %s เป็น '%s' สำเร็จ", sealNumber, request.Status),
+		"seal_number": sealNumber,
+		"status":      request.Status,
 	})
 }

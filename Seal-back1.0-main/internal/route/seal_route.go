@@ -68,6 +68,9 @@ func SetupSealRoutes(router fiber.Router, sealController *controller.SealControl
 	// -- 16) POST /api/seals/assign-by-techcode : assign seals by technician_code (ฟีเจอร์ใหม่)
 	seal.Post("/assign-by-techcode", middleware.JWTMiddleware(), sealController.AssignSealsByTechCodeHandler)
 	seal.Put("/:seal_number/cancel", middleware.JWTMiddleware(), sealController.CancelSealHandler)
+	
+	// -- 17) PUT /api/seals/:seal_number/status : update seal status
+	seal.Put("/:seal_number/status", middleware.JWTMiddleware(), sealController.UpdateSealStatusAdminHandler)
 }
 
 // SetupPublicSealRoutes sets up public routes for "seals" (no JWT required)

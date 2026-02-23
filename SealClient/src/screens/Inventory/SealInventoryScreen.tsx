@@ -59,7 +59,9 @@ export const SealInventoryScreen: React.FC = () => {
         'พร้อมใช้งาน',
         'จ่าย',
         'ติดตั้งแล้ว',
-        'ใช้งานแล้ว'
+        'ใช้งานแล้ว',
+        'เสียหาย',
+        'สูญหาย'
     ];
 
     const getStatusLabel = (status: string) => {
@@ -68,6 +70,8 @@ export const SealInventoryScreen: React.FC = () => {
             case 'จ่าย': return 'จ่าย (Issued / Assigned)';
             case 'ติดตั้งแล้ว': return 'ติดตั้งแล้ว (Installed)';
             case 'ใช้งานแล้ว': return 'ใช้งานแล้ว (Used / Returned)';
+            case 'เสียหาย': return 'เสียหาย (Damaged)';
+            case 'สูญหาย': return 'สูญหาย (Lost)';
             default: return status;
         }
     };

@@ -159,7 +159,7 @@ func (s *SealService) GenerateAndCreateSeals(count int, userID uint) ([]model.Se
 	return seals, nil
 }
 
-func (s *SealService) GenerateAndCreateSealsFromNumber(startingSealNumber string, count int, userID uint, peaCode string) ([]model.Seal, error) {
+func (s *SealService) GenerateAndCreateSealsFromNumber(startingSealNumber string, count int, userID uint, peaCode string, status string) ([]model.Seal, error) {
 	sealNumbers, err := GenerateNextSealNumbers(startingSealNumber, count)
 	if err != nil {
 		return nil, err
@@ -167,6 +167,10 @@ func (s *SealService) GenerateAndCreateSealsFromNumber(startingSealNumber string
 
 	now := time.Now()
 	var newSeals []model.Seal
+
+	if status == "" {
+		status = "พร้อมใช้งาน"
+	}
 
 	for _, sn := range sealNumbers {
 		exists, err := s.repo.CheckSealExists(sn)
@@ -180,7 +184,7 @@ func (s *SealService) GenerateAndCreateSealsFromNumber(startingSealNumber string
 		newSeals = append(newSeals, model.Seal{
 			SealNumber: sn,
 			PeaCode:    peaCode, // ✅ ใส่ PeaCode
-			Status:     "พร้อมใช้งาน",
+			Status:     status,
 			CreatedAt:  now,
 			UpdatedAt:  now,
 		})
@@ -192,7 +196,7 @@ func (s *SealService) GenerateAndCreateSealsFromNumber(startingSealNumber string
 		}
 		logEntry := model.Log{
 			UserID: userID,
-			Action: fmt.Sprintf("สร้างซีลใหม่ %d อัน จากเลขเริ่ม %s (PEA: %s)", count, startingSealNumber, peaCode),
+			Action: fmt.Sprintf("สร้างซีลใหม่ %d อัน จากเลขเริ่ม %s (PEA: %s, สถานะ: %s)", count, startingSealNumber, peaCode, status),
 		}
 		return s.logRepo.Create(&logEntry)
 	})
@@ -759,4 +763,30 @@ func (s *SealService) ScanAndUseSeal(sealNumber string, userID uint) (string, er
 		return "", err
 	}
 	return "ใช้งานสำเร็จ", nil
+}
+
+// -------------------------------------------------------------------
+// UpdateSealStatusAdmin (Arbitrary status change from frontend)
+// -------------------------------------------------------------------
+func (s *SealService) UpdateSealStatusAdmin(sealNumber string, status string, userID uint) error {
+	seal, err := s.repo.FindByNumber(sealNumber)
+	if err != nil {
+		return errors.New("ไม่พบซีลในระบบ")
+	}
+
+	oldStatus := seal.Status
+	seal.Status = status
+	now := time.Now()
+	seal.UpdatedAt = now
+
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		if err := s.repo.Update(seal); err != nil {
+			return err
+		}
+		logEntry := model.Log{
+			UserID: userID,
+			Action: fmt.Sprintf("แอดมินเปลี่ยนสถานะซีล %s จาก '%s' เป็น '%s'", sealNumber, oldStatus, status),
+		}
+		return s.logRepo.Create(&logEntry)
+	})
 }

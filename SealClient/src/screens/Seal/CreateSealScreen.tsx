@@ -14,6 +14,7 @@ interface StagedBatch {
     type: 'Single' | 'Batch';
     count: number;
     status: 'checking' | 'available' | 'unavailable';
+    creationStatus: string;
 }
 
 export const CreateSealScreen: React.FC = () => {
@@ -42,6 +43,8 @@ export const CreateSealScreen: React.FC = () => {
     const [modalStatus, setModalStatus] = useState<'success' | 'error'>('success');
     const [modalMessage, setModalMessage] = useState('');
 
+    const CREATION_STATUSES = ['พร้อมใช้งาน', 'เสียหาย'];
+
     useEffect(() => {
         fetchMasPea();
     }, []);
@@ -56,15 +59,21 @@ export const CreateSealScreen: React.FC = () => {
     };
 
     const filterPeaList = () => {
-        if (!searchPeaQuery) return [];
+        const query = (searchPeaQuery || '').trim().toLowerCase();
+
         return masPeaList.filter(p => {
-            const code = p.pea_code || p.PeaCode || p.code || '';
-            const name = p.name_th || p.NameTh || '';
             const level = p.level || p.Level || '';
             if (level !== '1') return false; // Filter only Level 1
 
-            return code.toLowerCase().includes(searchPeaQuery.toLowerCase()) ||
-                name.toLowerCase().includes(searchPeaQuery.toLowerCase());
+            if (!query) return true;
+
+            const code = (p.pea_code || p.PeaCode || p.code || '').toLowerCase();
+            const nameTh = (p.name_th || p.NameTh || '').toLowerCase();
+            const nameEng = (p.name_eng || p.NameEng || '').toLowerCase();
+
+            return code.includes(query) ||
+                nameTh.includes(query) ||
+                nameEng.includes(query);
         });
     };
 
@@ -94,6 +103,29 @@ export const CreateSealScreen: React.FC = () => {
         }
     };
 
+    // Helper to generate seal range (similar to AssignSealScreen)
+    const generateSealRange = (start: string, count: number): string[] => {
+        const seals: string[] = [];
+        const match = start.match(/^([A-Za-z]+)(\d+)$/);
+
+        if (!match) {
+            if (count === 1) return [start];
+            return [];
+        }
+
+        const prefix = match[1];
+        const numberPart = match[2];
+        const startNum = parseInt(numberPart, 10);
+        const length = numberPart.length;
+
+        for (let i = 0; i < count; i++) {
+            const currentNum = startNum + i;
+            const paddedNum = currentNum.toString().padStart(length, '0');
+            seals.push(`${prefix}${paddedNum}`);
+        }
+        return seals;
+    };
+
     const handleAddSingleSeal = async () => {
         if (!singleSealInput.trim()) return;
 
@@ -120,7 +152,8 @@ export const CreateSealScreen: React.FC = () => {
             sealNumber: sealNum,
             type: 'Single',
             count: 1,
-            status: 'available'
+            status: 'available',
+            creationStatus: 'พร้อมใช้งาน' // Default
         };
 
         setStagedBatches(prev => [newEntry, ...prev]);
@@ -139,31 +172,82 @@ export const CreateSealScreen: React.FC = () => {
         }
 
         const startSeal = rangeStartInput.trim();
+        const generatedSeals = generateSealRange(startSeal, count);
 
-        const checkResult = await checkSealExistence(startSeal);
-
-        if (checkResult.status === 'unavailable') {
+        if (generatedSeals.length === 0) {
             setModalStatus('error');
-            setModalMessage(`ไม่สามารถสร้างซีล ${startSeal} ได้\nเหตุผล: ${checkResult.reason || 'มีการสร้างไปแล้ว'}`);
+            setModalMessage('รูปแบบซีลเริ่มต้นไม่ถูกต้อง (ต้องเป็น ตัวอักษร+ตัวเลข)');
             setModalVisible(true);
             return;
         }
 
-        const newEntry: StagedBatch = {
-            id: Date.now().toString(),
-            sealNumber: startSeal,
-            type: 'Batch',
-            count: count,
-            status: 'available'
-        };
+        setLoading(true);
 
-        setStagedBatches(prev => [newEntry, ...prev]);
-        setRangeStartInput('');
-        setRangeCountInput('');
+        try {
+            // Check existence for all generated seals
+            const results = await sealService.checkSeals(generatedSeals);
+
+            // For creation, "Not Found" status means it DOES NOT EXIST (which is what we want)
+            // Anything else means it EXISTS and cannot be created
+            const canCreate = results.filter(r => r.status === 'Not Found' || r.reason === 'ไม่พบในระบบ');
+            const cannotCreate = results.filter(r => r.status !== 'Not Found' && r.reason !== 'ไม่พบในระบบ');
+
+            // Add valid ones to staging list
+            if (canCreate.length > 0) {
+                const timestamp = Date.now();
+                const newEntries: StagedBatch[] = canCreate.map((result, index) => ({
+                    id: `${timestamp}-${index}`,
+                    sealNumber: result.seal_number,
+                    type: 'Single', // Since we expanded them, they are individual items
+                    count: 1,
+                    status: 'available',
+                    creationStatus: 'พร้อมใช้งาน' // Default
+                }));
+
+                // Filter out local duplicates before adding
+                const uniqueNewEntries = newEntries.filter(
+                    e => !stagedBatches.some(s => s.sealNumber === e.sealNumber)
+                );
+
+                if (uniqueNewEntries.length > 0) {
+                    setStagedBatches(prev => [...uniqueNewEntries, ...prev]);
+                }
+            }
+
+            // Show error if there are some that cannot be created
+            if (cannotCreate.length > 0) {
+                setModalStatus('error');
+                const reasons = cannotCreate.slice(0, 5).map(r => `${r.seal_number} (มีในระบบแล้ว)`).join('\n');
+                let message = `ไม่สามารถสร้างซีลได้ ${cannotCreate.length} รายการ เนื่องจากมีในระบบแล้ว:\n${reasons}${cannotCreate.length > 5 ? '\n...' : ''}`;
+
+                if (canCreate.length > 0) {
+                    message += `\n\n✅ เพิ่มซีลที่จะสร้าง ${canCreate.length} รายการลงในรายการเรียบร้อยแล้ว`;
+                }
+
+                setModalMessage(message);
+                setModalVisible(true);
+            }
+
+            if (canCreate.length > 0) {
+                setRangeStartInput('');
+                setRangeCountInput('');
+            }
+        } catch (error) {
+            console.error('Check batch error:', error);
+            setModalStatus('error');
+            setModalMessage('เกิดข้อผิดพลาดในการตรวจสอบรายการซีล');
+            setModalVisible(true);
+        } finally {
+            setLoading(false);
+        }
     };
 
     const handleRemoveBatch = (id: string) => {
         setStagedBatches(prev => prev.filter(s => s.id !== id));
+    };
+
+    const handleUpdateBatchStatus = (id: string, newStatus: string) => {
+        setStagedBatches(prev => prev.map(s => s.id === id ? { ...s, creationStatus: newStatus } : s));
     };
 
     const handleConfirmCreation = async () => {
@@ -189,7 +273,8 @@ export const CreateSealScreen: React.FC = () => {
             const batchesPayload = validBatches.map(b => ({
                 seal_number: b.sealNumber,
                 count: b.count,
-                pea_code: code
+                pea_code: code,
+                status: b.creationStatus
             }));
 
             await sealService.generateBatches(batchesPayload);
@@ -228,7 +313,10 @@ export const CreateSealScreen: React.FC = () => {
                         <Text style={styles.sectionTitle}>1. ระบุสังกัดการไฟฟ้า (PEA Code)</Text>
 
                         <View style={styles.formGroup}>
-                            <TouchableOpacity style={styles.peaSelector} onPress={() => setShowPeaDropdown(true)}>
+                            <TouchableOpacity style={styles.peaSelector} onPress={() => {
+                                setSearchPeaQuery('');
+                                setShowPeaDropdown(true);
+                            }}>
                                 {selectedPea ? (
                                     <View>
                                         <Text style={styles.peaCode}>{selectedPea.pea_code || selectedPea.PeaCode || selectedPea.code}</Text>
@@ -260,6 +348,8 @@ export const CreateSealScreen: React.FC = () => {
                                 <Text style={[styles.tabText, entryMode === 'range' && styles.activeTabText]}>📚 Batch / Range</Text>
                             </TouchableOpacity>
                         </View>
+
+
 
                         {entryMode === 'scan' ? (
                             <View style={styles.inputArea}>
@@ -334,6 +424,26 @@ export const CreateSealScreen: React.FC = () => {
                                 <View style={{ flex: 3 }}>
                                     {item.type === 'Batch' && <View style={styles.rangeTag}><Text style={styles.rangeTagText}>BATCH ({item.count})</Text></View>}
                                     <Text style={styles.serialText}>{item.sealNumber}</Text>
+
+                                    {/* Inline Status Selection */}
+                                    <View style={styles.inlineStatusContainer}>
+                                        {CREATION_STATUSES.map(s => (
+                                            <TouchableOpacity
+                                                key={s}
+                                                style={[
+                                                    styles.inlineStatusBtn,
+                                                    item.creationStatus === s ? (s === 'พร้อมใช้งาน' ? styles.statusBtnReady : styles.statusBtnDamaged) : null
+                                                ]}
+                                                onPress={() => handleUpdateBatchStatus(item.id, s)}
+                                            >
+                                                <Text style={[
+                                                    styles.inlineStatusText,
+                                                    item.creationStatus === s && styles.inlineStatusTextActive,
+                                                    item.creationStatus === s && s === 'เสียหาย' && { color: '#d32f2f' }
+                                                ]}>{s}</Text>
+                                            </TouchableOpacity>
+                                        ))}
+                                    </View>
                                 </View>
                                 <Text style={[styles.td, { flex: 1.5, color: '#666' }]}>{item.type}</Text>
                                 <View style={{ flex: 2 }}>
@@ -382,32 +492,38 @@ export const CreateSealScreen: React.FC = () => {
                 <View style={styles.peaModalOverlay}>
                     <View style={styles.peaModalContent}>
                         <View style={styles.peaModalHeader}>
-                            <Text style={styles.peaModalTitle}>เลือกสังกัดการไฟฟ้า</Text>
+                            <Text style={styles.peaModalTitle}>เลือกสังกัด</Text>
                             <TouchableOpacity onPress={() => setShowPeaDropdown(false)}>
                                 <Text style={styles.closeBtn}>✕</Text>
                             </TouchableOpacity>
                         </View>
                         <TextInput
                             style={styles.peaSearchInput}
-                            placeholder="ค้นหาด้วยรหัสหรือชื่อ..."
+                            placeholder="ค้นหา (รหัส, ชื่อไทย, ชื่ออังกฤษ)..."
                             value={searchPeaQuery}
                             onChangeText={setSearchPeaQuery}
                         />
-                        <FlatList
-                            data={filterPeaList()}
-                            keyExtractor={(_, i) => i.toString()}
-                            renderItem={({ item }) => {
+
+                        <ScrollView style={styles.peaList}>
+                            {filterPeaList().map((item, index) => {
                                 const code = item.pea_code || item.PeaCode || item.code || '';
-                                const name = item.name_th || item.NameTh || '';
+                                const nameTh = item.name_th || item.NameTh || '';
+                                const nameEng = item.name_eng || item.NameEng || '';
                                 return (
-                                    <TouchableOpacity style={styles.peaItem} onPress={() => handleSelectPea(item)}>
-                                        <Text style={styles.peaItemCode}>{code}</Text>
-                                        <Text style={styles.peaItemName}>{name}</Text>
+                                    <TouchableOpacity
+                                        key={item.id || index}
+                                        style={styles.peaItem}
+                                        onPress={() => handleSelectPea(item)}
+                                    >
+                                        <Text style={styles.peaItemCode}>{code || 'No Code'}</Text>
+                                        <View>
+                                            <Text style={styles.peaItemName}>{nameTh}</Text>
+                                            <Text style={styles.peaItemSub}>{nameEng}</Text>
+                                        </View>
                                     </TouchableOpacity>
                                 );
-                            }}
-                            ItemSeparatorComponent={() => <View style={styles.separator} />}
-                        />
+                            })}
+                        </ScrollView>
                     </View>
                 </View>
             </Modal>
@@ -460,15 +576,21 @@ const styles = StyleSheet.create({
 
     peaModalOverlay: {
         flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.4)',
-        justifyContent: 'flex-end',
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     peaModalContent: {
-        backgroundColor: '#fff',
-        borderTopLeftRadius: 20,
-        borderTopRightRadius: 20,
+        width: '90%',
+        height: '80%',
+        backgroundColor: 'white',
+        borderRadius: 12,
         padding: 20,
-        maxHeight: '80%',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.25,
+        shadowRadius: 15,
+        elevation: 10,
     },
     peaModalHeader: {
         flexDirection: 'row',
@@ -476,21 +598,43 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         marginBottom: 15,
     },
-    peaModalTitle: { fontSize: 18, fontWeight: 'bold', color: colors.primaryPurple },
-    closeBtn: { fontSize: 18, color: '#999', padding: 5 },
+    peaModalTitle: { fontSize: 20, fontWeight: 'bold', color: colors.primaryPurple },
+    closeBtn: { fontSize: 24, color: '#999' },
     peaSearchInput: {
+        height: 48,
         borderWidth: 1,
-        borderColor: '#ddd',
-        borderRadius: 10,
-        padding: 10,
-        marginBottom: 10,
-        fontSize: 15,
+        borderColor: '#e0e0e0',
+        borderRadius: 8,
+        paddingHorizontal: 15,
+        fontSize: 14,
         backgroundColor: '#fafafa',
+        marginBottom: 10,
     },
-    peaItem: { paddingVertical: 12, paddingHorizontal: 5 },
-    peaItemCode: { fontSize: 15, fontWeight: 'bold', color: colors.primaryPurple },
-    peaItemName: { fontSize: 13, color: '#555', marginTop: 2 },
-    separator: { height: 1, backgroundColor: '#f0f0f0' },
+    peaList: {
+        flex: 1,
+    },
+    peaItem: {
+        paddingVertical: 12,
+        paddingHorizontal: 10,
+        borderBottomWidth: 1,
+        borderBottomColor: '#f0f0f0',
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    peaItemCode: {
+        fontSize: 14,
+        fontWeight: 'bold',
+        color: colors.primaryPurple,
+        width: 80,
+    },
+    peaItemName: {
+        fontSize: 14,
+        color: '#333',
+    },
+    peaItemSub: {
+        fontSize: 12,
+        color: '#666',
+    },
 
     // Tabs
     tabContainer: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: '#eee', marginBottom: 20 },
@@ -511,6 +655,13 @@ const styles = StyleSheet.create({
     addRangeBtnText: { color: '#333', fontWeight: 'bold' },
     spacer: { flex: 1 },
     infoText: { fontSize: 12, color: '#999', marginTop: 10 },
+
+    inlineStatusContainer: { flexDirection: 'row', marginTop: 8 },
+    inlineStatusBtn: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, borderWidth: 1, borderColor: '#eee', marginRight: 6, backgroundColor: '#f9f9f9' },
+    statusBtnReady: { backgroundColor: '#e8f5e9', borderColor: '#4caf50' },
+    statusBtnDamaged: { backgroundColor: '#ffebee', borderColor: '#f44336' },
+    inlineStatusText: { fontSize: 11, color: '#777' },
+    inlineStatusTextActive: { color: '#2e7d32', fontWeight: 'bold' },
 
     // Right Panel
     listHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },

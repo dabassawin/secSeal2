@@ -59,6 +59,20 @@ export const SealHistoryScreen: React.FC = () => {
     const [loading, setLoading] = useState(true);
     const [confirmModalVisible, setConfirmModalVisible] = useState(false);
 
+    // Edit Status State
+    const [editStatusModalVisible, setEditStatusModalVisible] = useState(false);
+    const [selectedStatus, setSelectedStatus] = useState<string>('');
+    const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+
+    const STATUS_OPTIONS = [
+        'พร้อมใช้งาน',
+        'จ่าย',
+        'ติดตั้งแล้ว',
+        'ใช้งานแล้ว',
+        'เสียหาย',
+        'สูญหาย'
+    ];
+
     useEffect(() => {
         if (sealNumber) {
             fetchData();
@@ -97,6 +111,33 @@ export const SealHistoryScreen: React.FC = () => {
         }
     };
 
+    const handleUpdateStatus = async () => {
+        if (!sealNumber || !selectedStatus) return;
+        if (selectedStatus === seal?.status) {
+            setEditStatusModalVisible(false);
+            return;
+        }
+
+        try {
+            setIsUpdatingStatus(true);
+            await sealService.updateSealStatus(sealNumber, selectedStatus);
+            setEditStatusModalVisible(false);
+            Alert.alert("สำเร็จ", `เปลี่ยนสถานะเป็น '${selectedStatus}' เรียบร้อยแล้ว`);
+            fetchData(); // Refresh data to get new status and logs
+        } catch (error: any) {
+            console.error("Update status failed", error);
+            const errorMessage = error.response?.data?.error || "ไม่สามารถเปลี่ยนสถานะซีลได้";
+            Alert.alert("เกิดข้อผิดพลาด", errorMessage);
+        } finally {
+            setIsUpdatingStatus(false);
+        }
+    };
+
+    const openEditStatusModal = () => {
+        setSelectedStatus(seal?.status || 'พร้อมใช้งาน');
+        setEditStatusModalVisible(true);
+    };
+
     if (!sealNumber) {
         return (
             <View style={styles.centerContainer}>
@@ -133,9 +174,15 @@ export const SealHistoryScreen: React.FC = () => {
                                 <Text style={styles.bannerValue}>{sealNumber}</Text>
                             </View>
                         </View>
-                        <View style={[styles.statusBadge, { backgroundColor: '#4caf50' }]}>
-                            <Text style={styles.statusBadgeText}>● สถานะปัจจุบัน: {seal?.status || 'พร้อมใช้งาน'}</Text>
-                        </View>
+                        <TouchableOpacity
+                            style={[
+                                styles.statusBadge,
+                                { backgroundColor: seal?.status === 'เสียหาย' || seal?.status === 'สูญหาย' ? '#f44336' : '#4caf50' }
+                            ]}
+                            onPress={openEditStatusModal}
+                        >
+                            <Text style={styles.statusBadgeText}>● สถานะปัจจุบัน: {seal?.status || 'พร้อมใช้งาน'} ✏️</Text>
+                        </TouchableOpacity>
                     </View>
 
                     {/* Metadata Grid */}
@@ -155,8 +202,8 @@ export const SealHistoryScreen: React.FC = () => {
                             </Text>
                         </View>
                         <View style={styles.gridItem}>
-                            <Text style={styles.gridLabel}>สถานที่ล่าสุด (Current Loc.)</Text>
-                            <Text style={[styles.gridValue, { color: colors.primaryPurple }]}>🏠 คลังสินค้าหลัก</Text>
+                            <Text style={styles.gridLabel}>รหัสการไฟฟ้า (PEA Code)</Text>
+                            <Text style={[styles.gridValue, { color: colors.primaryPurple }]}>� {seal?.pea_code || (seal as any)?.PeaCode || '-'}</Text>
                         </View>
                     </View>
 
@@ -237,6 +284,61 @@ export const SealHistoryScreen: React.FC = () => {
                                 </TouchableOpacity>
                                 <TouchableOpacity style={styles.modalConfirmBtn} onPress={handleCancelSeal}>
                                     <Text style={styles.modalConfirmText}>ยืนยันยกเลิก</Text>
+                                </TouchableOpacity>
+                            </View>
+                        </View>
+                    </View>
+                </Modal>
+
+                {/* Edit Status Modal */}
+                <Modal visible={editStatusModalVisible} transparent={true} animationType="fade" onRequestClose={() => setEditStatusModalVisible(false)}>
+                    <View style={styles.modalOverlay}>
+                        <View style={styles.modalContent}>
+                            <View style={[styles.modalIconContainer, { backgroundColor: '#e8eaf6' }]}>
+                                <Text style={styles.modalIcon}>✏️</Text>
+                            </View>
+                            <Text style={styles.modalTitle}>แก้ไขสถานะซีล</Text>
+                            <Text style={[styles.modalMessage, { marginBottom: 15 }]}>
+                                ซีลเบอร์: <Text style={{ fontWeight: 'bold' }}>{sealNumber}</Text>
+                            </Text>
+
+                            <View style={styles.statusOptionsContainer}>
+                                {STATUS_OPTIONS.map((status) => (
+                                    <TouchableOpacity
+                                        key={status}
+                                        style={[
+                                            styles.statusOptionBtn,
+                                            selectedStatus === status && styles.statusOptionSelected
+                                        ]}
+                                        onPress={() => setSelectedStatus(status)}
+                                    >
+                                        <Text style={[
+                                            styles.statusOptionText,
+                                            selectedStatus === status && styles.statusOptionTextSelected
+                                        ]}>
+                                            {status}
+                                        </Text>
+                                        {selectedStatus === status && (
+                                            <Text style={styles.statusCheckIcon}>✓</Text>
+                                        )}
+                                    </TouchableOpacity>
+                                ))}
+                            </View>
+
+                            <View style={[styles.modalActions, { marginTop: 20 }]}>
+                                <TouchableOpacity style={styles.modalCancelBtn} onPress={() => setEditStatusModalVisible(false)} disabled={isUpdatingStatus}>
+                                    <Text style={styles.modalCancelText}>ยกเลิก</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={[styles.modalConfirmBtn, { backgroundColor: colors.primaryPurple }, isUpdatingStatus && { opacity: 0.7 }]}
+                                    onPress={handleUpdateStatus}
+                                    disabled={isUpdatingStatus}
+                                >
+                                    {isUpdatingStatus ? (
+                                        <ActivityIndicator color="white" size="small" />
+                                    ) : (
+                                        <Text style={styles.modalConfirmText}>บันทึกสถานะ</Text>
+                                    )}
                                 </TouchableOpacity>
                             </View>
                         </View>
@@ -538,6 +640,12 @@ const styles = StyleSheet.create({
     modalActions: { flexDirection: 'row', width: '100%', justifyContent: 'space-between' },
     modalCancelBtn: { flex: 1, padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#ddd', marginRight: 10, alignItems: 'center' },
     modalCancelText: { color: '#666', fontWeight: 'bold' },
-    modalConfirmBtn: { flex: 1, padding: 12, borderRadius: 8, backgroundColor: '#d32f2f', alignItems: 'center' },
+    modalConfirmBtn: { flex: 1, padding: 12, borderRadius: 8, backgroundColor: '#d32f2f', alignItems: 'center', justifyContent: 'center' },
     modalConfirmText: { color: 'white', fontWeight: 'bold' },
+    statusOptionsContainer: { width: '100%' },
+    statusOptionBtn: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 15, borderRadius: 8, borderWidth: 1, borderColor: '#eee', marginBottom: 10 },
+    statusOptionSelected: { borderColor: colors.primaryPurple, backgroundColor: '#f3e5f5' },
+    statusOptionText: { fontSize: 16, color: '#333' },
+    statusOptionTextSelected: { color: colors.primaryPurple, fontWeight: 'bold' },
+    statusCheckIcon: { color: colors.primaryPurple, fontWeight: 'bold', fontSize: 16 }
 });
