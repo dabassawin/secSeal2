@@ -5,7 +5,7 @@ import { Header } from '@/components/dashboard';
 import { sealService } from '@/services/sealService';
 import { userService } from '@/services/userService';
 import { Seal } from '@/types';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '@/context/AuthContext';
 
 const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
@@ -76,10 +76,12 @@ export const SealInventoryScreen: React.FC = () => {
         }
     };
 
-    useEffect(() => {
-        fetchSeals();
-        fetchMasPea();
-    }, [userPeaCode]); // re-fetch if userPeaCode changes
+    useFocusEffect(
+        React.useCallback(() => {
+            fetchSeals();
+            fetchMasPea();
+        }, [userPeaCode])
+    );
 
     const fetchMasPea = async () => {
         try {

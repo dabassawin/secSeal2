@@ -277,7 +277,7 @@ func (s *SealService) ReturnSealWithRemarks(sealNumber string, userID uint, rema
 	return s.UpdateSealStatusWithExtra(sealNumber, "ใช้งานแล้ว", userID, "", remarks)
 }
 
-func (s *SealService) IssueSealWithDetails(sealNumber string, issuedTo uint, employeeCode string, remark string) error {
+func (s *SealService) IssueSealWithDetails(sealNumber string, issuedTo uint, employeeCode string, remark string, issuedBy uint) error {
 	seal, err := s.repo.FindByNumber(sealNumber)
 	if err != nil {
 		return errors.New("ไม่พบซิลในระบบ")
@@ -290,6 +290,7 @@ func (s *SealService) IssueSealWithDetails(sealNumber string, issuedTo uint, emp
 	seal.IssuedTo = &issuedTo
 	seal.AssignedToTechnician = &issuedTo
 	seal.IssuedAt = &now
+	seal.IssuedBy = &issuedBy
 	seal.EmployeeCode = employeeCode
 	seal.IssueRemark = remark
 
@@ -455,6 +456,7 @@ func (s *SealService) AssignSealToTechnician(sealNumber string, techID uint, iss
 	}
 
 	seal.AssignedToTechnician = &techID
+	seal.IssuedTo = &techID
 	seal.IssueRemark = remark
 
 	return s.db.Transaction(func(tx *gorm.DB) error {
@@ -526,6 +528,7 @@ func (s *SealService) IssueMultipleSeals(
 	issuedTo uint,
 	employeeCode string,
 	remark string,
+	issuedBy uint,
 ) ([]model.Seal, error) {
 
 	digitCount := len(baseNumStr)
@@ -551,6 +554,7 @@ func (s *SealService) IssueMultipleSeals(
 			sealsToIssue[i].IssuedTo = &issuedTo
 			sealsToIssue[i].AssignedToTechnician = &issuedTo
 			sealsToIssue[i].IssuedAt = &now
+			sealsToIssue[i].IssuedBy = &issuedBy
 			sealsToIssue[i].EmployeeCode = employeeCode
 			sealsToIssue[i].IssueRemark = remark
 
@@ -642,7 +646,7 @@ func (s *SealService) CheckSealAvailability(sealNumbers []string) ([]dto.SealChe
 	return results, nil
 }
 
-func (s *SealService) AssignSealsByTechCode(techCode string, sealNumbers []string, remark string) error {
+func (s *SealService) AssignSealsByTechCode(techCode string, sealNumbers []string, remark string, issuedBy uint) error {
 	// 1) หา Technician
 	technician, err := s.technicianRepo.FindByTechCode(techCode)
 	if err != nil {
@@ -665,9 +669,11 @@ func (s *SealService) AssignSealsByTechCode(techCode string, sealNumbers []strin
 		if seal.Status == "พร้อมใช้งาน" {
 			seal.Status = "จ่าย"
 			seal.IssuedAt = &now
+			seal.IssuedBy = &issuedBy
 		}
-		// ใส่ technician ลงในฟิลด์ AssignedToTechnician
+		// ใส่ technician ลงในฟิลด์ AssignedToTechnician และ IssuedTo
 		seal.AssignedToTechnician = &technician.ID
+		seal.IssuedTo = &technician.ID
 		seal.IssueRemark = remark
 
 		// Update DB

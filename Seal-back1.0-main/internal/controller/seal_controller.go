@@ -230,7 +230,13 @@ func (sc *SealController) IssueSealHandler(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Seal is not available for issuing"})
 	}
 
-	if err := sc.sealService.IssueSealWithDetails(sealNumber, uint(issuedTo), employeeCode, remark); err != nil {
+	userID, ok := c.Locals("user_id").(uint)
+	if !ok {
+		// fallback to 0 or we can return error. let's just use 0 if not exist
+		userID = 0
+	}
+
+	if err := sc.sealService.IssueSealWithDetails(sealNumber, uint(issuedTo), employeeCode, remark, userID); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
 	}
 
@@ -520,7 +526,12 @@ func (sc *SealController) IssueMultipleSealsHandler(c *fiber.Ctx) error {
 	prefix := matches[1]
 	baseNumStr := matches[2]
 
-	issuedSeals, err := sc.sealService.IssueMultipleSeals(prefix, baseNumStr, req.LastNumbers, req.IssuedTo, req.EmployeeCode, req.Remark)
+	userID, ok := c.Locals("user_id").(uint)
+	if !ok {
+		userID = 0
+	}
+
+	issuedSeals, err := sc.sealService.IssueMultipleSeals(prefix, baseNumStr, req.LastNumbers, req.IssuedTo, req.EmployeeCode, req.Remark, userID)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
 	}
@@ -577,6 +588,11 @@ func (sc *SealController) CheckSealsHandler(c *fiber.Ctx) error {
 // Body: { "technician_code": "46735201FNRM-24", "seal_numbers": ["F1001","F1002"], "remark":"..." }
 // -------------------------------------------------------------------
 func (sc *SealController) AssignSealsByTechCodeHandler(c *fiber.Ctx) error {
+	userID, ok := c.Locals("user_id").(uint)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Unauthorized"})
+	}
+
 	var req struct {
 		TechnicianCode string   `json:"technician_code"`
 		SealNumbers    []string `json:"seal_numbers"`
@@ -592,7 +608,7 @@ func (sc *SealController) AssignSealsByTechCodeHandler(c *fiber.Ctx) error {
 	}
 
 	// เรียก SealService.AssignSealsByTechCode
-	if err := sc.sealService.AssignSealsByTechCode(req.TechnicianCode, req.SealNumbers, req.Remark); err != nil {
+	if err := sc.sealService.AssignSealsByTechCode(req.TechnicianCode, req.SealNumbers, req.Remark, userID); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
 	}
 
