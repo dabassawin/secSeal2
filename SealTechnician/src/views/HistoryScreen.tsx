@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { View, Text, StyleSheet, SectionList, RefreshControl, TouchableOpacity, TextInput, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, SectionList, RefreshControl, TouchableOpacity, TextInput, Dimensions, Platform } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
@@ -7,6 +7,7 @@ import { useHomeViewModel } from '../viewmodels/HomeViewModel';
 import { Seal } from '../services/TechnicianService';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import DateTimePicker from '@react-native-community/datetimepicker';
 
 type RootStackParamList = {
     Home: undefined;
@@ -51,15 +52,33 @@ export default function HistoryScreen() {
     const [searchText, setSearchText] = useState('');
     const [activeTab, setActiveTab] = useState<'pending' | 'history'>('pending');
 
+    const [filterDate, setFilterDate] = useState<Date | null>(null);
+    const [showDatePicker, setShowDatePicker] = useState(false);
+
     const onRefresh = useCallback(() => {
         fetchSeals();
     }, []);
 
     const groupedData = useMemo(() => {
         const sourceData = activeTab === 'pending' ? [...activeSeals, ...historySeals] : historySeals;
-        const filteredData = sourceData.filter(
-            seal => seal.seal_number.toLowerCase().includes(searchText.toLowerCase())
-        ).sort((a, b) => {
+        const filteredData = sourceData.filter(seal => {
+            const matchesText = seal.seal_number.toLowerCase().includes(searchText.toLowerCase());
+
+            let matchesDate = true;
+            if (filterDate) {
+                const sealDateStr = activeTab === 'pending' ? seal.issued_at : seal.used_at;
+                if (!sealDateStr) {
+                    matchesDate = false;
+                } else {
+                    const sealD = new Date(sealDateStr);
+                    matchesDate = sealD.getDate() === filterDate.getDate() &&
+                        sealD.getMonth() === filterDate.getMonth() &&
+                        sealD.getFullYear() === filterDate.getFullYear();
+                }
+            }
+
+            return matchesText && matchesDate;
+        }).sort((a, b) => {
             // Sort by relevant date (newest first)
             const dateA = activeTab === 'pending' ? a.issued_at : a.used_at;
             const dateB = activeTab === 'pending' ? b.issued_at : b.used_at;
@@ -82,7 +101,25 @@ export default function HistoryScreen() {
             title: key,
             data: groups[key]
         }));
-    }, [activeSeals, historySeals, activeTab, searchText]);
+    }, [activeSeals, historySeals, activeTab, searchText, filterDate]);
+
+    const onChangeDate = (event: any, selectedDate?: Date) => {
+        setShowDatePicker(Platform.OS === 'ios');
+
+        // Android dismisses the picker when canceled, we don't want to set the date in that case
+        if (event.type === 'set' && selectedDate) {
+            setFilterDate(selectedDate);
+        } else if (event.type === 'dismissed') {
+            // Do nothing on Android when dismissed
+        } else if (Platform.OS === 'ios' && selectedDate) {
+            // iOS doesn't give a type, we rely on selectedDate
+            setFilterDate(selectedDate);
+        }
+    };
+
+    const clearDateFilter = () => {
+        setFilterDate(null);
+    };
 
     const renderLogItem = ({ item }: { item: Seal }) => {
         const isCompleted = item.status === 'ติดตั้งแล้ว' || item.status === 'ใช้งานแล้ว';
@@ -175,7 +212,7 @@ export default function HistoryScreen() {
                 </View>
 
                 {/* Search */}
-                <View style={styles.searchContainer}>
+                <View style={[styles.searchContainer, { marginBottom: 8 }]}>
                     <Ionicons name="search-outline" size={20} color="#9E9E9E" style={styles.searchIcon} />
                     <TextInput
                         style={styles.searchInput}
@@ -184,6 +221,34 @@ export default function HistoryScreen() {
                         onChangeText={setSearchText}
                     />
                 </View>
+
+                {/* Date Filter */}
+                <View style={styles.dateFilterContainer}>
+                    <TouchableOpacity
+                        style={styles.dateFilterButton}
+                        onPress={() => setShowDatePicker(true)}
+                    >
+                        <Ionicons name="calendar-outline" size={20} color="#6A0DAD" style={{ marginRight: 8 }} />
+                        <Text style={styles.dateFilterText}>
+                            {filterDate ? formatGroupDate(filterDate.toISOString()) : 'ทั้งหมด (เลือกวันที่)'}
+                        </Text>
+                    </TouchableOpacity>
+
+                    {filterDate && (
+                        <TouchableOpacity style={styles.clearDateButton} onPress={clearDateFilter}>
+                            <Ionicons name="close-circle" size={20} color="#757575" />
+                        </TouchableOpacity>
+                    )}
+                </View>
+
+                {showDatePicker && (
+                    <DateTimePicker
+                        value={filterDate || new Date()}
+                        mode="date"
+                        display="default"
+                        onChange={onChangeDate}
+                    />
+                )}
 
                 {/* List */}
                 <SectionList
@@ -340,6 +405,34 @@ const styles = StyleSheet.create({
     },
     listContent: {
         paddingBottom: 100,
+    },
+    dateFilterContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: 16,
+    },
+    dateFilterButton: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#F3E5F5',
+        borderRadius: 12,
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        borderWidth: 1,
+        borderColor: '#E1BEE7',
+    },
+    dateFilterText: {
+        color: '#6A0DAD',
+        fontSize: 14,
+        fontWeight: 'bold',
+    },
+    clearDateButton: {
+        marginLeft: 8,
+        padding: 10,
+        backgroundColor: '#fff',
+        borderRadius: 12,
+        elevation: 1,
     },
     sectionHeader: {
         backgroundColor: '#f5f5f5',
