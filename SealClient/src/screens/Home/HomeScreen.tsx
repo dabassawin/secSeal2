@@ -39,7 +39,7 @@ export const HomeScreen: React.FC = () => {
             <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
 
                 <View style={styles.sectionHeader}>
-                    <Text style={styles.title}>ระบบจัดการซีลความปลอดภัย</Text>
+                    <Text style={styles.title}>ระบบจัดการซีล</Text>
                     <Text style={styles.subtitle}>ภาพรวมการดำเนินงานประจำวัน</Text>
                 </View>
 

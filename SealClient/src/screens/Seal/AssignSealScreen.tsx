@@ -523,7 +523,7 @@ const styles = StyleSheet.create({
     mainContainer: { flex: 1, backgroundColor: '#f4f6f8' },
     contentContainer: { flex: 1, flexDirection: 'row', padding: 20 },
     leftPanel: { flex: 1, marginRight: 20 },
-    rightPanel: { flex: 2, backgroundColor: 'white', borderRadius: 12, padding: 20, elevation: 2, flexDirection: 'column' },
+    rightPanel: { flex: 2, backgroundColor: 'white', borderRadius: 12, padding: 20, elevation: 2, flexDirection: 'column', overflow: 'hidden' },
 
     sectionCard: { backgroundColor: 'white', borderRadius: 12, padding: 20, marginBottom: 20, elevation: 1 },
     sectionTitle: { fontSize: 16, fontWeight: 'bold', color: colors.primaryPurple, marginBottom: 15 },
@@ -575,7 +575,7 @@ const styles = StyleSheet.create({
     tableHead: { flexDirection: 'row', backgroundColor: '#f8f9fa', padding: 12, borderRadius: 8, marginBottom: 10 },
     th: { fontSize: 12, fontWeight: 'bold', color: '#999' },
 
-    listContainer: { flex: 1 },
+    listContainer: { flex: 1, minHeight: 0 },
     tableRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#f5f5f5' },
     rowError: { backgroundColor: '#fff0f0' },
     rowWarning: { backgroundColor: '#fff8e1' },

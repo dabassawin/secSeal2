@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, ActivityIndicator, Image } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { colors, sizes } from '@/constants';
 import { Header } from '@/components/dashboard';
 import { technicianService } from '@/services/technicianService';
@@ -20,12 +20,14 @@ export const TechnicianListScreen: React.FC = () => {
 
     const [masPeaList, setMasPeaList] = useState<any[]>([]);
 
-    useEffect(() => {
-        if (user?.pea_code) {
-            fetchData();
-            fetchMasPea();
-        }
-    }, [user?.pea_code]);
+    useFocusEffect(
+        React.useCallback(() => {
+            if (user?.pea_code) {
+                fetchData();
+                fetchMasPea();
+            }
+        }, [user?.pea_code])
+    );
 
     const fetchMasPea = async () => {
         try {
@@ -45,7 +47,10 @@ export const TechnicianListScreen: React.FC = () => {
     const fetchData = async () => {
         try {
             setLoading(true);
-            const data = await technicianService.getTechnicians(user?.pea_code);
+            // ดึงเฉพาะ 4 หลักแรกของ PEA Code
+            const peaPrefix = user?.pea_code ? user.pea_code.substring(0, 4) : undefined;
+            // ส่ง parameter peaPrefix และ isPrefix = true
+            const data = await technicianService.getTechnicians(peaPrefix, true);
             setTechnicians(data);
         } catch (error) {
             console.error('Error fetching technicians:', error);

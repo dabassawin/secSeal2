@@ -23,6 +23,8 @@ export const AddTechnicianScreen: React.FC = () => {
 
     // Form State
     const [formData, setFormData] = useState({
+        username: '',
+        password: '',
         firstName: '',
         lastName: '',
         phoneNumber: '',
@@ -48,6 +50,8 @@ export const AddTechnicianScreen: React.FC = () => {
 
     const validate = () => {
         const newErrors: Record<string, string> = {};
+        if (!formData.username) newErrors.username = 'กรุณากรอกชื่อผู้ใช้';
+        if (!formData.password) newErrors.password = 'กรุณากรอกรหัสผ่าน';
         if (!formData.firstName) newErrors.firstName = 'กรุณากรอกชื่อจริง';
         if (!formData.lastName) newErrors.lastName = 'กรุณากรอกนามสกุล';
         if (!formData.phoneNumber) newErrors.phoneNumber = 'กรุณากรอกเบอร์โทรศัพท์';
@@ -66,8 +70,8 @@ export const AddTechnicianScreen: React.FC = () => {
 
             const payload = {
                 technician_code: formData.technicianCode,
-                username: formData.technicianCode,
-                password: 'password123',
+                username: formData.username,
+                password: formData.password,
                 first_name: formData.firstName,
                 last_name: formData.lastName,
                 email: formData.email || `${formData.technicianCode}@pea.co.th`,
@@ -241,6 +245,39 @@ export const AddTechnicianScreen: React.FC = () => {
                                 <Text>▼</Text>
                             </TouchableOpacity>
                             {errors.peaCode && <Text style={styles.errorText}>{errors.peaCode}</Text>}
+                        </View>
+                    </View>
+                </View>
+
+                {/* Account Info Card */}
+                <View style={styles.card}>
+                    <View style={styles.cardHeader}>
+                        <Text style={styles.cardIcon}>🔒</Text>
+                        <Text style={styles.cardTitle}>ข้อมูลการเข้าสู่ระบบ</Text>
+                    </View>
+
+                    <View style={styles.fieldRow}>
+                        <View style={styles.fieldItem}>
+                            <Text style={styles.label}>ชื่อผู้ใช้ (Username) <Text style={styles.required}>*</Text></Text>
+                            <TextInput
+                                style={[styles.input, errors.username && styles.inputError]}
+                                placeholder="เช่น tech01"
+                                value={formData.username}
+                                onChangeText={(text) => setFormData({ ...formData, username: text })}
+                                autoCapitalize="none"
+                            />
+                            {errors.username && <Text style={styles.errorText}>{errors.username}</Text>}
+                        </View>
+                        <View style={styles.fieldItem}>
+                            <Text style={styles.label}>รหัสผ่าน (Password) <Text style={styles.required}>*</Text></Text>
+                            <TextInput
+                                style={[styles.input, errors.password && styles.inputError]}
+                                placeholder="รหัสผ่านเข้าใช้งาน"
+                                secureTextEntry
+                                value={formData.password}
+                                onChangeText={(text) => setFormData({ ...formData, password: text })}
+                            />
+                            {errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
                         </View>
                     </View>
                 </View>
