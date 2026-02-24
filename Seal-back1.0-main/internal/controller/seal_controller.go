@@ -682,10 +682,11 @@ func (sc *SealController) ScanAndUseSealHandler(c *fiber.Ctx) error {
 		imagePath = savePath
 	}
 
-	// For now, allow unauthenticated usage (userID = 0) as per mobile app state
-	// Or use context if available
+	// For technician app, the middleware sets "tech_id" in locals
 	var userID uint = 0
-	if id, ok := c.Locals("user_id").(uint); ok {
+	if id, ok := c.Locals("tech_id").(uint); ok {
+		userID = id
+	} else if id, ok := c.Locals("user_id").(uint); ok {
 		userID = id
 	}
 
@@ -739,5 +740,43 @@ func (sc *SealController) UpdateSealStatusAdminHandler(c *fiber.Ctx) error {
 		"message":     fmt.Sprintf("เปลี่ยนสถานะซีล %s เป็น '%s' สำเร็จ", sealNumber, request.Status),
 		"seal_number": sealNumber,
 		"status":      request.Status,
+	})
+}
+
+// -------------------------------------------------------------------
+// 21) CheckSealOwnershipHandler
+// GET /api/check-seal/:seal_number
+// ตรวจสอบว่าซีลนี้จ่ายให้ช่างคนนี้หรือไม่
+// -------------------------------------------------------------------
+func (sc *SealController) CheckSealOwnershipHandler(c *fiber.Ctx) error {
+	sealNumber := c.Params("seal_number")
+	if sealNumber == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Seal number is required"})
+	}
+
+	var techID uint = 0
+	if id, ok := c.Locals("tech_id").(uint); ok {
+		techID = id
+	}
+
+	seal, err := sc.sealService.GetSealByNumber(sealNumber)
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "ไม่พบซีลนี้ในระบบ"})
+	}
+
+	// ตรวจสอบสถานะ
+	if seal.Status == "ใช้งานแล้ว" {
+		return c.Status(fiber.StatusConflict).JSON(fiber.Map{"error": "ซีลนี้ได้ถูกใช้งานไปแล้ว"})
+	}
+
+	// ตรวจสอบความเป็นเจ้าของ
+	if seal.AssignedToTechnician == nil || *seal.AssignedToTechnician != techID {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "ซีลนี้ไม่ได้ถูกจ่ายให้กับคุณ ไม่สามารถใช้งานได้"})
+	}
+
+	return c.JSON(fiber.Map{
+		"message":     "ซีลนี้เป็นของคุณ สามารถใช้งานได้",
+		"seal_number": sealNumber,
+		"status":      seal.Status,
 	})
 }
