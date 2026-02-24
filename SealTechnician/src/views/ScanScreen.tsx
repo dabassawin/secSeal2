@@ -57,7 +57,41 @@ export default function ScanScreen() {
             sealNumber = sealNumber.slice(4);
         }
 
-        setScannedSealNumber(sealNumber);
+        verifySeal(sealNumber);
+    };
+
+    const verifySeal = async (sealNumber: string) => {
+        setResult({ message: "กำลังตรวจสอบข้อมูลซีล...", type: 'info' });
+
+        try {
+            const checkUrl = `${getApiUrl(API_CONFIG.endpoints.CHECK_SCAN_SEAL)}/${sealNumber}`;
+            console.log("🔍 [ScanScreen] Checking seal at:", checkUrl);
+
+            const response = await fetch(checkUrl, {
+                method: 'GET',
+                headers: { 'Accept': 'application/json' },
+            });
+
+            const responseData = await response.json();
+
+            if (response.status === 200) {
+                // Seal is valid and unused
+                setResult(null); // clear loading
+                setScannedSealNumber(sealNumber); // proceed to photo capture
+            } else if (response.status === 404) {
+                setResult({ message: 'ไม่พบข้อมูล Seal นี้ในระบบ', type: 'error' });
+                setScannedSealNumber(null);
+            } else if (response.status === 409) {
+                setResult({ message: responseData.error || 'ซีลนี้ถูกใช้งานไปแล้ว', type: 'warning' });
+                setScannedSealNumber(null);
+            } else {
+                setResult({ message: responseData.error || 'เกิดข้อผิดพลาดในการตรวจสอบ', type: 'error' });
+                setScannedSealNumber(null);
+            }
+        } catch (error) {
+            setResult({ message: `เครือข่ายขัดข้อง: ${(error as Error).message}`, type: 'error' });
+            setScannedSealNumber(null);
+        }
     };
 
     const resetScan = () => {
