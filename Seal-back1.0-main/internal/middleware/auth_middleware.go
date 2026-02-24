@@ -25,14 +25,12 @@ func JWTMiddleware() fiber.Handler {
 		}
 
 		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
-		log.Println("🔑 Received Token:", tokenString)
 
 		authService := service.NewAuthService()
 
 		// ✅ ลองตรวจสอบกับ Mock JWT ก่อน
 		user, err := authService.VerifyMockJWT(tokenString)
 		if err == nil {
-			log.Println("✅ [JWTMiddleware] Token Verified using Mock JWT")
 			setUserContext(c, user)
 			return c.Next()
 		}
@@ -52,9 +50,6 @@ func JWTMiddleware() fiber.Handler {
 			log.Println("🚨 [JWTMiddleware] Role is missing from token")
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid token: missing role"})
 		}
-
-		log.Printf("✅ [JWTMiddleware] User Verified: ID=%d, Role=%s, Name=%s %s, PEA Code=%s\n",
-			user.EmpID, user.Role, user.FirstName, user.LastName, user.PeaCode)
 
 		setUserContext(c, user)
 		return c.Next()
@@ -86,7 +81,6 @@ func setUserContext(c *fiber.Ctx, user *model.User) {
 // ✅ Middleware สำหรับตรวจสอบ JWT ของ Technician
 func TechnicianJWTMiddleware() fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		log.Println("🔍 [TechnicianJWTMiddleware] Checking Path:", c.Path())
 
 		// ✅ ข้าม JWT สำหรับบาง Path
 		skipPaths := []string{
@@ -118,7 +112,6 @@ func TechnicianJWTMiddleware() fiber.Handler {
 
 		// 🔑 ตรวจสอบ Authorization Header
 		authHeader := c.Get("Authorization")
-		log.Println("🔍 [TechnicianJWTMiddleware] Received Authorization Header:", authHeader)
 
 		if authHeader == "" {
 			log.Println("❌ [TechnicianJWTMiddleware] Missing Token")
@@ -127,11 +120,9 @@ func TechnicianJWTMiddleware() fiber.Handler {
 
 		// ✅ ตัด "Bearer " ออกให้ถูกต้อง
 		tokenString := strings.TrimSpace(strings.TrimPrefix(authHeader, "Bearer "))
-		log.Println("🛠 [TechnicianJWTMiddleware] Extracted Token:", tokenString)
 
 		// ✅ ป้องกัน Token ที่ยังมี "Bearer " ติดซ้ำ
 		if strings.HasPrefix(tokenString, "Bearer ") {
-			log.Println("❌ [TechnicianJWTMiddleware] Token ยังคงมี 'Bearer ', กำลังลบอีกครั้ง...")
 			tokenString = strings.TrimPrefix(tokenString, "Bearer ")
 			tokenString = strings.TrimSpace(tokenString) // ลบช่องว่างที่อาจเกิดขึ้น
 		}
@@ -165,8 +156,6 @@ func TechnicianJWTMiddleware() fiber.Handler {
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid token claims"})
 		}
 
-		log.Println("🔍 [TechnicianJWTMiddleware] Token Claims:", claims)
-
 		// ✅ ตรวจสอบ Expiration (`exp`)
 		if exp, ok := claims["exp"].(float64); ok {
 			expTime := time.Unix(int64(exp), 0)
@@ -181,7 +170,6 @@ func TechnicianJWTMiddleware() fiber.Handler {
 
 		// ✅ ตรวจสอบ Role ว่าเป็น "technician" หรือไม่
 		role, _ := claims["role"].(string)
-		log.Println("🔍 [TechnicianJWTMiddleware] Role:", role)
 
 		if role != "technician" {
 			log.Println("❌ [TechnicianJWTMiddleware] Access Denied: Not a Technician")
@@ -196,7 +184,6 @@ func TechnicianJWTMiddleware() fiber.Handler {
 		}
 
 		techID := uint(techIDFloat)
-		log.Println("✅ [TechnicianJWTMiddleware] Authorized Technician ID:", techID)
 
 		// ✅ ตั้งค่าใน `Locals` เพื่อให้ API ใช้
 		c.Locals("tech_id", techID)

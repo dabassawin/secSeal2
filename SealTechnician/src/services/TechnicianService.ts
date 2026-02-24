@@ -21,8 +21,6 @@ export const TechnicianService = {
             const token = await SecureStore.getItemAsync('userToken');
             if (!token) throw new Error('No token found');
 
-            console.log('Sending Token:', token);
-
             const response = await fetch(getApiUrl(API_CONFIG.endpoints.TECHNICIAN_MY_SEALS), {
                 method: 'GET',
                 headers: {
