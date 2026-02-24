@@ -58,6 +58,7 @@ export const SealHistoryScreen: React.FC = () => {
     const [logs, setLogs] = useState<Log[]>([]);
     const [loading, setLoading] = useState(true);
     const [confirmModalVisible, setConfirmModalVisible] = useState(false);
+    const [imageModalVisible, setImageModalVisible] = useState(false);
 
     // Edit Status State
     const [editStatusModalVisible, setEditStatusModalVisible] = useState(false);
@@ -227,13 +228,23 @@ export const SealHistoryScreen: React.FC = () => {
                         <View style={styles.sidebar}>
                             <View style={styles.infoCard}>
                                 <Text style={styles.infoCardTitle}>รูปภาพซีล (ล่าสุด)</Text>
-                                <View style={styles.imagePlaceholder}>
-                                    <View style={styles.innerPlaceholder}>
-                                        <Text style={styles.placeholderIcon}>🖼️</Text>
+                                {(seal?.image1 || (seal as any)?.Image1) ? (
+                                    <TouchableOpacity onPress={() => setImageModalVisible(true)} activeOpacity={0.8}>
+                                        <Image
+                                            source={{ uri: `http://localhost:3000/${seal?.image1 || (seal as any)?.Image1}`.replace('uploads\\', 'uploads/').replace('uploads//', 'uploads/') }}
+                                            style={styles.imagePlaceholder}
+                                            resizeMode="cover"
+                                        />
+                                    </TouchableOpacity>
+                                ) : (
+                                    <View style={styles.imagePlaceholder}>
+                                        <View style={styles.innerPlaceholder}>
+                                            <Text style={styles.placeholderIcon}>🖼️</Text>
+                                        </View>
                                     </View>
-                                </View>
+                                )}
                                 <TouchableOpacity style={styles.whiteBtn}>
-                                    <Text style={styles.whiteBtnText}>ดูแลเลอรี่ทั้งหมด</Text>
+                                    <Text style={styles.whiteBtnText}>ดูแกลเลอรี่ทั้งหมด</Text>
                                 </TouchableOpacity>
                             </View>
 
@@ -344,6 +355,23 @@ export const SealHistoryScreen: React.FC = () => {
                         </View>
                     </View>
                 </Modal>
+
+                {/* Fullscreen Image Modal */}
+                <Modal visible={imageModalVisible} transparent={true} animationType="fade" onRequestClose={() => setImageModalVisible(false)}>
+                    <View style={styles.fullScreenOverlay}>
+                        <TouchableOpacity style={styles.closeOverlayBtn} onPress={() => setImageModalVisible(false)}>
+                            <Text style={styles.closeOverlayText}>✕ ปิดหน้าต่าง</Text>
+                        </TouchableOpacity>
+                        {(seal?.image1 || (seal as any)?.Image1) && (
+                            <Image
+                                source={{ uri: `http://localhost:3000/${seal?.image1 || (seal as any)?.Image1}`.replace('uploads\\', 'uploads/').replace('uploads//', 'uploads/') }}
+                                style={styles.fullScreenImage}
+                                resizeMode="contain"
+                            />
+                        )}
+                    </View>
+                </Modal>
+
             </ScrollView>
         </View>
     );
@@ -647,5 +675,9 @@ const styles = StyleSheet.create({
     statusOptionSelected: { borderColor: colors.primaryPurple, backgroundColor: '#f3e5f5' },
     statusOptionText: { fontSize: 16, color: '#333' },
     statusOptionTextSelected: { color: colors.primaryPurple, fontWeight: 'bold' },
-    statusCheckIcon: { color: colors.primaryPurple, fontWeight: 'bold', fontSize: 16 }
+    statusCheckIcon: { color: colors.primaryPurple, fontWeight: 'bold', fontSize: 16 },
+    fullScreenOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center' },
+    fullScreenImage: { width: '100%', height: '80%' },
+    closeOverlayBtn: { position: 'absolute', top: 40, right: 20, padding: 10, zIndex: 10, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 20 },
+    closeOverlayText: { color: 'white', fontSize: 16, fontWeight: 'bold' }
 });

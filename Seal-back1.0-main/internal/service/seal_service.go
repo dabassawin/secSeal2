@@ -730,7 +730,7 @@ func (s *SealService) GetAllAssignedSeals() ([]model.Seal, error) {
 // -------------------------------------------------------------------
 // ScanAndUseSeal (Scan & Mark Used Immediately)
 // -------------------------------------------------------------------
-func (s *SealService) ScanAndUseSeal(sealNumber string, userID uint) (string, error) {
+func (s *SealService) ScanAndUseSeal(sealNumber string, userID uint, imagePath string) (string, error) {
 	seal, err := s.repo.FindByNumber(sealNumber)
 	if err != nil {
 		return "", errors.New("ไม่พบซิลในระบบ")
@@ -749,6 +749,9 @@ func (s *SealService) ScanAndUseSeal(sealNumber string, userID uint) (string, er
 	now := time.Now()
 	seal.Status = "ใช้งานแล้ว"
 	seal.UsedAt = &now
+	if imagePath != "" {
+		seal.Image1 = imagePath
+	}
 	// If we want to track who scanned it, we use userID (even if 0 for public Scan)
 	if userID != 0 {
 		seal.UsedBy = &userID

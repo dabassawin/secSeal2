@@ -98,7 +98,7 @@ func main() {
 	app := fiber.New()
 
 	// ✅ เสิร์ฟไฟล์อัปโหลด
-	app.Static("/uploads", "./internal/uploads")
+	app.Static("/uploads", "./uploads")
 
 	// ✅ เสิร์ฟ frontend static files (สำหรับ production)
 	app.Static("/", "./static", fiber.Static{

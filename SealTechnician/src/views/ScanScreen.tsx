@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, Alert, ActivityIndicator } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { API_CONFIG, getApiUrl } from '../config/api.config';
 import { Ionicons } from '@expo/vector-icons';
@@ -8,7 +8,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 export default function ScanScreen() {
     const [permission, requestPermission] = useCameraPermissions();
     const [scanned, setScanned] = useState(false);
+    const [scannedSealNumber, setScannedSealNumber] = useState<string | null>(null);
+    const [isTakingPhoto, setIsTakingPhoto] = useState(false);
+    const [photoUri, setPhotoUri] = useState<string | null>(null);
     const [result, setResult] = useState<{ message: string; type: 'success' | 'warning' | 'error' | 'info' } | null>(null);
+    const cameraRef = useRef<CameraView>(null);
     const [fadeAnim] = useState(new Animated.Value(0));
     const insets = useSafeAreaInsets();
 
@@ -45,22 +49,90 @@ export default function ScanScreen() {
         );
     }
 
-    const handleBarcodeScanned = async ({ data }: { data: string }) => {
+    const handleBarcodeScanned = ({ data }: { data: string }) => {
         setScanned(true);
-        setResult({ message: "กำลังตรวจสอบ...", type: 'info' });
 
         let sealNumber = data;
         if (sealNumber.toLowerCase().startsWith("pea ")) {
             sealNumber = sealNumber.slice(4);
         }
 
+        setScannedSealNumber(sealNumber);
+    };
+
+    const resetScan = () => {
+        setScanned(false);
+        setScannedSealNumber(null);
+        setPhotoUri(null);
+        setResult(null);
+    };
+
+    const takePhoto = async () => {
+        if (!cameraRef.current) return;
+        setIsTakingPhoto(true);
         try {
+            const photo = await cameraRef.current.takePictureAsync();
+            if (photo) {
+                setPhotoUri(photo.uri);
+                Alert.alert(
+                    "ยืนยันการติดตั้งซีล",
+                    `ยืนยันการติดตั้งซีล ${scannedSealNumber}`,
+                    [
+                        {
+                            text: "ยกเลิก",
+                            style: "cancel",
+                            onPress: resetScan
+                        },
+                        {
+                            text: "ยืนยัน",
+                            onPress: () => processScan(scannedSealNumber!, photo.uri)
+                        }
+                    ],
+                    { cancelable: false }
+                );
+            }
+        } catch (error) {
+            Alert.alert("ข้อผิดพลาด", "ไม่สามารถถ่ายรูปได้");
+            resetScan();
+        } finally {
+            setIsTakingPhoto(false);
+        }
+    };
+
+    const processScan = async (sealNumber: string, passedPhotoUri?: string) => {
+        setResult({ message: "กำลังตรวจสอบ...", type: 'info' });
+
+        try {
+            const formData = new FormData();
+            formData.append('seal_number', sealNumber);
+
+            const activePhotoUri = passedPhotoUri || photoUri;
+
+            console.log("📸 [ScanScreen] Starting check for photoUri:", activePhotoUri);
+
+            if (activePhotoUri) {
+                const filename = activePhotoUri.split('/').pop() || 'photo.jpg';
+                const match = /\.(\w+)$/.exec(filename);
+                // Important for react native: fallback to jpeg if type cannot be guessed
+                const type = match ? `image/${match[1]}` : `image/jpeg`;
+
+                const imageObj = { uri: activePhotoUri, name: filename, type };
+                console.log("📸 [ScanScreen] Appending image to formData:", imageObj);
+
+                formData.append('image', imageObj as any);
+            }
+
+            console.log("🚀 [ScanScreen] Sending POST request to:", getApiUrl(API_CONFIG.endpoints.SCAN_SEAL));
+
+            // Retrieve the token from AsyncStorage (assuming it's stored there, though ScanAndUse allows userID=0 for now)
+            // But we must NOT set Content-Type so fetch appends the multipart boundary automatically.
             const response = await fetch(getApiUrl(API_CONFIG.endpoints.SCAN_SEAL), {
                 method: 'POST',
+                body: formData,
                 headers: {
-                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    // DO NOT SET Content-Type manually, let fetch set it with the boundary
                 },
-                body: JSON.stringify({ seal_number: sealNumber }),
             });
 
             const responseData = await response.json();
@@ -79,10 +151,7 @@ export default function ScanScreen() {
         }
     };
 
-    const resetScan = () => {
-        setScanned(false);
-        setResult(null);
-    };
+
 
     const getResultColor = (type?: string) => {
         switch (type) {
@@ -107,6 +176,7 @@ export default function ScanScreen() {
     return (
         <View style={styles.container}>
             <CameraView
+                ref={cameraRef}
                 style={styles.camera}
                 facing="back"
                 onBarcodeScanned={scanned ? undefined : handleBarcodeScanned}
@@ -114,6 +184,31 @@ export default function ScanScreen() {
                     barcodeTypes: ["qr", "aztec", "codabar", "code39", "code93", "code128", "datamatrix", "ean13", "ean8", "itf14", "pdf417", "upc_a", "upc_e"],
                 }}
             />
+
+            {scannedSealNumber && !photoUri && !result && (
+                <View style={styles.photoCaptureOverlay}>
+                    <View style={styles.photoCaptureHeader}>
+                        <Text style={styles.photoCaptureTitle}>สแกนซีล {scannedSealNumber} สำเร็จ</Text>
+                        <Text style={styles.photoCaptureSubtitle}>กรุณาถ่ายรูปเพื่อยืนยันการติดตั้ง</Text>
+                    </View>
+                    <View style={styles.photoCaptureControls}>
+                        <TouchableOpacity
+                            style={styles.captureButton}
+                            onPress={takePhoto}
+                            disabled={isTakingPhoto}
+                        >
+                            {isTakingPhoto ? (
+                                <ActivityIndicator color="#000" size="large" />
+                            ) : (
+                                <View style={styles.captureButtonInner} />
+                            )}
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.cancelCaptureButton} onPress={resetScan}>
+                            <Text style={styles.cancelCaptureText}>ยกเลิก</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            )}
 
             {result && (
                 <Animated.View style={[styles.resultContainer, { opacity: fadeAnim, paddingBottom: insets.bottom + 20 }]}>
@@ -247,5 +342,64 @@ const styles = StyleSheet.create({
         fontSize: 17,
         fontWeight: 'bold',
         marginLeft: 10,
+    },
+    photoCaptureOverlay: {
+        position: 'absolute',
+        top: 0,
+        bottom: 0,
+        left: 0,
+        right: 0,
+        justifyContent: 'space-between',
+        paddingVertical: 50,
+    },
+    photoCaptureHeader: {
+        backgroundColor: 'rgba(0,0,0,0.6)',
+        padding: 20,
+        alignItems: 'center',
+        marginHorizontal: 20,
+        borderRadius: 15,
+        marginTop: 40,
+    },
+    photoCaptureTitle: {
+        color: '#fff',
+        fontSize: 20,
+        fontWeight: 'bold',
+        marginBottom: 8,
+    },
+    photoCaptureSubtitle: {
+        color: '#ddd',
+        fontSize: 16,
+    },
+    photoCaptureControls: {
+        alignItems: 'center',
+        marginBottom: 30,
+    },
+    captureButton: {
+        width: 80,
+        height: 80,
+        borderRadius: 40,
+        backgroundColor: '#fff',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 20,
+        borderWidth: 4,
+        borderColor: 'rgba(255,255,255,0.5)',
+    },
+    captureButtonInner: {
+        width: 64,
+        height: 64,
+        borderRadius: 32,
+        backgroundColor: '#fff',
+        borderWidth: 2,
+        borderColor: '#000',
+    },
+    cancelCaptureButton: {
+        paddingHorizontal: 20,
+        paddingVertical: 10,
+    },
+    cancelCaptureText: {
+        color: '#fff',
+        fontSize: 18,
+        fontWeight: 'bold',
     },
 });

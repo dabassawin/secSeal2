@@ -7,6 +7,8 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"os"
+	"path/filepath"
 
 	"github.com/Kev2406/PEA/internal/service"
 	"github.com/gofiber/fiber/v2"
@@ -641,15 +643,43 @@ func (sc *SealController) CancelSealHandler(c *fiber.Ctx) error {
 // Body: { "seal_number": "..." }
 // -------------------------------------------------------------------
 func (sc *SealController) ScanAndUseSealHandler(c *fiber.Ctx) error {
-	var request struct {
-		SealNumber string `json:"seal_number"`
-	}
-	if err := c.BodyParser(&request); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
+	sealNumber := c.FormValue("seal_number")
+	
+	if sealNumber == "" {
+		// Fallback to JSON body just in case
+		var request struct {
+			SealNumber string `json:"seal_number"`
+		}
+		if err := c.BodyParser(&request); err == nil && request.SealNumber != "" {
+			sealNumber = request.SealNumber
+		}
 	}
 
-	if request.SealNumber == "" {
+	if sealNumber == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Seal number is required"})
+	}
+
+	var imagePath string
+	file, err := c.FormFile("image")
+	if err != nil {
+		log.Println("⚠️ No image or err receiving image:", err)
+	} else {
+		// อัปโหลดไฟล์สำเร็จ ดำเนินการบันทึก
+		log.Println("📷 Received image:", file.Filename, "size:", file.Size)
+		uploadDir := "./uploads"
+		if _, err := os.Stat(uploadDir); os.IsNotExist(err) {
+			os.Mkdir(uploadDir, 0755)
+		}
+		
+		fileName := fmt.Sprintf("seal_%s_%s", sealNumber, file.Filename)
+		savePath := filepath.Join(uploadDir, fileName)
+		
+		if err := c.SaveFile(file, savePath); err != nil {
+			log.Println("❌ Failed to save image to disk:", err)
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to save image"})
+		}
+		log.Println("✅ Image saved to", savePath)
+		imagePath = savePath
 	}
 
 	// For now, allow unauthenticated usage (userID = 0) as per mobile app state
@@ -659,7 +689,7 @@ func (sc *SealController) ScanAndUseSealHandler(c *fiber.Ctx) error {
 		userID = id
 	}
 
-	message, err := sc.sealService.ScanAndUseSeal(request.SealNumber, userID)
+	message, err := sc.sealService.ScanAndUseSeal(sealNumber, userID, imagePath)
 	if err != nil {
 		// Differentiate errors? simple for now
 		if err.Error() == "ซีลนี้ถูกใช้งานไปแล้ว" {
@@ -670,7 +700,8 @@ func (sc *SealController) ScanAndUseSealHandler(c *fiber.Ctx) error {
 
 	return c.JSON(fiber.Map{
 		"message":     "บันทึกการใช้งานสำเร็จ",
-		"seal_number": request.SealNumber,
+		"seal_number": sealNumber,
+		"image_path":  imagePath,
 		"logs":        message,
 	})
 }
