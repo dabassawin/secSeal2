@@ -423,3 +423,59 @@ func (tc *TechnicianController) UploadSealImagesHandler(c *fiber.Ctx) error {
 		"image2":      imageURL2,
 	})
 }
+
+// GetTechnicianNotificationsHandler fetches logs for the given technician
+func (tc *TechnicianController) GetTechnicianNotificationsHandler(c *fiber.Ctx) error {
+	techID, ok := c.Locals("tech_id").(uint)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Unauthorized"})
+	}
+
+	logs, err := tc.technicianService.GetTechnicianLogs(techID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch notifications"})
+	}
+	return c.JSON(logs)
+}
+
+// ClearTechnicianNotificationsHandler clears logs for the given technician
+func (tc *TechnicianController) ClearTechnicianNotificationsHandler(c *fiber.Ctx) error {
+	techID, ok := c.Locals("tech_id").(uint)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Unauthorized"})
+	}
+
+	err := tc.technicianService.ClearTechnicianLogs(techID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to clear notifications"})
+	}
+	return c.JSON(fiber.Map{"message": "Notifications cleared successfully"})
+}
+
+// UpdateDeviceTokenHandler saves the Expo Push Token for the technician
+func (tc *TechnicianController) UpdateDeviceTokenHandler(c *fiber.Ctx) error {
+	techID, ok := c.Locals("tech_id").(uint)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Unauthorized"})
+	}
+
+	var req struct {
+		ExpoPushToken string `json:"expo_push_token"`
+	}
+
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid JSON body"})
+	}
+
+	if req.ExpoPushToken == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Token is required"})
+	}
+
+	err := tc.technicianService.UpdatePushToken(techID, req.ExpoPushToken)
+	if err != nil {
+		log.Println("❌ [ERROR] Failed to save push token:", err)
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to update token"})
+	}
+
+	return c.JSON(fiber.Map{"message": "Device token updated successfully"})
+}

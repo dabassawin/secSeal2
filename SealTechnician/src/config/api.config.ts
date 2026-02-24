@@ -25,6 +25,7 @@ export const API_CONFIG = {
     TECHNICIAN_MY_SEALS: '/technician/my-seals',
     TECHNICIAN_INSTALL_SEAL: '/technician/seals/install',
     TECHNICIAN_RETURN_SEAL: '/technician/seals/return',
+    TECHNICIAN_NOTIFICATIONS: '/technician/notifications',
     SCAN_SEAL: '/scan-seal',
   },
 

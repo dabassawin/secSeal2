@@ -3,6 +3,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import HomeScreen from '../views/HomeScreen';
 import ScanScreen from '../views/ScanScreen';
 import HistoryScreen from '../views/HistoryScreen';
+import NotificationScreen from '../views/NotificationScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -27,6 +28,11 @@ export default function AppNavigator({ onLogout }: AppNavigatorProps) {
             <Stack.Screen
                 name="History"
                 component={HistoryScreen}
+                options={{ headerShown: false }}
+            />
+            <Stack.Screen
+                name="Notification"
+                component={NotificationScreen}
                 options={{ headerShown: false }}
             />
         </Stack.Navigator>
