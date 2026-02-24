@@ -76,6 +76,9 @@ func SetupSealRoutes(router fiber.Router, sealController *controller.SealControl
 // SetupPublicSealRoutes sets up public routes for "seals" (no JWT required)
 func SetupPublicSealRoutes(router fiber.Router, sealController *controller.SealController) {
 	// Use root router to avoid group middleware issues
-	router.Post("/api/scan-seal", sealController.ScanAndUseSealHandler)
+	// ✅ ใช้ TechnicianJWTMiddleware เพราะ endpoint นี้ถูกเรียกจากแอปช่าง
+	router.Post("/api/scan-seal", middleware.TechnicianJWTMiddleware(), sealController.ScanAndUseSealHandler)
 	router.Get("/api/scan-seal/check/:seal_number", sealController.CheckSealForScanHandler)
+	// ✅ endpoint สำหรับเช็คข้อมูลซีลก่อนใช้งาน
+	router.Get("/api/check-seal/:seal_number", middleware.TechnicianJWTMiddleware(), sealController.CheckSealOwnershipHandler)
 }

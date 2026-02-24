@@ -757,6 +757,14 @@ func (s *SealService) ScanAndUseSeal(sealNumber string, userID uint, imagePath s
 		return "", errors.New("ซีลนี้ถูกใช้งานไปแล้ว")
 	}
 
+	// 1.5 Check ownership
+	if userID == 0 {
+		return "", errors.New("ไม่พบข้อมูลผู้ใช้งาน กรุณาเข้าสู่ระบบอีกครั้ง")
+	}
+	if seal.AssignedToTechnician == nil || *seal.AssignedToTechnician != userID {
+		return "", errors.New("ซีลนี้ไม่ได้ถูกจ่ายให้กับคุณ ไม่สามารถใช้งานได้")
+	}
+
 	// 2. Allow ANY status -> Used (as per user request)
 	// if seal.Status != "พร้อมใช้งาน" && seal.Status != "จ่าย" && seal.Status != "ติดตั้งแล้ว" {
 	// 	return "", fmt.Errorf("สถานะซีลปัจจุบัน (%s) ไม่สามารถเปลี่ยนเป็น 'ใช้งานแล้ว' ได้ทันที", seal.Status)

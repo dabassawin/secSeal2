@@ -1,9 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, Alert, ActivityIndicator, Image } from 'react-native';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { API_CONFIG, getApiUrl } from '../config/api.config';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+
+import * as SecureStore from 'expo-secure-store';
+
+import { parseJwt } from '../utils/jwt';
 
 export default function ScanScreen() {
     const [permission, requestPermission] = useCameraPermissions();
@@ -49,7 +53,7 @@ export default function ScanScreen() {
         );
     }
 
-    const handleBarcodeScanned = ({ data }: { data: string }) => {
+    const handleBarcodeScanned = async ({ data }: { data: string }) => {
         setScanned(true);
 
         let sealNumber = data;
@@ -57,6 +61,7 @@ export default function ScanScreen() {
             sealNumber = sealNumber.slice(4);
         }
 
+<<<<<<< HEAD
         verifySeal(sealNumber);
     };
 
@@ -91,6 +96,43 @@ export default function ScanScreen() {
         } catch (error) {
             setResult({ message: `เครือข่ายขัดข้อง: ${(error as Error).message}`, type: 'error' });
             setScannedSealNumber(null);
+=======
+        try {
+            const token = await SecureStore.getItemAsync('userToken');
+            if (!token) {
+                Alert.alert("ข้อผิดพลาด", "ไม่พบข้อมูลประจำตัว กรุณาเข้าสู่ระบบใหม่", [
+                    { text: "ตกลง", onPress: resetScan }
+                ], { cancelable: false });
+                return;
+            }
+
+            // ✅ เช็คซีลกับ backend ทันที (ตรวจสอบสถานะ + ความเป็นเจ้าของ)
+            const response = await fetch(getApiUrl(`/check-seal/${sealNumber}`), {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            const checkResult = await response.json();
+
+            if (!response.ok) {
+                // Backend จะส่ง error message ภาษาไทยมาให้
+                Alert.alert("ไม่สามารถใช้งานได้", checkResult.error || "เกิดข้อผิดพลาดในการตรวจสอบ", [
+                    { text: "ตกลง", onPress: resetScan }
+                ], { cancelable: false });
+                return;
+            }
+
+            // ✅ ซีลผ่านการตรวจสอบ → ไปหน้าถ่ายรูป
+            setScannedSealNumber(sealNumber);
+
+        } catch (error) {
+            console.error("Error validating seal:", error);
+            Alert.alert("ข้อผิดพลาด", "ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้", [
+                { text: "ตกลง", onPress: resetScan }
+            ], { cancelable: false });
+            return;
+>>>>>>> origin/dev
         }
     };
 
@@ -108,28 +150,23 @@ export default function ScanScreen() {
             const photo = await cameraRef.current.takePictureAsync();
             if (photo) {
                 setPhotoUri(photo.uri);
-                Alert.alert(
-                    "ยืนยันการติดตั้งซีล",
-                    `ยืนยันการติดตั้งซีล ${scannedSealNumber}`,
-                    [
-                        {
-                            text: "ยกเลิก",
-                            style: "cancel",
-                            onPress: resetScan
-                        },
-                        {
-                            text: "ยืนยัน",
-                            onPress: () => processScan(scannedSealNumber!, photo.uri)
-                        }
-                    ],
-                    { cancelable: false }
-                );
             }
         } catch (error) {
-            Alert.alert("ข้อผิดพลาด", "ไม่สามารถถ่ายรูปได้");
-            resetScan();
+            Alert.alert("ข้อผิดพลาด", "ไม่สามารถถ่ายรูปได้", [
+                { text: "ตกลง", onPress: resetScan }
+            ], { cancelable: false });
         } finally {
             setIsTakingPhoto(false);
+        }
+    };
+
+    const retakePhoto = () => {
+        setPhotoUri(null);
+    };
+
+    const confirmInstall = () => {
+        if (scannedSealNumber && photoUri) {
+            processScan(scannedSealNumber, photoUri);
         }
     };
 
@@ -158,13 +195,15 @@ export default function ScanScreen() {
 
             console.log("🚀 [ScanScreen] Sending POST request to:", getApiUrl(API_CONFIG.endpoints.SCAN_SEAL));
 
-            // Retrieve the token from AsyncStorage (assuming it's stored there, though ScanAndUse allows userID=0 for now)
-            // But we must NOT set Content-Type so fetch appends the multipart boundary automatically.
+            // Retrieve the token from SecureStore to send to the secure backend route
+            const token = await SecureStore.getItemAsync('userToken');
+
             const response = await fetch(getApiUrl(API_CONFIG.endpoints.SCAN_SEAL), {
                 method: 'POST',
                 body: formData,
                 headers: {
                     'Accept': 'application/json',
+                    'Authorization': token ? `Bearer ${token}` : '',
                     // DO NOT SET Content-Type manually, let fetch set it with the boundary
                 },
             });
@@ -239,6 +278,27 @@ export default function ScanScreen() {
                         </TouchableOpacity>
                         <TouchableOpacity style={styles.cancelCaptureButton} onPress={resetScan}>
                             <Text style={styles.cancelCaptureText}>ยกเลิก</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            )}
+
+            {/* ✅ Photo Preview ก่อนยืนยัน */}
+            {photoUri && !result && (
+                <View style={styles.previewOverlay}>
+                    <Image source={{ uri: photoUri }} style={styles.previewImage} resizeMode="cover" />
+                    <View style={styles.previewHeader}>
+                        <Text style={styles.previewTitle}>ตรวจสอบรูปภาพ</Text>
+                        <Text style={styles.previewSubtitle}>ซีลเบอร์: {scannedSealNumber}</Text>
+                    </View>
+                    <View style={styles.previewControls}>
+                        <TouchableOpacity style={styles.retakeButton} onPress={retakePhoto}>
+                            <Ionicons name="camera-reverse-outline" size={22} color="#fff" />
+                            <Text style={styles.retakeText}>ถ่ายใหม่</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.confirmButton} onPress={confirmInstall}>
+                            <Ionicons name="checkmark-circle-outline" size={22} color="#fff" />
+                            <Text style={styles.confirmText}>ยืนยันติดตั้ง</Text>
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -434,6 +494,78 @@ const styles = StyleSheet.create({
     cancelCaptureText: {
         color: '#fff',
         fontSize: 18,
+        fontWeight: 'bold',
+    },
+    previewOverlay: {
+        ...StyleSheet.absoluteFillObject,
+        backgroundColor: '#000',
+        justifyContent: 'space-between',
+        zIndex: 10,
+    },
+    previewImage: {
+        flex: 1,
+        width: '100%',
+    },
+    previewHeader: {
+        position: 'absolute',
+        top: 60,
+        left: 0,
+        right: 0,
+        alignItems: 'center',
+        zIndex: 11,
+    },
+    previewTitle: {
+        color: '#fff',
+        fontSize: 22,
+        fontWeight: 'bold',
+        textShadowColor: 'rgba(0,0,0,0.7)',
+        textShadowOffset: { width: 0, height: 1 },
+        textShadowRadius: 4,
+    },
+    previewSubtitle: {
+        color: '#eee',
+        fontSize: 16,
+        marginTop: 4,
+        textShadowColor: 'rgba(0,0,0,0.7)',
+        textShadowOffset: { width: 0, height: 1 },
+        textShadowRadius: 4,
+    },
+    previewControls: {
+        position: 'absolute',
+        bottom: 50,
+        left: 0,
+        right: 0,
+        flexDirection: 'row',
+        justifyContent: 'space-evenly',
+        paddingHorizontal: 20,
+        zIndex: 11,
+    },
+    retakeButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(255,255,255,0.25)',
+        paddingHorizontal: 24,
+        paddingVertical: 14,
+        borderRadius: 30,
+        gap: 8,
+    },
+    retakeText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: 'bold',
+    },
+    confirmButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#4CAF50',
+        paddingHorizontal: 24,
+        paddingVertical: 14,
+        borderRadius: 30,
+        gap: 8,
+    },
+    confirmText: {
+        color: '#fff',
+        fontSize: 16,
         fontWeight: 'bold',
     },
 });
