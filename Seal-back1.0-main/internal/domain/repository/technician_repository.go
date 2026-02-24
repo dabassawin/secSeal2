@@ -112,3 +112,22 @@ func (r *TechnicianRepository) DeleteTechnician(techID uint) error {
 func (r *TechnicianRepository) UpdatePasswordByID(techID uint, hashedPassword string) error {
 	return r.db.Model(&model.Technician{}).Where("id = ?", techID).Update("password", hashedPassword).Error
 }
+
+// UpdatePushTokenByID updates only the Expo push token
+func (r *TechnicianRepository) UpdatePushTokenByID(techID uint, token string) error {
+	return r.db.Model(&model.Technician{}).Where("id = ?", techID).Update("expo_push_token", token).Error
+}
+
+func (r *TechnicianRepository) GetLogsByTechnicianID(techID uint) ([]model.Log, error) {
+	var logs []model.Log
+	// Fetch logs where the user ID matches the technician's ID
+	err := r.db.Where("user_id = ?", techID).Order("created_at DESC").Find(&logs).Error
+	if err != nil {
+		return nil, err
+	}
+	return logs, nil
+}
+
+func (r *TechnicianRepository) ClearLogsByTechnicianID(techID uint) error {
+	return r.db.Where("user_id = ?", techID).Delete(&model.Log{}).Error
+}

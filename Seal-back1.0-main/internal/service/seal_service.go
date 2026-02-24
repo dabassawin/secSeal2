@@ -12,8 +12,22 @@ import (
 	"github.com/Kev2406/PEA/internal/domain/model"
 	"github.com/Kev2406/PEA/internal/domain/repository"
 	"github.com/Kev2406/PEA/internal/dto"
+
+	//"github.com/Kev2406/PEA/internal/utils" // ✅ Import Push Notification Utils
 	"gorm.io/gorm"
 )
+
+// notifyTechnicianAsync is a helper to fire off push notifications without blocking responses
+func (s *SealService) notifyTechnicianAsync(techID uint, title, body string) {
+	/*
+		go func() {
+			tech, err := s.technicianRepo.FindByID(techID)
+			if err == nil && tech.ExpoPushToken != "" {
+				utils.SendExpoPushNotification(tech.ExpoPushToken, title, body, nil)
+			}
+		}()
+	*/
+}
 
 // SealService จัดการทุกอย่างฝั่ง Seal (รวมถึง AssignSealsToTechnicianCode ด้วย)
 type SealService struct {
@@ -465,7 +479,7 @@ func (s *SealService) AssignSealToTechnician(sealNumber string, techID uint, iss
 		}
 		log := model.Log{
 			UserID:    issuedBy,
-			Action:    fmt.Sprintf("Assigned seal %s to technician ID %d", sealNumber, techID),
+			Action:    fmt.Sprintf("จ่ายซีล %s ให้ช่าง %d", sealNumber, techID),
 			Timestamp: now,
 		}
 		if err := tx.Create(&log).Error; err != nil {
@@ -683,11 +697,13 @@ func (s *SealService) AssignSealsByTechCode(techCode string, sealNumbers []strin
 		// log
 		logEntry := model.Log{
 			UserID: technician.ID,
-			Action: fmt.Sprintf("Assigned seal %s to technician_code=%s", sn, techCode),
+			Action: fmt.Sprintf("จ่ายซีล %s ให้ช่าง %s", sn, techCode),
 		}
 		if err := s.logRepo.Create(&logEntry); err != nil {
 			return err
 		}
+
+		s.notifyTechnicianAsync(technician.ID, "ได้รับซีลใหม่", fmt.Sprintf("คุณได้รับมอบหมายซีลหมายเลข %s", sn))
 	}
 	return nil
 }
