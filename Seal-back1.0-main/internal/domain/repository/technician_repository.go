@@ -112,3 +112,15 @@ func (r *TechnicianRepository) DeleteTechnician(techID uint) error {
 func (r *TechnicianRepository) UpdatePasswordByID(techID uint, hashedPassword string) error {
 	return r.db.Model(&model.Technician{}).Where("id = ?", techID).Update("password", hashedPassword).Error
 }
+
+// GetLogsByUserID fetches logs for a specific technician sorted by newest first
+func (r *TechnicianRepository) GetLogsByUserID(userID uint) ([]model.Log, error) {
+	var logs []model.Log
+	err := r.db.Where("user_id = ?", userID).Order("created_at desc").Find(&logs).Error
+	return logs, err
+}
+
+// DeleteLogsByUserID deletes all logs for a specific technician
+func (r *TechnicianRepository) DeleteLogsByUserID(userID uint) error {
+	return r.db.Where("user_id = ?", userID).Delete(&model.Log{}).Error
+}

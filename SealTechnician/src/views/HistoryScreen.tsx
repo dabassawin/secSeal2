@@ -13,6 +13,7 @@ type RootStackParamList = {
     Home: undefined;
     Scan: undefined;
     History: undefined;
+    Notification: undefined;
 };
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'History'>;
@@ -294,7 +295,7 @@ export default function HistoryScreen() {
                 <View style={styles.footerSpace} />
 
                 {/* Notification Tab */}
-                <TouchableOpacity style={styles.footerItem}>
+                <TouchableOpacity style={styles.footerItem} onPress={() => navigation.navigate('Notification')}>
                     <Ionicons name="notifications-outline" size={24} color="#BDBDBD" />
                     <Text style={styles.footerText}>แจ้งเตือน</Text>
                 </TouchableOpacity>

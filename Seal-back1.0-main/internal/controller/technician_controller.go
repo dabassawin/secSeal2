@@ -423,3 +423,33 @@ func (tc *TechnicianController) UploadSealImagesHandler(c *fiber.Ctx) error {
 		"image2":      imageURL2,
 	})
 }
+
+// GetNotificationsHandler handles GET /api/technician/notifications
+func (tc *TechnicianController) GetNotificationsHandler(c *fiber.Ctx) error {
+	techID, ok := c.Locals("tech_id").(uint)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Unauthorized"})
+	}
+
+	logs, err := tc.technicianService.GetNotifications(techID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch notifications"})
+	}
+
+	return c.JSON(logs)
+}
+
+// ClearNotificationsHandler handles DELETE /api/technician/notifications
+func (tc *TechnicianController) ClearNotificationsHandler(c *fiber.Ctx) error {
+	techID, ok := c.Locals("tech_id").(uint)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Unauthorized"})
+	}
+
+	err := tc.technicianService.ClearNotifications(techID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to clear notifications"})
+	}
+
+	return c.JSON(fiber.Map{"message": "Notifications cleared successfully"})
+}

@@ -239,3 +239,13 @@ func (s *TechnicianService) UploadSealImages(sealNumber string, techID uint, ima
 
 	return s.repo.UpdateSeal(seal)
 }
+
+// GetNotifications retrieves all logs for a specific technician
+func (s *TechnicianService) GetNotifications(techID uint) ([]model.Log, error) {
+	return s.repo.GetLogsByUserID(techID)
+}
+
+// ClearNotifications deletes all logs for a specific technician
+func (s *TechnicianService) ClearNotifications(techID uint) error {
+	return s.repo.DeleteLogsByUserID(techID)
+}
