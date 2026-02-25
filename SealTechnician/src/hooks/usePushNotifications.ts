@@ -33,12 +33,12 @@ export const usePushNotifications = (): PushNotificationState => {
         });
 
         // Fired when a notification is received while the app is foregrounded
-        notificationListener.current = Notifications.addNotificationReceivedListener(notification => {
+        notificationListener.current = Notifications.addNotificationReceivedListener((notification: Notifications.Notification) => {
             setNotification(notification);
         });
 
         // Fired when a user taps on or interacts with a notification 
-        responseListener.current = Notifications.addNotificationResponseReceivedListener(response => {
+        responseListener.current = Notifications.addNotificationResponseReceivedListener((response: Notifications.NotificationResponse) => {
             console.log("Notification Response:", response);
         });
 
