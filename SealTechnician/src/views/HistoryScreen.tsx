@@ -14,6 +14,7 @@ type RootStackParamList = {
     Scan: undefined;
     History: undefined;
     Notification: undefined;
+    ReturnSeal: undefined;
 };
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'History'>;
@@ -294,16 +295,16 @@ export default function HistoryScreen() {
                 {/* Space for Floating Button */}
                 <View style={styles.footerSpace} />
 
+                {/* Return Tab */}
+                <TouchableOpacity style={styles.footerItem} onPress={() => navigation.navigate('ReturnSeal')}>
+                    <Ionicons name="arrow-undo-outline" size={24} color="#BDBDBD" />
+                    <Text style={styles.footerText}>คืนซีล</Text>
+                </TouchableOpacity>
+
                 {/* Notification Tab */}
                 <TouchableOpacity style={styles.footerItem} onPress={() => navigation.navigate('Notification')}>
                     <Ionicons name="notifications-outline" size={24} color="#BDBDBD" />
                     <Text style={styles.footerText}>แจ้งเตือน</Text>
-                </TouchableOpacity>
-
-                {/* Profile Tab */}
-                <TouchableOpacity style={styles.footerItem}>
-                    <Ionicons name="person-outline" size={24} color="#BDBDBD" />
-                    <Text style={styles.footerText}>โปรไฟล์</Text>
                 </TouchableOpacity>
             </View>
 

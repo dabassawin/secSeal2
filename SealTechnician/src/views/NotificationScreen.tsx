@@ -13,7 +13,7 @@ type RootStackParamList = {
     Scan: undefined;
     History: undefined;
     Notification: undefined;
-    Profile: undefined;
+    ReturnSeal: undefined;
 };
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'Notification'>;
@@ -257,14 +257,14 @@ export default function NotificationScreen() {
 
                 <View style={styles.footerSpace} />
 
+                <TouchableOpacity style={styles.footerItem} onPress={() => navigation.navigate('ReturnSeal')}>
+                    <Ionicons name="arrow-undo-outline" size={24} color="#BDBDBD" />
+                    <Text style={styles.footerText}>คืนซีล</Text>
+                </TouchableOpacity>
+
                 <TouchableOpacity style={styles.footerItem}>
                     <Ionicons name="notifications" size={24} color="#6A0DAD" />
                     <Text style={[styles.footerText, styles.activeFooterText]}>แจ้งเตือน</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity style={styles.footerItem} onPress={() => navigation.navigate('Profile')}>
-                    <Ionicons name="person-outline" size={24} color="#BDBDBD" />
-                    <Text style={styles.footerText}>โปรไฟล์</Text>
                 </TouchableOpacity>
             </View>
 

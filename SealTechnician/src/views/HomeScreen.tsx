@@ -8,12 +8,14 @@ import { Seal } from '../services/TechnicianService';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { AuthService } from '../services/AuthService';
+import { API_CONFIG } from '../config/api.config';
 
 type RootStackParamList = {
     Home: undefined;
     Scan: undefined;
     History: undefined;
     Notification: undefined;
+    ReturnSeal: undefined;
 };
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'Home'>;
@@ -44,6 +46,12 @@ export default function HomeScreen({ onLogout }: HomeScreenProps) {
             Alert.alert('Error', error);
         }
     }, [error]);
+
+    const getAvatarUrl = (path?: string) => {
+        if (!path) return 'https://via.placeholder.com/50';
+        if (path.startsWith('http')) return path;
+        return `http://${API_CONFIG.SERVER_IP}:${API_CONFIG.SERVER_PORT}${path.startsWith('/') ? '' : '/'}${path}`;
+    };
 
     const onRefresh = useCallback(() => {
         fetchSeals();
@@ -100,13 +108,13 @@ export default function HomeScreen({ onLogout }: HomeScreenProps) {
                     <View style={styles.profileRow}>
                         <View style={styles.avatarContainer}>
                             <Image
-                                source={{ uri: 'https://via.placeholder.com/50' }}
+                                source={{ uri: getAvatarUrl(undefined) }}
                                 style={styles.avatar}
                             />
                         </View>
                         <View style={styles.userInfo}>
                             <Text style={styles.greeting}>สวัสดี,</Text>
-                            <Text style={styles.username}>{userInfo?.username || 'Technician'}</Text>
+                            <Text style={styles.username}>{userInfo?.first_name ? `${userInfo.first_name} ${userInfo.last_name || ''}` : (userInfo?.username || 'Technician')}</Text>
                             <View style={styles.idBadge}>
                                 <Text style={styles.idText}>ID: {userInfo?.username}</Text>
                             </View>
@@ -204,16 +212,16 @@ export default function HomeScreen({ onLogout }: HomeScreenProps) {
                 {/* Space for Floating Button */}
                 <View style={styles.footerSpace} />
 
+                {/* Return Tab */}
+                <TouchableOpacity style={styles.footerItem} onPress={() => navigation.navigate('ReturnSeal')}>
+                    <Ionicons name="arrow-undo-outline" size={24} color="#BDBDBD" />
+                    <Text style={styles.footerText}>คืนซีล</Text>
+                </TouchableOpacity>
+
                 {/* Notification Tab */}
                 <TouchableOpacity style={styles.footerItem} onPress={() => navigation.navigate('Notification')}>
                     <Ionicons name="notifications-outline" size={24} color="#BDBDBD" />
                     <Text style={styles.footerText}>แจ้งเตือน</Text>
-                </TouchableOpacity>
-
-                {/* Profile Tab */}
-                <TouchableOpacity style={styles.footerItem}>
-                    <Ionicons name="person-outline" size={24} color="#BDBDBD" />
-                    <Text style={styles.footerText}>โปรไฟล์</Text>
                 </TouchableOpacity>
             </View>
 

@@ -106,28 +106,27 @@ func (s *TechnicianService) InstallSeal(sealNumber string, techID uint, serialNu
 	return s.repo.CreateLog(&logEntry)
 }
 
-func (s *TechnicianService) ReturnSeal(sealNumber string, techID uint, remarks string) error {
+func (s *TechnicianService) ReturnSealWithImage(sealNumber string, techID uint, remarks string, imageURL string) error {
 	// ✅ ค้นหาซิลจากฐานข้อมูล
 	seal, err := s.repo.FindSealByNumber(sealNumber)
 	if err != nil {
 		return errors.New("ไม่พบซีลในระบบ")
 	}
 
-	// ✅ ตรวจสอบว่าซิลถูกใช้โดยช่างคนนี้หรือไม่
-	if seal.UsedBy == nil || *seal.UsedBy != techID {
-		return errors.New("คุณไม่มีสิทธิ์คืนซีลนี้")
-	}
-
-	// ✅ ตรวจสอบว่าสถานะของซีลเป็น "ติดตั้งแล้ว" เท่านั้น
-	if seal.Status != "ติดตั้งแล้ว" {
-		return errors.New("ซิลต้องอยู่ในสถานะ 'ติดตั้งแล้ว' เท่านั้นจึงจะคืนได้")
+	// ✅ ตรวจสอบว่าซิลอยู่ในสถานะที่คืนได้ ('จ่าย', 'พร้อมใช้งาน', 'ติดตั้งแล้ว', 'ใช้งานแล้ว')
+	if seal.Status != "จ่าย" && seal.Status != "พร้อมใช้งาน" && seal.Status != "ติดตั้งแล้ว" && seal.Status != "ใช้งานแล้ว" {
+		return errors.New("ซีลไม่ได้อยู่ในสถานะที่สามารถคืนได้")
 	}
 
 	now := time.Now()
-	seal.Status = "ใช้งานแล้ว"
+	seal.Status = "รอตรวจสอบคืน" // Pending admin approval
 	seal.ReturnedBy = &techID
 	seal.ReturnedAt = &now
-	seal.ReturnRemarks = remarks // ✅ บันทึกหมายเหตุ
+	seal.ReturnRemarks = remarks // ✅ บันทึกเหตุผลการคืน
+
+	if imageURL != "" {
+		seal.Image1 = imageURL // เซฟเป็นรูปที่ 1 (ถ้ามีรูปเพิ่มเติมสามารถเพิ่ม Image2 ได้)
+	}
 
 	// ✅ บันทึกข้อมูลลงฐานข้อมูล
 	if err := s.repo.UpdateSeal(seal); err != nil {
@@ -137,7 +136,7 @@ func (s *TechnicianService) ReturnSeal(sealNumber string, techID uint, remarks s
 	// ✅ บันทึก Log
 	logEntry := model.Log{
 		UserID: techID,
-		Action: fmt.Sprintf("คืนซีล %s (หมายเหตุ: %s)", sealNumber, remarks),
+		Action: fmt.Sprintf("คืนซีล %s (เหตุผล: %s)", sealNumber, remarks),
 	}
 	return s.repo.CreateLog(&logEntry)
 }
@@ -179,6 +178,10 @@ func (s *TechnicianService) UpdateTechnician(techID uint, req struct {
 
 func (s *TechnicianService) GetAllTechnicians(peaCode string, isPrefix bool) ([]model.Technician, error) {
 	return s.repo.GetAllTechnicians(peaCode, isPrefix)
+}
+
+func (s *TechnicianService) GetTechnicianByID(techID uint) (*model.Technician, error) {
+	return s.repo.FindByID(techID)
 }
 
 // func (s *TechnicianService) UpdateTechnician(techID uint, req map[string]interface{}) error {

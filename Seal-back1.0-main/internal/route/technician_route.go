@@ -25,8 +25,11 @@ func SetupTechnicianRoutes(router fiber.Router, techController *controller.Techn
 	protectedTech := tech.Group("", middleware.TechnicianJWTMiddleware())
 	protectedTech.Get("/my-seals", techController.GetAssignedSealsHandler)
 	protectedTech.Put("/seals/install", techController.InstallSealHandler)
-	protectedTech.Put("/seals/return/:seal_number", techController.ReturnSealHandler)
+	protectedTech.Post("/seals/return", techController.ReturnSealHandler)
 	protectedTech.Post("/seals/upload-images", techController.UploadSealImagesHandler)
+
+	// Profile Picture & Info
+	protectedTech.Get("/me", techController.GetMeHandler)
 
 	// ✅ Notifications
 	protectedTech.Get("/notifications", techController.GetNotificationsHandler)

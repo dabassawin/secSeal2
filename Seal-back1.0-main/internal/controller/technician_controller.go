@@ -157,23 +157,34 @@ func (tc *TechnicianController) InstallSealHandler(c *fiber.Ctx) error {
 	})
 }
 
-// ✅ Technician คืนซีลที่ติดตั้งแล้ว
+// ✅ Technician คืนซีลที่ติดตั้งแล้วหรือชำรุด
 func (tc *TechnicianController) ReturnSealHandler(c *fiber.Ctx) error {
 	techID, ok := c.Locals("tech_id").(uint)
 	if !ok {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Unauthorized"})
 	}
 
-	sealNumber := c.Params("seal_number")
-	var req struct {
-		Remarks string `json:"remarks"`
+	// 1) รับค่าจาก FormData
+	sealNumber := c.FormValue("seal_number")
+	reason := c.FormValue("reason")
+
+	if sealNumber == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "seal_number is required"})
 	}
 
-	if err := c.BodyParser(&req); err != nil {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
+	// 2) อัปโหลดรูปภาพถ้ามี
+	var imageURL string
+	file, err := c.FormFile("image")
+	if err == nil && file.Size > 0 {
+		imageURL, err = uploads.SaveImage(file)
+		if err != nil {
+			log.Println("❌ [ERROR] Failed to save return image:", err)
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to save image"})
+		}
 	}
 
-	err := tc.technicianService.ReturnSeal(sealNumber, techID, req.Remarks)
+	// 3) บันทึกการคืนซีลในฐานข้อมูล
+	err = tc.technicianService.ReturnSealWithImage(sealNumber, techID, reason, imageURL)
 	if err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
 	}
@@ -181,7 +192,8 @@ func (tc *TechnicianController) ReturnSealHandler(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"message":     "คืน Seal สำเร็จ",
 		"seal_number": sealNumber,
-		"remarks":     req.Remarks,
+		"reason":      reason,
+		"image_url":   imageURL,
 	})
 }
 func (tc *TechnicianController) UpdateTechnicianHandler(c *fiber.Ctx) error {
@@ -323,7 +335,7 @@ func (tc *TechnicianController) ResetAllPasswordsHandler(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(fiber.Map{
-		"message": fmt.Sprintf("Password reset complete"),
+		"message": "Password reset complete",
 		"fixed":   fixed,
 	})
 }
@@ -452,4 +464,22 @@ func (tc *TechnicianController) ClearNotificationsHandler(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(fiber.Map{"message": "Notifications cleared successfully"})
+}
+
+// GetMeHandler returns the profile of the currently logged-in technician
+func (tc *TechnicianController) GetMeHandler(c *fiber.Ctx) error {
+	techID, ok := c.Locals("tech_id").(uint)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Unauthorized"})
+	}
+
+	tech, err := tc.technicianService.GetTechnicianByID(techID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch profile info"})
+	}
+
+	// Make sure we hide the password
+	tech.Password = ""
+
+	return c.JSON(tech)
 }

@@ -13,7 +13,7 @@ const BASE_URL = getBaseUrl();
 
 export const API_CONFIG = {
   // IP address of your machine on the local network
-  SERVER_IP: '192.168.1.2',
+  SERVER_IP: '192.168.1.35',
   SERVER_PORT: '3000',
 
   // API endpoints
@@ -26,6 +26,8 @@ export const API_CONFIG = {
     TECHNICIAN_INSTALL_SEAL: '/technician/seals/install',
     TECHNICIAN_RETURN_SEAL: '/technician/seals/return',
     TECHNICIAN_NOTIFICATIONS: '/technician/notifications',
+    TECHNICIAN_ME: '/technician/me',
+    TECHNICIAN_AVATAR: '/technician/avatar',
     SCAN_SEAL: '/scan-seal',
   },
 
