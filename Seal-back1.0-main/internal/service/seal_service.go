@@ -159,7 +159,7 @@ func (s *SealService) GenerateAndCreateSeals(count int, userID uint) ([]model.Se
 	return seals, nil
 }
 
-func (s *SealService) GenerateAndCreateSealsFromNumber(startingSealNumber string, count int, userID uint, peaCode string, status string) ([]model.Seal, error) {
+func (s *SealService) GenerateAndCreateSealsFromNumber(startingSealNumber string, count int, userID uint, peaCode string, status string, createRemarks string) ([]model.Seal, error) {
 	sealNumbers, err := GenerateNextSealNumbers(startingSealNumber, count)
 	if err != nil {
 		return nil, err
@@ -182,11 +182,12 @@ func (s *SealService) GenerateAndCreateSealsFromNumber(startingSealNumber string
 		}
 
 		newSeals = append(newSeals, model.Seal{
-			SealNumber: sn,
-			PeaCode:    peaCode, // ✅ ใส่ PeaCode
-			Status:     status,
-			CreatedAt:  now,
-			UpdatedAt:  now,
+			SealNumber:    sn,
+			PeaCode:       peaCode,
+			Status:        status,
+			CreateRemarks: createRemarks,
+			CreatedAt:     now,
+			UpdatedAt:     now,
 		})
 	}
 
@@ -646,7 +647,7 @@ func (s *SealService) CheckSealAvailability(sealNumbers []string) ([]dto.SealChe
 	return results, nil
 }
 
-func (s *SealService) AssignSealsByTechCode(techCode string, sealNumbers []string, remark string, issuedBy uint) error {
+func (s *SealService) AssignSealsByTechCode(techCode string, sealNumbers []string, remark string, sealRemarks map[string]string, issuedBy uint) error {
 	// 1) หา Technician
 	technician, err := s.technicianRepo.FindByTechCode(techCode)
 	if err != nil {
@@ -674,7 +675,17 @@ func (s *SealService) AssignSealsByTechCode(techCode string, sealNumbers []strin
 		// ใส่ technician ลงในฟิลด์ AssignedToTechnician และ IssuedTo
 		seal.AssignedToTechnician = &technician.ID
 		seal.IssuedTo = &technician.ID
-		seal.IssueRemark = remark
+
+		// ใช้ per-seal remark ถ้ามี, ไม่งั้นใช้ remark ทั่วไป
+		if sealRemarks != nil {
+			if r, ok := sealRemarks[sn]; ok && r != "" {
+				seal.IssueRemark = r
+			} else {
+				seal.IssueRemark = remark
+			}
+		} else {
+			seal.IssueRemark = remark
+		}
 
 		// Update DB
 		if err := s.repo.Update(seal); err != nil {

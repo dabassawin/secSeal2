@@ -18,6 +18,7 @@ interface StagedSeal {
     status: 'checking' | 'available' | 'unavailable' | 'duplicate';
     rangeCount?: number; // Changed from rangeEnd to rangeCount
     startSeal?: string;  // Added to help with expansion
+    issueRemark: string;
 }
 
 export const AssignSealScreen: React.FC = () => {
@@ -179,7 +180,8 @@ export const AssignSealScreen: React.FC = () => {
             id: Date.now().toString(),
             sealNumber: sealNum,
             type: 'Single',
-            status: 'available' // We know it's available now
+            status: 'available',
+            issueRemark: ''
         };
 
         setStagedSeals(prev => [newEntry, ...prev]);
@@ -222,9 +224,10 @@ export const AssignSealScreen: React.FC = () => {
             if (available.length > 0) {
                 const newEntries: StagedSeal[] = available.map((result, index) => ({
                     id: Date.now().toString() + '-' + index,
-                    sealNumber: result.seal_number, // Use the returned seal number to be safe
+                    sealNumber: result.seal_number,
                     type: 'Single',
-                    status: 'available'
+                    status: 'available',
+                    issueRemark: ''
                 }));
                 setStagedSeals(prev => [...newEntries, ...prev]);
             }
@@ -263,6 +266,10 @@ export const AssignSealScreen: React.FC = () => {
         setStagedSeals(prev => prev.filter(s => s.id !== id));
     };
 
+    const handleUpdateIssueRemark = (id: string, remark: string) => {
+        setStagedSeals(prev => prev.map(s => s.id === id ? { ...s, issueRemark: remark } : s));
+    };
+
     const handleConfirmAssignment = async () => {
         if (!selectedTech) {
             setModalStatus('error');
@@ -295,9 +302,19 @@ export const AssignSealScreen: React.FC = () => {
             // Remove duplicates if any (though UI prevents easy duplicates)
             sealList = [...new Set(sealList)];
 
+            // Build per-seal remarks map
+            const sealRemarksMap: Record<string, string> = {};
+            validSeals.forEach(s => {
+                if (s.issueRemark) {
+                    sealRemarksMap[s.sealNumber] = s.issueRemark;
+                }
+            });
+
             await sealService.assignSealsByTechCode(
                 selectedTech.technician_code,
-                sealList
+                sealList,
+                undefined,
+                Object.keys(sealRemarksMap).length > 0 ? sealRemarksMap : undefined
             );
 
             setModalStatus('success');
@@ -438,7 +455,7 @@ export const AssignSealScreen: React.FC = () => {
                     <View style={styles.tableHead}>
                         <Text style={[styles.th, { flex: 0.5 }]}>#</Text>
                         <Text style={[styles.th, { flex: 3 }]}>SERIAL NUMBER</Text>
-                        <Text style={[styles.th, { flex: 1.5 }]}>TYPE</Text>
+                        <Text style={[styles.th, { flex: 1.5 }]}>หมายเหตุ</Text>
                         <Text style={[styles.th, { flex: 2 }]}>STATUS CHECK</Text>
                         <Text style={[styles.th, { flex: 1, textAlign: 'center' }]}>ACTION</Text>
                     </View>
@@ -455,7 +472,14 @@ export const AssignSealScreen: React.FC = () => {
                                     {item.type === 'Range' && <View style={styles.rangeTag}><Text style={styles.rangeTagText}>RANGE ({item.rangeCount})</Text></View>}
                                     <Text style={styles.serialText}>{item.sealNumber}</Text>
                                 </View>
-                                <Text style={[styles.td, { flex: 1.5, color: '#666' }]}>{item.type === 'Range' ? 'Batch' : 'Single'}</Text>
+                                <View style={{ flex: 1.5 }}>
+                                    <TextInput
+                                        style={styles.remarkInput}
+                                        placeholder="พิมพ์หมายเหตุ..."
+                                        value={item.issueRemark}
+                                        onChangeText={(text) => handleUpdateIssueRemark(item.id, text)}
+                                    />
+                                </View>
                                 <View style={{ flex: 2 }}>
                                     {item.status === 'checking' && <Text style={styles.statusChecking}>⏳ Checking...</Text>}
                                     {item.status === 'available' && <Text style={styles.statusOk}>✅ Available</Text>}
@@ -717,6 +741,7 @@ const styles = StyleSheet.create({
     statusOk: { color: '#4caf50', fontWeight: 'bold', fontSize: 13 },
     statusError: { color: '#f44336', fontWeight: 'bold', fontSize: 13 },
     deleteIcon: { fontSize: 16, color: '#ccc' },
+    remarkInput: { borderWidth: 1, borderColor: '#e0e0e0', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4, fontSize: 12, backgroundColor: '#fafafa', minHeight: 32 },
     emptyState: { padding: 40, alignItems: 'center' },
     emptyText: { color: '#ccc', fontSize: 16 },
 
