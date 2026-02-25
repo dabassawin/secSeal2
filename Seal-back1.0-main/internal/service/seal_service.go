@@ -818,3 +818,161 @@ func (s *SealService) UpdateSealStatusAdmin(sealNumber string, status string, us
 		return s.logRepo.Create(&logEntry)
 	})
 }
+
+// -------------------------------------------------------------------
+// GetSealStatement (Statement/Report with date range & enriched data)
+// -------------------------------------------------------------------
+type StatementItem struct {
+	SealNumber      string  `json:"seal_number"`
+	PeaCode         string  `json:"pea_code"`
+	Status          string  `json:"status"`
+	IssuedByName    string  `json:"issued_by_name"`
+	TechName        string  `json:"tech_name"`
+	IssueRemark     string  `json:"issue_remark"`
+	InstalledSerial string  `json:"installed_serial"`
+	IssuedAt        *string `json:"issued_at"`
+	UsedAt          *string `json:"used_at"`
+	ReturnedAt      *string `json:"returned_at"`
+	UpdatedAt       string  `json:"updated_at"`
+	CreatedAt       string  `json:"created_at"`
+}
+
+type SealStatement struct {
+	Period  map[string]string `json:"period"`
+	Summary map[string]int64  `json:"summary"`
+	Total   int64             `json:"total"`
+	Items   []StatementItem   `json:"items"`
+}
+
+func (s *SealService) GetSealStatement(peaCode string, startDate string, endDate string) (*SealStatement, error) {
+	query := s.db.Model(&model.Seal{})
+
+	if peaCode != "" {
+		query = query.Where("pea_code = ?", peaCode)
+	}
+
+	// Apply date range filter on updated_at
+	if startDate != "" {
+		t, err := time.Parse("2006-01-02", startDate)
+		if err == nil {
+			query = query.Where("updated_at >= ?", t)
+		}
+	}
+	if endDate != "" {
+		t, err := time.Parse("2006-01-02", endDate)
+		if err == nil {
+			// end of day
+			endOfDay := t.Add(24*time.Hour - time.Second)
+			query = query.Where("updated_at <= ?", endOfDay)
+		}
+	}
+
+	// Count by status
+	statuses := []string{"พร้อมใช้งาน", "จ่าย", "ติดตั้งแล้ว", "ใช้งานแล้ว", "เสียหาย", "สูญหาย"}
+	summary := make(map[string]int64)
+	var total int64
+
+	for _, st := range statuses {
+		var count int64
+		if err := query.Session(&gorm.Session{}).Where("status = ?", st).Count(&count).Error; err != nil {
+			return nil, err
+		}
+		summary[st] = count
+		total += count
+	}
+
+	// Fetch all seals matching filter
+	var seals []model.Seal
+	if err := query.Session(&gorm.Session{}).Order("updated_at DESC").Find(&seals).Error; err != nil {
+		return nil, err
+	}
+
+	// Collect user IDs and technician IDs for name lookup
+	userIDSet := make(map[uint]bool)
+	techIDSet := make(map[uint]bool)
+	for _, seal := range seals {
+		if seal.IssuedBy != nil {
+			userIDSet[*seal.IssuedBy] = true
+		}
+		if seal.AssignedToTechnician != nil {
+			techIDSet[*seal.AssignedToTechnician] = true
+		}
+	}
+
+	// Batch lookup users (IssuedBy stores EmpID, not User.ID)
+	userNameMap := make(map[uint]string)
+	if len(userIDSet) > 0 {
+		var userIDs []uint
+		for id := range userIDSet {
+			userIDs = append(userIDs, id)
+		}
+		var users []model.User
+		s.db.Where("emp_id IN ?", userIDs).Find(&users)
+		for _, u := range users {
+			userNameMap[u.EmpID] = u.FirstName + " " + u.LastName
+		}
+	}
+
+	// Batch lookup technicians
+	techNameMap := make(map[uint]string)
+	if len(techIDSet) > 0 {
+		var techIDs []uint
+		for id := range techIDSet {
+			techIDs = append(techIDs, id)
+		}
+		var techs []model.Technician
+		s.db.Where("id IN ?", techIDs).Find(&techs)
+		for _, t := range techs {
+			techNameMap[t.ID] = t.FirstName + " " + t.LastName
+		}
+	}
+
+	// Build items
+	items := make([]StatementItem, 0, len(seals))
+	for _, seal := range seals {
+		item := StatementItem{
+			SealNumber:      seal.SealNumber,
+			PeaCode:         seal.PeaCode,
+			Status:          seal.Status,
+			IssueRemark:     seal.IssueRemark,
+			InstalledSerial: seal.InstalledSerial,
+			UpdatedAt:       seal.UpdatedAt.Format("2006-01-02 15:04:05"),
+			CreatedAt:       seal.CreatedAt.Format("2006-01-02 15:04:05"),
+		}
+		if seal.IssuedBy != nil {
+			if name, ok := userNameMap[*seal.IssuedBy]; ok {
+				item.IssuedByName = name
+			}
+		}
+		if seal.AssignedToTechnician != nil {
+			if name, ok := techNameMap[*seal.AssignedToTechnician]; ok {
+				item.TechName = name
+			}
+		}
+		if seal.IssuedAt != nil {
+			s := seal.IssuedAt.Format("2006-01-02 15:04:05")
+			item.IssuedAt = &s
+		}
+		if seal.UsedAt != nil {
+			s := seal.UsedAt.Format("2006-01-02 15:04:05")
+			item.UsedAt = &s
+		}
+		if seal.ReturnedAt != nil {
+			s := seal.ReturnedAt.Format("2006-01-02 15:04:05")
+			item.ReturnedAt = &s
+		}
+		items = append(items, item)
+	}
+
+	period := map[string]string{
+		"start_date": startDate,
+		"end_date":   endDate,
+	}
+
+	return &SealStatement{
+		Period:  period,
+		Summary: summary,
+		Total:   total,
+		Items:   items,
+	}, nil
+}

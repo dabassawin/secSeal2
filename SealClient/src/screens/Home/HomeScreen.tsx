@@ -103,6 +103,14 @@ export const HomeScreen: React.FC = () => {
                         iconBgColor="#d7ccc8"
                         onPress={() => (navigation as any).navigate('AssignSeal')}
                     />
+                    <ActionCard
+                        title="รายงาน (Statement)"
+                        subtitle="ดูรายงานสรุปซีลตามช่วงเวลา"
+                        icon="📊"
+                        iconColor="#6A1B9A"
+                        iconBgColor="#F3E5F5"
+                        onPress={() => (navigation as any).navigate('SealReport')}
+                    />
                     {user?.role === 'admin' && (
                         <ActionCard
                             title="สร้างผู้ใช้งาน"

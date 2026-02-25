@@ -194,6 +194,22 @@ func (sc *SealController) GetSealReportHandler(c *fiber.Ctx) error {
 }
 
 // -------------------------------------------------------------------
+// 5.1) GetSealStatementHandler
+// GET /api/seals/statement?pea_code=&start_date=&end_date=
+// -------------------------------------------------------------------
+func (sc *SealController) GetSealStatementHandler(c *fiber.Ctx) error {
+	peaCode := c.Query("pea_code", "")
+	startDate := c.Query("start_date", "")
+	endDate := c.Query("end_date", "")
+
+	statement, err := sc.sealService.GetSealStatement(peaCode, startDate, endDate)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to generate statement: " + err.Error()})
+	}
+	return c.JSON(statement)
+}
+
+// -------------------------------------------------------------------
 // 6) GetSealHandler
 // GET /api/seals/:seal_number
 // -------------------------------------------------------------------

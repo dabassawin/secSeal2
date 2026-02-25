@@ -17,7 +17,8 @@ import {
     ImportTechnicianScreen,
     AssignSealScreen,
     CreateUserScreen,
-    ChangeWorkplaceScreen
+    ChangeWorkplaceScreen,
+    ReportScreen
 } from '../screens';
 import TechnicianHomeScreen from '../screens/TechnicianHomeScreen';
 
@@ -139,6 +140,14 @@ const StaffNavigator = () => {
                     drawerItemStyle: { display: 'none' }
                 }}
             />
+            <Drawer.Screen
+                name="SealReport"
+                component={ReportScreen}
+                options={{
+                    title: 'รายงานซีล (Statement)',
+                    drawerItemStyle: { display: 'none' }
+                }}
+            />
             {/* We will add Logs, etc. here later */}
         </Drawer.Navigator>
     );
@@ -183,6 +192,7 @@ const RootNavigator = () => {
                                 CreateSeal: 'seals/create',
                             },
                         },
+                        SealReport: 'report',
                     },
                 },
                 TechApp: {

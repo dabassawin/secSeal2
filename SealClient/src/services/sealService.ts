@@ -1,5 +1,5 @@
 import api from './api';
-import { SealReport, Seal } from '@/types';
+import { SealReport, Seal, SealStatement } from '@/types';
 
 export interface SealCheckResult {
     seal_number: string;
@@ -16,6 +16,21 @@ export const sealService = {
             return response.data;
         } catch (error) {
             console.error('Error fetching seal report:', error);
+            return null;
+        }
+    },
+
+    getStatement: async (peaCode?: string, startDate?: string, endDate?: string): Promise<SealStatement | null> => {
+        try {
+            const params = new URLSearchParams();
+            if (peaCode) params.append('pea_code', peaCode);
+            if (startDate) params.append('start_date', startDate);
+            if (endDate) params.append('end_date', endDate);
+            const url = `/api/seals/statement${params.toString() ? '?' + params.toString() : ''}`;
+            const response = await api.get(url);
+            return response.data;
+        } catch (error) {
+            console.error('Error fetching seal statement:', error);
             return null;
         }
     },

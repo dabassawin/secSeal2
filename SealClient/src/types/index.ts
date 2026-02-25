@@ -56,3 +56,25 @@ export interface Technician {
     created_at?: string;
     updated_at?: string;
 }
+
+export interface StatementItem {
+    seal_number: string;
+    pea_code: string;
+    status: string;
+    issued_by_name: string;
+    tech_name: string;
+    issue_remark: string;
+    installed_serial: string;
+    issued_at: string | null;
+    used_at: string | null;
+    returned_at: string | null;
+    updated_at: string;
+    created_at: string;
+}
+
+export interface SealStatement {
+    period: { start_date: string; end_date: string };
+    summary: Record<string, number>;
+    total: number;
+    items: StatementItem[];
+}
