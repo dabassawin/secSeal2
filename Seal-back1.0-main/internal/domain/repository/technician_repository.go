@@ -118,16 +118,14 @@ func (r *TechnicianRepository) UpdatePushTokenByID(techID uint, token string) er
 	return r.db.Model(&model.Technician{}).Where("id = ?", techID).Update("expo_push_token", token).Error
 }
 
-func (r *TechnicianRepository) GetLogsByTechnicianID(techID uint) ([]model.Log, error) {
+// GetLogsByUserID fetches logs for a specific technician sorted by newest first
+func (r *TechnicianRepository) GetLogsByUserID(userID uint) ([]model.Log, error) {
 	var logs []model.Log
-	// Fetch logs where the user ID matches the technician's ID
-	err := r.db.Where("user_id = ?", techID).Order("created_at DESC").Find(&logs).Error
-	if err != nil {
-		return nil, err
-	}
-	return logs, nil
+	err := r.db.Where("user_id = ?", userID).Order("created_at desc").Find(&logs).Error
+	return logs, err
 }
 
-func (r *TechnicianRepository) ClearLogsByTechnicianID(techID uint) error {
-	return r.db.Where("user_id = ?", techID).Delete(&model.Log{}).Error
+// DeleteLogsByUserID deletes all logs for a specific technician
+func (r *TechnicianRepository) DeleteLogsByUserID(userID uint) error {
+	return r.db.Where("user_id = ?", userID).Delete(&model.Log{}).Error
 }

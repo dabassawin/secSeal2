@@ -253,15 +253,17 @@ func (s *TechnicianService) UploadSealImages(sealNumber string, techID uint, ima
 	return s.repo.UpdateSeal(seal)
 }
 
-func (s *TechnicianService) GetTechnicianLogs(techID uint) ([]model.Log, error) {
-	return s.repo.GetLogsByTechnicianID(techID)
-}
-
-func (s *TechnicianService) ClearTechnicianLogs(techID uint) error {
-	return s.repo.ClearLogsByTechnicianID(techID)
-}
-
 // UpdatePushToken updates the technician's Expo push token
 func (s *TechnicianService) UpdatePushToken(techID uint, token string) error {
 	return s.repo.UpdatePushTokenByID(techID, token)
+}
+
+// GetNotifications retrieves all logs for a specific technician
+func (s *TechnicianService) GetNotifications(techID uint) ([]model.Log, error) {
+	return s.repo.GetLogsByUserID(techID)
+}
+
+// ClearNotifications deletes all logs for a specific technician
+func (s *TechnicianService) ClearNotifications(techID uint) error {
+	return s.repo.DeleteLogsByUserID(techID)
 }

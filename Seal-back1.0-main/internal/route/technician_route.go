@@ -27,9 +27,11 @@ func SetupTechnicianRoutes(router fiber.Router, techController *controller.Techn
 	protectedTech.Put("/seals/install", techController.InstallSealHandler)
 	protectedTech.Put("/seals/return/:seal_number", techController.ReturnSealHandler)
 	protectedTech.Post("/seals/upload-images", techController.UploadSealImagesHandler)
-	protectedTech.Get("/notifications", techController.GetTechnicianNotificationsHandler)
-	protectedTech.Delete("/notifications", techController.ClearTechnicianNotificationsHandler)
 	protectedTech.Post("/device-token", techController.UpdateDeviceTokenHandler)
+
+	// ✅ Notifications
+	protectedTech.Get("/notifications", techController.GetNotificationsHandler)
+	protectedTech.Delete("/notifications", techController.ClearNotificationsHandler)
 
 	// 🔹 Protected Routes สำหรับ User ปกติ (ใช้ regular JWT)
 	userProtected := tech.Group("", middleware.JWTMiddleware())

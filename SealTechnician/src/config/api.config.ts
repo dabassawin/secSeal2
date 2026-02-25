@@ -6,7 +6,7 @@ import Constants from 'expo-constants';
 // Function to get the correct base URL based on environment
 const getBaseUrl = () => {
   // Always use the local network IP for Expo Go on physical device testing
-  return 'http://192.168.1.2:3000/api';
+  return 'http://192.168.1.35:3000/api';
 };
 
 const BASE_URL = getBaseUrl();

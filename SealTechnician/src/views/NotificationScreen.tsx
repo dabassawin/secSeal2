@@ -414,4 +414,8 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         marginTop: 2,
     }
+<<<<<<< HEAD
 });
+=======
+});
+>>>>>>> build
