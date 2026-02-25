@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'react';
+import { useState, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import { TechnicianService, Seal } from '../services/TechnicianService';
 import { AuthService } from '../services/AuthService';
 import { parseJwt } from '../utils/jwt';
@@ -8,7 +9,7 @@ export const useHomeViewModel = () => {
     const [activeSeals, setActiveSeals] = useState<Seal[]>([]);
     const [historySeals, setHistorySeals] = useState<Seal[]>([]);
 
-    const [userInfo, setUserInfo] = useState<{ username: string, role: string } | null>(null);
+    const [userInfo, setUserInfo] = useState<{ username: string, role: string, first_name?: string, last_name?: string } | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -34,22 +35,35 @@ export const useHomeViewModel = () => {
     };
 
     const loadUserInfo = async () => {
-        const token = await AuthService.getToken();
-        if (token) {
-            const decoded = parseJwt(token);
-            if (decoded) {
-                setUserInfo({
-                    username: decoded.username || 'Technician',
-                    role: decoded.role || ''
-                });
+        try {
+            const data = await TechnicianService.getMe();
+            setUserInfo({
+                username: data.username || 'Technician',
+                role: 'technician',
+                first_name: data.first_name,
+                last_name: data.last_name
+            });
+        } catch (error) {
+            console.log('Failed to fetch full profile, falling back to JWT:', error);
+            const token = await AuthService.getToken();
+            if (token) {
+                const decoded = parseJwt(token);
+                if (decoded) {
+                    setUserInfo({
+                        username: decoded.username || 'Technician',
+                        role: decoded.role || ''
+                    });
+                }
             }
         }
     };
 
-    useEffect(() => {
-        loadUserInfo();
-        fetchSeals();
-    }, []);
+    useFocusEffect(
+        useCallback(() => {
+            loadUserInfo();
+            fetchSeals();
+        }, [])
+    );
 
     const refresh = () => {
         fetchSeals();

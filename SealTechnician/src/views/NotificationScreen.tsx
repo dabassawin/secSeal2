@@ -13,6 +13,7 @@ type RootStackParamList = {
     Scan: undefined;
     History: undefined;
     Notification: undefined;
+    Profile: undefined;
 };
 
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'Notification'>;
@@ -37,6 +38,46 @@ const formatDate = (dateString?: string) => {
 
     const monthStr = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
     return `${day} ${monthStr[month]} ${year} ${time}`;
+};
+
+const formatNotificationText = (action: string) => {
+    let sealNumber = '';
+    let techId = 'ไม่ทราบรหัส';
+
+    // 1. Extract Seal Number
+    const sealMatch = action.match(/(?:seal|ซิล|ซีล)\s+([a-zA-Z0-9]+)/i);
+    if (sealMatch) {
+        sealNumber = sealMatch[1];
+    }
+
+    // 2. Extract Technician ID/Code
+    if (action.includes('รหัส:')) {
+        const idMatch = action.match(/รหัส:\s*([^)]+)/);
+        if (idMatch) techId = idMatch[1].trim();
+    } else if (action.includes('technician ID')) {
+        const idMatch = action.match(/technician ID (\d+)/i);
+        if (idMatch) techId = idMatch[1];
+    } else if (action.includes('technician_code=')) {
+        const idMatch = action.match(/technician_code=([^\s]+)/i);
+        if (idMatch) techId = idMatch[1];
+    } else if (action.includes('ให้พนักงาน')) {
+        const idMatch = action.match(/ให้พนักงาน\s+(\d+)/);
+        if (idMatch) techId = idMatch[1];
+    }
+
+    // Remove trailing parenthesis from techId if it accidentally grabbed one
+    if (techId.endsWith(')')) {
+        techId = techId.slice(0, -1);
+    }
+
+    // 3. Format as requested
+    if (action.includes("Assigned seal") || action.includes("จ่ายซิล") || action.includes("จ่ายซีล")) {
+        if (sealNumber) {
+            return `ได้จ่ายซีล ${sealNumber} ให้ ${techId}`;
+        }
+    }
+
+    return action;
 };
 
 export default function NotificationScreen() {
@@ -147,7 +188,7 @@ export default function NotificationScreen() {
                     <Ionicons name={iconName} size={24} color={iconColor} />
                 </View>
                 <View style={styles.cardContent}>
-                    <Text style={styles.actionText}>{item.action}</Text>
+                    <Text style={styles.actionText}>{formatNotificationText(item.action)}</Text>
                     <View style={styles.metaRow}>
                         <Ionicons name="time-outline" size={14} color="#9E9E9E" style={{ marginRight: 4 }} />
                         <Text style={styles.metaText}>{formatDate(item.created_at)}</Text>
@@ -221,7 +262,7 @@ export default function NotificationScreen() {
                     <Text style={[styles.footerText, styles.activeFooterText]}>แจ้งเตือน</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity style={styles.footerItem}>
+                <TouchableOpacity style={styles.footerItem} onPress={() => navigation.navigate('Profile')}>
                     <Ionicons name="person-outline" size={24} color="#BDBDBD" />
                     <Text style={styles.footerText}>โปรไฟล์</Text>
                 </TouchableOpacity>
