@@ -739,7 +739,7 @@ func (s *SealService) GetAllAssignedSeals() ([]model.Seal, error) {
 }
 
 // -------------------------------------------------------------------
-// ScanAndUseSeal (Scan & Mark Used Immediately)
+// ScanAndUseSeal (Scan & Mark Installed)
 // -------------------------------------------------------------------
 func (s *SealService) ScanAndUseSeal(sealNumber string, userID uint, imagePath string) (string, error) {
 	seal, err := s.repo.FindByNumber(sealNumber)
@@ -747,7 +747,10 @@ func (s *SealService) ScanAndUseSeal(sealNumber string, userID uint, imagePath s
 		return "", errors.New("ไม่พบซิลในระบบ")
 	}
 
-	// 1. Check if already used
+	// 1. Check if already installed or used
+	if seal.Status == "ติดตั้งแล้ว" {
+		return "", errors.New("ซีลนี้ถูกติดตั้งไปแล้ว")
+	}
 	if seal.Status == "ใช้งานแล้ว" {
 		return "", errors.New("ซีลนี้ถูกใช้งานไปแล้ว")
 	}
@@ -760,18 +763,17 @@ func (s *SealService) ScanAndUseSeal(sealNumber string, userID uint, imagePath s
 		return "", errors.New("ซีลนี้ไม่ได้ถูกจ่ายให้กับคุณ ไม่สามารถใช้งานได้")
 	}
 
-	// 2. Allow ANY status -> Used (as per user request)
-	// if seal.Status != "พร้อมใช้งาน" && seal.Status != "จ่าย" && seal.Status != "ติดตั้งแล้ว" {
-	// 	return "", fmt.Errorf("สถานะซีลปัจจุบัน (%s) ไม่สามารถเปลี่ยนเป็น 'ใช้งานแล้ว' ได้ทันที", seal.Status)
-	// }
+	// 2. Only allow "จ่าย" status to be installed
+	if seal.Status != "จ่าย" {
+		return "", fmt.Errorf("ซีลต้องอยู่ในสถานะ 'จ่าย' เท่านั้นจึงจะติดตั้งได้ (สถานะปัจจุบัน: %s)", seal.Status)
+	}
 
 	now := time.Now()
-	seal.Status = "ใช้งานแล้ว"
+	seal.Status = "ติดตั้งแล้ว"
 	seal.UsedAt = &now
 	if imagePath != "" {
 		seal.Image1 = imagePath
 	}
-	// If we want to track who scanned it, we use userID (even if 0 for public Scan)
 	if userID != 0 {
 		seal.UsedBy = &userID
 	}
@@ -782,7 +784,7 @@ func (s *SealService) ScanAndUseSeal(sealNumber string, userID uint, imagePath s
 		}
 		logEntry := model.Log{
 			UserID: userID,
-			Action: fmt.Sprintf("สแกนและใช้งานซีล %s ทันที", sealNumber),
+			Action: fmt.Sprintf("สแกนและติดตั้งซีล %s", sealNumber),
 		}
 		return s.logRepo.Create(&logEntry)
 	})
@@ -790,7 +792,7 @@ func (s *SealService) ScanAndUseSeal(sealNumber string, userID uint, imagePath s
 	if err != nil {
 		return "", err
 	}
-	return "ใช้งานสำเร็จ", nil
+	return "ติดตั้งสำเร็จ", nil
 }
 
 // -------------------------------------------------------------------
