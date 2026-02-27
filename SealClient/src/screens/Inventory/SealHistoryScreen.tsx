@@ -378,6 +378,7 @@ export const SealHistoryScreen: React.FC = () => {
                             <Image
                                 source={{ uri: `http://localhost:3000/${seal?.image1 || (seal as any)?.Image1}`.replace('uploads\\', 'uploads/').replace('uploads//', 'uploads/') }}
                                 style={styles.fullScreenImage}
+
                                 resizeMode="contain"
                             />
                         )}

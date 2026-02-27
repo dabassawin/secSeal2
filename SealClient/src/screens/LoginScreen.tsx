@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Alert } from 'react-native';
 import { useAuth } from '../context/AuthContext';
+import { colors } from '../constants/colors';
 
 const LoginScreen = () => {
     const [username, setUsername] = useState('');
@@ -111,7 +112,7 @@ const styles = StyleSheet.create({
         color: '#666',
     },
     activeToggleText: {
-        color: '#007AFF',
+        color: colors.primary,
     },
     form: {
         backgroundColor: '#fff',
@@ -139,7 +140,7 @@ const styles = StyleSheet.create({
         fontSize: 16,
     },
     button: {
-        backgroundColor: '#007AFF',
+        backgroundColor: colors.primary,
         padding: 15,
         borderRadius: 8,
         alignItems: 'center',

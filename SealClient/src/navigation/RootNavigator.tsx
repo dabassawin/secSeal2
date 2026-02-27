@@ -5,6 +5,7 @@ import { createDrawerNavigator, DrawerContentScrollView, DrawerItemList, DrawerI
 import { View, ActivityIndicator, Text } from 'react-native';
 
 import { useAuth } from '../context/AuthContext';
+import { colors } from '../constants/colors';
 import LoginScreen from '../screens/LoginScreen';
 import { HomeScreen } from '../screens/Home/HomeScreen';
 import { SealInventoryScreen } from '../screens/Inventory/SealInventoryScreen';
@@ -154,10 +155,10 @@ const StaffNavigator = () => {
                 }}
             />
             <Drawer.Screen
-                name="SealReport"
+                name="Report"
                 component={ReportScreen}
                 options={{
-                    title: 'รายงานซีล (Statement)',
+                    title: 'รายงานสรุป',
                     drawerItemStyle: { display: 'none' }
                 }}
             />
@@ -181,7 +182,7 @@ const RootNavigator = () => {
     if (isLoading) {
         return (
             <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-                <ActivityIndicator size="large" color="#007AFF" />
+                <ActivityIndicator size="large" color={colors.primary} />
             </View>
         );
     }
@@ -211,12 +212,12 @@ const RootNavigator = () => {
                         AddTechnician: 'technicians/add',
                         ImportTechnician: 'technicians/import',
                         AssignSeal: 'seals/assign',
+                        Report: 'report',
                         Seals: {
                             screens: {
                                 CreateSeal: 'seals/create',
                             },
                         },
-                        SealReport: 'report',
                     },
                 },
                 TechApp: {
