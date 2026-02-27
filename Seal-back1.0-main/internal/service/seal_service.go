@@ -378,14 +378,17 @@ func GenerateNextSealNumbers(latest string, count int) ([]string, error) {
 // GetSealReport (4 statuses)
 // -------------------------------------------------------------------
 func (s *SealService) GetSealReport(peaCode string) (map[string]interface{}, error) {
-	var total, ready, paid, installed, used int64
+	var total, ready, paid, installed, used, damaged, pendingReturn int64
 
 	query := s.db.Model(&model.Seal{})
 	if peaCode != "" {
 		query = query.Where("pea_code = ?", peaCode)
 	}
 
-	// Clone query for each count to avoid interference
+	// Count all seals for total_seals
+	if err := query.Session(&gorm.Session{}).Count(&total).Error; err != nil {
+		return nil, err
+	}
 	if err := query.Session(&gorm.Session{}).Where("status = ?", "พร้อมใช้งาน").Count(&ready).Error; err != nil {
 		return nil, err
 	}
@@ -398,13 +401,21 @@ func (s *SealService) GetSealReport(peaCode string) (map[string]interface{}, err
 	if err := query.Session(&gorm.Session{}).Where("status = ?", "ใช้งานแล้ว").Count(&used).Error; err != nil {
 		return nil, err
 	}
-	total = ready + paid + installed + used
+	if err := query.Session(&gorm.Session{}).Where("status = ?", "เสียหาย").Count(&damaged).Error; err != nil {
+		return nil, err
+	}
+	if err := query.Session(&gorm.Session{}).Where("status = ?", "รอตรวจสอบคืน").Count(&pendingReturn).Error; err != nil {
+		return nil, err
+	}
+
 	report := map[string]interface{}{
-		"total_seals": total,
-		"พร้อมใช้งาน": ready,
-		"จ่าย":        paid,
-		"ติดตั้งแล้ว": installed,
-		"ใช้งานแล้ว":  used,
+		"total_seals":  total,
+		"พร้อมใช้งาน":  ready,
+		"จ่าย":         paid,
+		"ติดตั้งแล้ว":  installed,
+		"ใช้งานแล้ว":   used,
+		"เสียหาย":      damaged,
+		"รอตรวจสอบคืน": pendingReturn,
 	}
 	return report, nil
 }
@@ -736,9 +747,9 @@ func (s *SealService) ScanAndUseSeal(sealNumber string, userID uint, imagePath s
 		return "", errors.New("ไม่พบซิลในระบบ")
 	}
 
-	// 1. Check if already used
-	if seal.Status == "ใช้งานแล้ว" {
-		return "", errors.New("ซีลนี้ถูกใช้งานไปแล้ว")
+	// 1. Check if already used or installed
+	if seal.Status == "ใช้งานแล้ว" || seal.Status == "ติดตั้งแล้ว" {
+		return "", errors.New("ซีลนี้ถูกติดตั้งหรือใช้งานไปแล้ว")
 	}
 
 	// 1.5 Check ownership
@@ -755,7 +766,7 @@ func (s *SealService) ScanAndUseSeal(sealNumber string, userID uint, imagePath s
 	// }
 
 	now := time.Now()
-	seal.Status = "ใช้งานแล้ว"
+	seal.Status = "ติดตั้งแล้ว"
 	seal.UsedAt = &now
 	if imagePath != "" {
 		seal.Image1 = imagePath
@@ -771,7 +782,7 @@ func (s *SealService) ScanAndUseSeal(sealNumber string, userID uint, imagePath s
 		}
 		logEntry := model.Log{
 			UserID: userID,
-			Action: fmt.Sprintf("สแกนและใช้งานซีล %s ทันที", sealNumber),
+			Action: fmt.Sprintf("สแกนและติดตั้งซีล %s ทันที", sealNumber),
 		}
 		return s.logRepo.Create(&logEntry)
 	})
@@ -779,7 +790,7 @@ func (s *SealService) ScanAndUseSeal(sealNumber string, userID uint, imagePath s
 	if err != nil {
 		return "", err
 	}
-	return "ใช้งานสำเร็จ", nil
+	return "ติดตั้งสำเร็จ", nil
 }
 
 // -------------------------------------------------------------------

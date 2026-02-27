@@ -52,7 +52,7 @@ export default function HistoryScreen() {
     const { historySeals, activeSeals, isLoading, fetchSeals } = useHomeViewModel();
     const insets = useSafeAreaInsets();
     const [searchText, setSearchText] = useState('');
-    const [activeTab, setActiveTab] = useState<'pending' | 'history'>('pending');
+    const [activeTab, setActiveTab] = useState<'pending' | 'history' | 'returned'>('pending');
 
     const [filterDate, setFilterDate] = useState<Date | null>(null);
     const [showDatePicker, setShowDatePicker] = useState(false);
@@ -62,13 +62,21 @@ export default function HistoryScreen() {
     }, []);
 
     const groupedData = useMemo(() => {
-        const sourceData = activeTab === 'pending' ? [...activeSeals, ...historySeals] : historySeals;
+        let sourceData: Seal[] = [];
+        if (activeTab === 'pending') {
+            sourceData = [...activeSeals, ...historySeals];
+        } else if (activeTab === 'history') {
+            sourceData = historySeals.filter(s => s.status === 'ติดตั้งแล้ว' || s.used_at);
+        } else {
+            sourceData = historySeals.filter(s => s.status === 'ใช้งานแล้ว' || s.status === 'เสียหาย' || s.status === 'รอตรวจสอบคืน');
+        }
+
         const filteredData = sourceData.filter(seal => {
             const matchesText = seal.seal_number.toLowerCase().includes(searchText.toLowerCase());
 
             let matchesDate = true;
             if (filterDate) {
-                const sealDateStr = activeTab === 'pending' ? seal.issued_at : seal.used_at;
+                const sealDateStr = activeTab === 'pending' ? seal.issued_at : (seal.used_at || seal.returned_at || seal.issued_at);
                 if (!sealDateStr) {
                     matchesDate = false;
                 } else {
@@ -82,8 +90,8 @@ export default function HistoryScreen() {
             return matchesText && matchesDate;
         }).sort((a, b) => {
             // Sort by relevant date (newest first)
-            const dateA = activeTab === 'pending' ? a.issued_at : a.used_at;
-            const dateB = activeTab === 'pending' ? b.issued_at : b.used_at;
+            const dateA = activeTab === 'pending' ? a.issued_at : (a.used_at || a.returned_at || a.issued_at);
+            const dateB = activeTab === 'pending' ? b.issued_at : (b.used_at || b.returned_at || b.issued_at);
             const timeA = dateA ? new Date(dateA).getTime() : 0;
             const timeB = dateB ? new Date(dateB).getTime() : 0;
             return timeB - timeA;
@@ -91,7 +99,7 @@ export default function HistoryScreen() {
 
         const groups: { [key: string]: Seal[] } = {};
         filteredData.forEach(seal => {
-            const dateToUse = activeTab === 'pending' ? seal.issued_at : seal.used_at;
+            const dateToUse = activeTab === 'pending' ? seal.issued_at : (seal.used_at || seal.returned_at || seal.issued_at);
             const groupKey = formatGroupDate(dateToUse);
             if (!groups[groupKey]) {
                 groups[groupKey] = [];
@@ -124,20 +132,50 @@ export default function HistoryScreen() {
     };
 
     const renderLogItem = ({ item }: { item: Seal }) => {
-        const isCompleted = item.status === 'ติดตั้งแล้ว' || item.status === 'ใช้งานแล้ว';
+        const isCompleted = item.status !== 'จ่าย' && item.status !== 'พร้อมใช้งาน';
 
         let displayStatus = item.status;
         if (item.status === 'จ่าย' || item.status === 'พร้อมใช้งาน') {
             displayStatus = 'ยังไม่ติดตั้ง';
-        } else if (item.status === 'ใช้งานแล้ว' || item.status === 'ติดตั้งแล้ว') {
+        } else if (item.status === 'ติดตั้งแล้ว') {
             displayStatus = 'ติดตั้งแล้ว';
+        } else if (item.status === 'ใช้งานแล้ว') {
+            displayStatus = 'คืนแล้ว';
+        } else if (item.status === 'เสียหาย') {
+            displayStatus = 'เสียหาย';
+        } else if (item.status === 'รอตรวจสอบคืน') {
+            displayStatus = 'รอตรวจสอบคืน';
+        }
+
+        let iconName: any = "time-outline";
+        let iconColor = "#FF9800";
+        let statusStyle = styles.statusPending;
+        let textStyle = styles.textPending;
+
+        if (isCompleted) {
+            if (item.status === 'เสียหาย' || item.status === 'รอตรวจสอบคืน') {
+                iconName = "close-circle-outline";
+                iconColor = "#F44336";
+                statusStyle = styles.statusFailed;
+                textStyle = styles.textFailed;
+            } else if (item.status === 'ใช้งานแล้ว') {
+                iconName = "return-down-back-outline";
+                iconColor = "#FF9800";
+                statusStyle = styles.statusPending; // orange-ish
+                textStyle = styles.textPending;
+            } else {
+                iconName = "checkmark-circle-outline";
+                iconColor = "#4CAF50";
+                statusStyle = styles.statusSuccess;
+                textStyle = styles.textSuccess;
+            }
         }
 
         return (
             <View style={styles.card}>
                 <View style={styles.cardLeft}>
                     <View style={styles.iconContainer}>
-                        <Ionicons name={isCompleted ? "checkmark-circle-outline" : "time-outline"} size={24} color={isCompleted ? "#4CAF50" : "#FF9800"} />
+                        <Ionicons name={iconName} size={24} color={iconColor} />
                     </View>
                     <View style={styles.cardContent}>
                         <Text style={styles.serialLabel}>Serial Number</Text>
@@ -163,12 +201,18 @@ export default function HistoryScreen() {
                                 <Text style={styles.metaText}>วันที่ใช้งาน: {formatDate(item.used_at)}</Text>
                             </View>
                         )}
+                        {item.returned_at && (
+                            <View style={styles.metaRow}>
+                                <Ionicons name="calendar-outline" size={14} color="#757575" style={{ marginRight: 4 }} />
+                                <Text style={styles.metaText}>วันที่คืน: {formatDate(item.returned_at)}</Text>
+                            </View>
+                        )}
                     </View>
                 </View>
 
                 <View style={styles.cardRight}>
-                    <View style={[styles.statusBadge, isCompleted ? styles.statusSuccess : styles.statusPending]}>
-                        <Text style={[styles.statusText, isCompleted ? styles.textSuccess : styles.textPending]}>
+                    <View style={[styles.statusBadge, statusStyle]}>
+                        <Text style={[styles.statusText, textStyle]}>
                             {displayStatus}
                         </Text>
                     </View>
@@ -197,7 +241,7 @@ export default function HistoryScreen() {
                         style={[styles.tab, activeTab === 'pending' && styles.activeTab]}
                         onPress={() => setActiveTab('pending')}
                     >
-                        <Ionicons name="time-outline" size={20} color={activeTab === 'pending' ? '#6A0DAD' : '#757575'} style={{ marginRight: 8 }} />
+                        <Ionicons name="time-outline" size={16} color={activeTab === 'pending' ? '#6A0DAD' : '#757575'} style={{ marginRight: 4 }} />
                         <Text style={[styles.tabText, activeTab === 'pending' && styles.activeTabText]}>
                             ซีลที่ถูกจ่าย
                         </Text>
@@ -206,9 +250,18 @@ export default function HistoryScreen() {
                         style={[styles.tab, activeTab === 'history' && styles.activeTab]}
                         onPress={() => setActiveTab('history')}
                     >
-                        <Ionicons name="checkmark-done-outline" size={20} color={activeTab === 'history' ? '#6A0DAD' : '#757575'} style={{ marginRight: 8 }} />
+                        <Ionicons name="checkmark-done-outline" size={16} color={activeTab === 'history' ? '#6A0DAD' : '#757575'} style={{ marginRight: 4 }} />
                         <Text style={[styles.tabText, activeTab === 'history' && styles.activeTabText]}>
-                            ใช้งานแล้ว
+                            ติดตั้งแล้ว
+                        </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                        style={[styles.tab, activeTab === 'returned' && styles.activeTab]}
+                        onPress={() => setActiveTab('returned')}
+                    >
+                        <Ionicons name="return-down-back-outline" size={16} color={activeTab === 'returned' ? '#6A0DAD' : '#757575'} style={{ marginRight: 4 }} />
+                        <Text style={[styles.tabText, activeTab === 'returned' && styles.activeTabText]}>
+                            คืนแล้ว
                         </Text>
                     </TouchableOpacity>
                 </View>
@@ -507,6 +560,9 @@ const styles = StyleSheet.create({
     statusSuccess: {
         backgroundColor: '#E8F5E9',
     },
+    statusFailed: {
+        backgroundColor: '#FFEBEE',
+    },
     statusText: {
         fontSize: 10,
         fontWeight: 'bold',
@@ -516,6 +572,9 @@ const styles = StyleSheet.create({
     },
     textSuccess: {
         color: '#4CAF50',
+    },
+    textFailed: {
+        color: '#F44336',
     },
     emptyContainer: {
         alignItems: 'center',

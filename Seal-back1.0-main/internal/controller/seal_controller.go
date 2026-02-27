@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"log"
 	"net/url"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strconv"
 	"strings"
-	"os"
-	"path/filepath"
 
 	"github.com/Kev2406/PEA/internal/service"
 	"github.com/gofiber/fiber/v2"
@@ -410,7 +410,7 @@ func (sc *SealController) CheckSealExistsHandler(c *fiber.Ctx) error {
 	if err == nil && seal != nil && seal.ID != 0 {
 		return c.Status(fiber.StatusConflict).JSON(fiber.Map{"message": "Seal number already exists", "seal_number": sealNumber})
 	}
-	
+
 	// If seal does not exist (not found)
 	return c.JSON(fiber.Map{"message": "Seal number is available", "seal_number": sealNumber})
 }
@@ -644,7 +644,7 @@ func (sc *SealController) CancelSealHandler(c *fiber.Ctx) error {
 // -------------------------------------------------------------------
 func (sc *SealController) ScanAndUseSealHandler(c *fiber.Ctx) error {
 	sealNumber := c.FormValue("seal_number")
-	
+
 	if sealNumber == "" {
 		// Fallback to JSON body just in case
 		var request struct {
@@ -670,10 +670,10 @@ func (sc *SealController) ScanAndUseSealHandler(c *fiber.Ctx) error {
 		if _, err := os.Stat(uploadDir); os.IsNotExist(err) {
 			os.Mkdir(uploadDir, 0755)
 		}
-		
+
 		fileName := fmt.Sprintf("seal_%s_%s", sealNumber, file.Filename)
 		savePath := filepath.Join(uploadDir, fileName)
-		
+
 		if err := c.SaveFile(file, savePath); err != nil {
 			log.Println("❌ Failed to save image to disk:", err)
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to save image"})
@@ -693,14 +693,14 @@ func (sc *SealController) ScanAndUseSealHandler(c *fiber.Ctx) error {
 	message, err := sc.sealService.ScanAndUseSeal(sealNumber, userID, imagePath)
 	if err != nil {
 		// Differentiate errors? simple for now
-		if err.Error() == "ซีลนี้ถูกใช้งานไปแล้ว" {
+		if err.Error() == "ซีลนี้ถูกติดตั้งหรือใช้งานไปแล้ว" {
 			return c.Status(fiber.StatusConflict).JSON(fiber.Map{"error": err.Error()})
 		}
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
 	}
 
 	return c.JSON(fiber.Map{
-		"message":     "บันทึกการใช้งานสำเร็จ",
+		"message":     "บันทึกการติดตั้งสำเร็จ",
 		"seal_number": sealNumber,
 		"image_path":  imagePath,
 		"logs":        message,
@@ -764,9 +764,15 @@ func (sc *SealController) CheckSealOwnershipHandler(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "ไม่พบซีลนี้ในระบบ"})
 	}
 
-	// ตรวจสอบสถานะ
+	// ตรวจสอบสถานะและแจ้งเตือนกลับไปเป็นแต่ละกรณี
 	if seal.Status == "ใช้งานแล้ว" {
-		return c.Status(fiber.StatusConflict).JSON(fiber.Map{"error": "ซีลนี้ได้ถูกใช้งานไปแล้ว"})
+		return c.Status(fiber.StatusConflict).JSON(fiber.Map{"error": "ซีลถูกใช้งานไปแล้ว"})
+	}
+	if seal.Status == "ติดตั้งแล้ว" {
+		return c.Status(fiber.StatusConflict).JSON(fiber.Map{"error": "ซีลนี้ติดตั้งอยู่ที่มิเตอร์แล้ว"})
+	}
+	if seal.Status == "เสียหาย" {
+		return c.Status(fiber.StatusConflict).JSON(fiber.Map{"error": "ซีลนี้อยู่ในสถานะเสียหาย หรือชำรุดก่อนนำไปใช้งาน"})
 	}
 
 	// ตรวจสอบความเป็นเจ้าของ

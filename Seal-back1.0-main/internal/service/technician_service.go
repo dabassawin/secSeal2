@@ -113,13 +113,34 @@ func (s *TechnicianService) ReturnSealWithImage(sealNumber string, techID uint, 
 		return errors.New("ไม่พบซีลในระบบ")
 	}
 
-	// ✅ ตรวจสอบว่าซิลอยู่ในสถานะที่คืนได้ ('จ่าย', 'พร้อมใช้งาน', 'ติดตั้งแล้ว', 'ใช้งานแล้ว')
-	if seal.Status != "จ่าย" && seal.Status != "พร้อมใช้งาน" && seal.Status != "ติดตั้งแล้ว" && seal.Status != "ใช้งานแล้ว" {
+	// ✅ ตรวจสอบว่าซิลอยู่ในสถานะที่คืนได้ ('จ่าย', 'พร้อมใช้งาน', 'ติดตั้งแล้ว')
+	if seal.Status != "จ่าย" && seal.Status != "พร้อมใช้งาน" && seal.Status != "ติดตั้งแล้ว" {
 		return errors.New("ซีลไม่ได้อยู่ในสถานะที่สามารถคืนได้")
 	}
 
+	// ✅ ตรวจสอบ PeaCode ว่าตรงกับช่างหรือไม่
+	tech, err := s.GetTechnicianByID(techID)
+	if err != nil {
+		return errors.New("ไม่พบข้อมูลช่าง")
+	}
+	if seal.PeaCode != tech.PeaCode {
+		return errors.New("ไม่สามารถคืนซีลของสังกัดอื่นได้")
+	}
+
 	now := time.Now()
-	seal.Status = "รอตรวจสอบคืน" // Pending admin approval
+
+	// Determine the new status based on the return reason
+	switch remarks {
+	case "ซีลเก่าที่ถูกตัดออก":
+		seal.Status = "ใช้งานแล้ว"
+	case "ชำรุดก่อนใช้งาน":
+		seal.Status = "เสียหาย"
+	case "ไม่ได้ใช้งาน (คืนคลัง)":
+		seal.Status = "รอตรวจสอบคืน" // Changed from 'พร้อมใช้งาน' to keep track of returns before admin accepts
+	default:
+		seal.Status = "รอตรวจสอบคืน"
+	}
+
 	seal.ReturnedBy = &techID
 	seal.ReturnedAt = &now
 	seal.ReturnRemarks = remarks // ✅ บันทึกเหตุผลการคืน
@@ -139,6 +160,27 @@ func (s *TechnicianService) ReturnSealWithImage(sealNumber string, techID uint, 
 		Action: fmt.Sprintf("คืนซีล %s (เหตุผล: %s)", sealNumber, remarks),
 	}
 	return s.repo.CreateLog(&logEntry)
+}
+
+func (s *TechnicianService) CheckReturnableSeal(sealNumber string, techID uint) (*model.Seal, error) {
+	seal, err := s.repo.FindSealByNumber(sealNumber)
+	if err != nil {
+		return nil, errors.New("ไม่พบซีลนี้ในระบบ")
+	}
+
+	if seal.Status != "จ่าย" && seal.Status != "พร้อมใช้งาน" && seal.Status != "ติดตั้งแล้ว" {
+		return nil, errors.New("ซีลไม่ได้อยู่ในสถานะที่สามารถคืนได้")
+	}
+
+	tech, err := s.GetTechnicianByID(techID)
+	if err != nil {
+		return nil, errors.New("ไม่พบข้อมูลช่าง")
+	}
+	if seal.PeaCode != tech.PeaCode {
+		return nil, errors.New("ไม่สามารถคืนซีลของสังกัดอื่นได้")
+	}
+
+	return seal, nil
 }
 func (s *TechnicianService) UpdateTechnician(techID uint, req struct {
 	FirstName   string

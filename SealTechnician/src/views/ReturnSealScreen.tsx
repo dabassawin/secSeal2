@@ -55,8 +55,7 @@ export default function ReturnSealScreen({ onLogout }: ReturnSealScreenProps) {
             const returnable = data.filter(s =>
                 s.status === 'จ่าย' ||
                 s.status === 'พร้อมใช้งาน' ||
-                s.status === 'ติดตั้งแล้ว' ||
-                s.status === 'ใช้งานแล้ว'
+                s.status === 'ติดตั้งแล้ว'
             );
             setSeals(returnable);
         } catch (error) {
@@ -75,7 +74,12 @@ export default function ReturnSealScreen({ onLogout }: ReturnSealScreenProps) {
 
     const openReturnModal = (seal: Seal) => {
         setSelectedSeal(seal);
-        setReason(RETURN_REASONS[0]);
+        // Default reason based on status
+        if (seal.status === 'ติดตั้งแล้ว') {
+            setReason('ซีลเก่าที่ถูกตัดออก');
+        } else {
+            setReason('ชำรุดก่อนใช้งาน');
+        }
         setPhotoUri(null);
         setIsModalVisible(true);
     };
@@ -110,6 +114,10 @@ export default function ReturnSealScreen({ onLogout }: ReturnSealScreenProps) {
             Alert.alert('แจ้งเตือน', 'กรุณาเลือกระบุเหตุผลการคืน');
             return;
         }
+        if (!photoUri) {
+            Alert.alert('แจ้งเตือน', 'กรุณาถ่ายรูปหลักฐานประกอบการคืนซีล');
+            return;
+        }
 
         setIsSubmitting(true);
         try {
@@ -141,7 +149,7 @@ export default function ReturnSealScreen({ onLogout }: ReturnSealScreenProps) {
         setIsScanning(true);
     };
 
-    const handleBarcodeScanned = ({ data }: { data: string }) => {
+    const handleBarcodeScanned = async ({ data }: { data: string }) => {
         if (!isScanning) return;
 
         let sealNumber = data;
@@ -156,11 +164,11 @@ export default function ReturnSealScreen({ onLogout }: ReturnSealScreenProps) {
             return;
         }
 
-        const validSeal = seals.find(s => s.seal_number === sealNumber);
-        if (validSeal) {
-            setScannedSeals(prev => [validSeal, ...prev]);
-        } else {
-            Alert.alert('ไม่สามารถคืนได้', `ไม่พบซีล ${sealNumber} ในรายการที่ท่านสามารถคืนได้ หรือซีลนี้ยังไม่ได้เบิกจ่าย`);
+        try {
+            const response = await TechnicianService.checkReturnableSeal(sealNumber);
+            setScannedSeals(prev => [response.seal, ...prev]);
+        } catch (error: any) {
+            Alert.alert('ไม่สามารถคืนได้', error.message || `ไม่พบซีล ${sealNumber} หรือซีลนี้ไม่อยู่ในเงื่อนไขการคืน`);
         }
     };
 
@@ -203,7 +211,7 @@ export default function ReturnSealScreen({ onLogout }: ReturnSealScreenProps) {
                             barcodeTypes: ["qr", "aztec", "codabar", "code39", "code93", "code128", "datamatrix", "ean13", "ean8", "itf14", "pdf417", "upc_a", "upc_e"],
                         }}
                     />
-                    <View style={styles.scannerOverlay}>
+                    <View style={[styles.scannerOverlay, { bottom: 80 + insets.bottom }]}>
                         <Text style={styles.scannerText}>จัดบาร์โค้ดให้อยู่ในกรอบ</Text>
                         <TouchableOpacity style={styles.cancelScanBtn} onPress={() => setIsScanning(false)}>
                             <Text style={styles.cancelScanBtnText}>ยกเลิกการสแกน</Text>
@@ -259,15 +267,37 @@ export default function ReturnSealScreen({ onLogout }: ReturnSealScreenProps) {
 
                         <Text style={styles.inputLabel}>เหตุผลการคืน <Text style={styles.required}>*</Text></Text>
                         <View style={styles.reasonContainer}>
-                            {RETURN_REASONS.map((r, index) => (
-                                <TouchableOpacity
-                                    key={index}
-                                    style={[styles.reasonChip, reason === r && styles.reasonChipActive]}
-                                    onPress={() => setReason(r)}
-                                >
-                                    <Text style={[styles.reasonChipText, reason === r && styles.reasonChipTextActive]}>{r}</Text>
-                                </TouchableOpacity>
-                            ))}
+                            {RETURN_REASONS.map((r, index) => {
+                                const isInstalled = selectedSeal?.status === 'ติดตั้งแล้ว';
+                                const isOldSealReason = r === 'ซีลเก่าที่ถูกตัดออก';
+
+                                // Disable logic
+                                let isDisabled = false;
+                                if (isInstalled && !isOldSealReason) {
+                                    isDisabled = true; // Installed seals must use 'ซีลเก่าที่ถูกตัดออก'
+                                } else if (!isInstalled && isOldSealReason) {
+                                    isDisabled = true; // Non-installed seals cannot use 'ซีลเก่าที่ถูกตัดออก'
+                                }
+
+                                return (
+                                    <TouchableOpacity
+                                        key={index}
+                                        style={[
+                                            styles.reasonChip,
+                                            reason === r && styles.reasonChipActive,
+                                            isDisabled && styles.reasonChipDisabled
+                                        ]}
+                                        onPress={() => !isDisabled && setReason(r)}
+                                        disabled={isDisabled}
+                                    >
+                                        <Text style={[
+                                            styles.reasonChipText,
+                                            reason === r && styles.reasonChipTextActive,
+                                            isDisabled && styles.reasonChipTextDisabled
+                                        ]}>{r}</Text>
+                                    </TouchableOpacity>
+                                );
+                            })}
                         </View>
 
                         <Text style={styles.inputLabel}>รูปภาพหลักฐาน (ถ้ามี)</Text>
@@ -550,6 +580,11 @@ const styles = StyleSheet.create({
         backgroundColor: '#6A0DAD',
         borderColor: '#6A0DAD',
     },
+    reasonChipDisabled: {
+        backgroundColor: '#f5f5f5',
+        borderColor: '#eeeeee',
+        opacity: 0.5,
+    },
     reasonChipText: {
         color: '#666',
         fontSize: 14,
@@ -557,6 +592,9 @@ const styles = StyleSheet.create({
     reasonChipTextActive: {
         color: '#fff',
         fontWeight: 'bold',
+    },
+    reasonChipTextDisabled: {
+        color: '#ccc',
     },
     addPhotoBtn: {
         borderWidth: 2,

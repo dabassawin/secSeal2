@@ -1,5 +1,6 @@
 import * as SecureStore from 'expo-secure-store';
 import { API_CONFIG, getApiUrl } from '../config/api.config';
+import { AuthService } from './AuthService';
 
 export interface Seal {
     id: number;
@@ -11,6 +12,8 @@ export interface Seal {
     installed_serial?: string;
     issued_at?: string;
     used_at?: string;
+    returned_at?: string;
+    return_remarks?: string;
     created_at?: string;
     updated_at?: string;
 }
@@ -153,6 +156,37 @@ export const TechnicianService = {
             return await response.json();
         } catch (error) {
             console.error('Return Seal Error:', error);
+            throw error;
+        }
+    },
+
+    async checkReturnableSeal(sealNumber: string): Promise<{ message: string, seal: Seal }> {
+        try {
+            const token = await AuthService.getToken();
+            // console.log("Token sent:", token?.substring(0, 10) + "...");
+
+            if (!token) {
+                throw new Error('Not authenticated');
+            }
+
+            const url = getApiUrl(`${API_CONFIG.endpoints.TECHNICIAN_CHECK_RETURN_SEAL}/${sealNumber}`);
+
+            const response = await fetch(url, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                },
+            });
+
+            if (!response.ok) {
+                const data = await response.json().catch(() => ({}));
+                throw new Error(data.error || data.message || 'Failed to check seal status');
+            }
+
+            return await response.json();
+        } catch (error) {
+            // console.error('Check Returnable Seal Error:', error);
             throw error;
         }
     }

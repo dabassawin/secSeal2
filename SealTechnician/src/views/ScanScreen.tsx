@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Animated, Alert, ActivityIndicator, Image } from 'react-native';
+import * as ImageManipulator from 'expo-image-manipulator';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { API_CONFIG, getApiUrl } from '../config/api.config';
 import { Ionicons } from '@expo/vector-icons';
@@ -13,6 +14,7 @@ export default function ScanScreen() {
     const [permission, requestPermission] = useCameraPermissions();
     const [scanned, setScanned] = useState(false);
     const [scannedSealNumber, setScannedSealNumber] = useState<string | null>(null);
+    const [scanMode, setScanMode] = useState<'barcode' | 'ocr'>('barcode');
     const [isTakingPhoto, setIsTakingPhoto] = useState(false);
     const [photoUri, setPhotoUri] = useState<string | null>(null);
     const [result, setResult] = useState<{ message: string; type: 'success' | 'warning' | 'error' | 'info' } | null>(null);
@@ -80,7 +82,7 @@ export default function ScanScreen() {
             const checkResult = await response.json();
 
             if (!response.ok) {
-                // Backend จะส่ง error message ภาษาไทยมาให้
+                // Backend จะส่ง error message ภาษาไทยมาให้ (เช่น ซีลนี้ได้ถูกใช้งานไปแล้ว)
                 Alert.alert("ไม่สามารถใช้งานได้", checkResult.error || "เกิดข้อผิดพลาดในการตรวจสอบ", [
                     { text: "ตกลง", onPress: resetScan }
                 ], { cancelable: false });
@@ -104,6 +106,122 @@ export default function ScanScreen() {
         setScannedSealNumber(null);
         setPhotoUri(null);
         setResult(null);
+        setScanMode('barcode');
+    };
+
+    const processOcrImage = async (uri: string) => {
+        setResult({ message: "กำลังอ่านข้อความจากรูปภาพ...", type: 'info' });
+
+        try {
+            // ย่อขนาดรูปภาพก่อนส่งไป OCR (เพื่อไม่ให้หนักเกิน Free Tier API)
+            const manipulatedImage = await ImageManipulator.manipulateAsync(
+                uri,
+                [{ resize: { width: 800 } }],
+                { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
+            );
+
+            const formData = new FormData();
+            formData.append('language', 'eng');
+            formData.append('isOverlayRequired', 'false');
+            formData.append('scale', 'true');
+            formData.append('detectOrientation', 'true');
+
+            const filename = manipulatedImage.uri.split('/').pop() || 'ocr_image.jpg';
+            const match = /\.(\w+)$/.exec(filename);
+            const type = match ? `image/${match[1]}` : `image/jpeg`;
+
+            // ส่งเป็น File แทน Base64 เพื่อป้องกันปัญหา Timeout และทำงานได้เร็วขึ้น
+            formData.append('file', {
+                uri: manipulatedImage.uri,
+                name: filename,
+                type: type,
+            } as any);
+
+            // ส่งรูปไปที่ OCR.space API ฟรี (จำกัดที่ 25000 requests / เดือน)
+            const response = await fetch('https://api.ocr.space/parse/image', {
+                method: 'POST',
+                headers: {
+                    'apikey': 'helloworld', // ใส่รหัส API Key ของ OCR.space ที่นี่
+                    // ไม่ต้องใส่ Content-Type เดี๋ยว fetch จะจัดการ boundary ให้เอง
+                },
+                body: formData,
+            });
+
+            const responseText = await response.text();
+            console.log("OCR Response Text:", responseText); // Debug: ดูค่าที่ตอบกลับมา
+
+            const jsonResponse = JSON.parse(responseText);
+
+            if (jsonResponse.IsErroredOnProcessing) {
+                setResult({ message: "อ่านรูปภาพไม่สำเร็จ กรุณาลองใหม่", type: 'error' });
+                return;
+            }
+
+            const parsedText = jsonResponse.ParsedResults?.[0]?.ParsedText || "";
+            if (!parsedText.trim()) {
+                setResult({ message: "ไม่พบข้อความในรูปภาพ กรุณาถ่ายให้ชัดเจนขึ้น", type: 'warning' });
+                return;
+            }
+
+            // ค้นหาตัวอักษรภาษาอังกฤษนำหน้า (ถ้ามี) ตามด้วยตัวเลข (เช่น T256901000049 หรือแค่ตัวเลข 7256901000049) 
+            // โดยให้ครอบคลุมกรณีที่มีคำว่า PEA นำหน้าด้วย
+            const matches = parsedText.match(/(?:PEA[\s-]*)?([A-Za-z]?\d{4,15})/i);
+
+            if (matches && matches[1]) {
+                let detectedSeal = matches[1].toUpperCase().trim();
+
+                // ตัดคำว่า PEA หรือ pea ออกถ้าหากติดมาด้วย (เช่นในกรณีที่ OCR อ่านติดกันเป็น PEAT2569...)
+                if (detectedSeal.startsWith("PEA")) {
+                    detectedSeal = detectedSeal.replace(/^PEA\s*/i, "");
+                }
+
+                setResult({ message: `พบหมายเลขซีล: ${detectedSeal}\nกำลังตรวจสอบ...`, type: 'info' });
+
+                // ตรวจสอบกับ Backend ด้วยหมายเลขซีลที่หาเจอ
+                const token = await SecureStore.getItemAsync('userToken');
+                const checkResponse = await fetch(getApiUrl(`/check-seal/${detectedSeal}`), {
+                    headers: { 'Authorization': `Bearer ${token}` }
+                });
+
+                const checkResult = await checkResponse.json();
+                if (!checkResponse.ok) {
+                    // Explicitly handle 409 if needed, otherwise the generic error message from backend will be used.
+                    // The backend is expected to send a specific error message for 409 (e.g., "ซีลนี้ได้ถูกใช้งานไปแล้ว")
+                    Alert.alert("ไม่สามารถใช้งานได้", checkResult.error || "เกิดข้อผิดพลาดในการตรวจสอบ", [
+                        { text: "ตกลง", onPress: resetScan }
+                    ], { cancelable: false });
+                    return;
+                }
+
+                setScannedSealNumber(detectedSeal);
+                setResult(null); // ล้างแจ้งเตือน info
+            } else {
+                setResult({ message: "ไม่พบหมายเลขซีลในรูปภาพ หรือถ่ายไม่ชัด", type: 'warning' });
+            }
+
+        } catch (error) {
+            console.error("OCR Error:", error);
+            setResult({ message: "เกิดข้อผิดพลาดในการประมวลผลรูปภาพ", type: 'error' });
+        }
+    };
+
+    const takePhotoOCR = async () => {
+        if (!cameraRef.current) return;
+        setIsTakingPhoto(true);
+        try {
+            const photo = await cameraRef.current.takePictureAsync();
+            if (photo) {
+                setScanned(true); // ปิดการแสกนชั่วคราว
+                setPhotoUri(photo.uri); // เก็บรูปไว้เป็นหลักฐานเพื่อติดตั้ง
+                await processOcrImage(photo.uri);
+            }
+        } catch (error) {
+            Alert.alert("ข้อผิดพลาด", "ไม่สามารถถ่ายรูปได้", [
+                { text: "ตกลง", onPress: resetScan }
+            ], { cancelable: false });
+        } finally {
+            setIsTakingPhoto(false);
+        }
     };
 
     const takePhoto = async () => {
@@ -209,20 +327,43 @@ export default function ScanScreen() {
         }
     };
 
+    const renderModeSelector = () => (
+        <View style={[styles.modeSelectorContainer, { top: insets.top + 20 }]}>
+            <View style={styles.modeSelector}>
+                <TouchableOpacity
+                    style={[styles.modeButton, scanMode === 'barcode' && styles.modeButtonActive]}
+                    onPress={() => setScanMode('barcode')}
+                >
+                    <Ionicons name="barcode-outline" size={20} color={scanMode === 'barcode' ? '#000' : '#fff'} />
+                    <Text style={[styles.modeText, scanMode === 'barcode' && styles.modeTextActive]}>สแกนโค้ด</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                    style={[styles.modeButton, scanMode === 'ocr' && styles.modeButtonActive]}
+                    onPress={() => setScanMode('ocr')}
+                >
+                    <Ionicons name="camera-outline" size={20} color={scanMode === 'ocr' ? '#000' : '#fff'} />
+                    <Text style={[styles.modeText, scanMode === 'ocr' && styles.modeTextActive]}>ถ่ายรูป (อ่านเลข)</Text>
+                </TouchableOpacity>
+            </View>
+        </View>
+    );
+
     return (
         <View style={styles.container}>
             <CameraView
                 ref={cameraRef}
                 style={styles.camera}
                 facing="back"
-                onBarcodeScanned={scanned ? undefined : handleBarcodeScanned}
+                onBarcodeScanned={(scanned || scanMode === 'ocr') ? undefined : handleBarcodeScanned}
                 barcodeScannerSettings={{
                     barcodeTypes: ["qr", "aztec", "codabar", "code39", "code93", "code128", "datamatrix", "ean13", "ean8", "itf14", "pdf417", "upc_a", "upc_e"],
                 }}
             />
 
+            {!scanned && renderModeSelector()}
+
             {scannedSealNumber && !photoUri && !result && (
-                <View style={styles.photoCaptureOverlay}>
+                <View style={[styles.photoCaptureOverlay, { paddingBottom: 50 + insets.bottom }]}>
                     <View style={styles.photoCaptureHeader}>
                         <Text style={styles.photoCaptureTitle}>สแกนซีล {scannedSealNumber} สำเร็จ</Text>
                         <Text style={styles.photoCaptureSubtitle}>กรุณาถ่ายรูปเพื่อยืนยันการติดตั้ง</Text>
@@ -246,6 +387,24 @@ export default function ScanScreen() {
                 </View>
             )}
 
+            {/* ปุ่มถ่ายรูปโหมด OCR ถ้าเลือก OCR Mode และยังไม่ได้สแกน */}
+            {scanMode === 'ocr' && !scanned && !result && (
+                <View style={[styles.ocrCaptureControls, { paddingBottom: 50 + insets.bottom }]}>
+                    <TouchableOpacity
+                        style={styles.captureButton}
+                        onPress={takePhotoOCR}
+                        disabled={isTakingPhoto}
+                    >
+                        {isTakingPhoto ? (
+                            <ActivityIndicator color="#000" size="large" />
+                        ) : (
+                            <View style={styles.captureButtonInner} />
+                        )}
+                    </TouchableOpacity>
+                    <Text style={styles.ocrInstructionText}>ถ่ายรูปหมายเลขซีลให้ชัดเจน</Text>
+                </View>
+            )}
+
             {/* ✅ Photo Preview ก่อนยืนยัน */}
             {photoUri && !result && (
                 <View style={styles.previewOverlay}>
@@ -254,7 +413,7 @@ export default function ScanScreen() {
                         <Text style={styles.previewTitle}>ตรวจสอบรูปภาพ</Text>
                         <Text style={styles.previewSubtitle}>ซีลเบอร์: {scannedSealNumber}</Text>
                     </View>
-                    <View style={styles.previewControls}>
+                    <View style={[styles.previewControls, { paddingBottom: insets.bottom }]}>
                         <TouchableOpacity style={styles.retakeButton} onPress={retakePhoto}>
                             <Ionicons name="camera-reverse-outline" size={22} color="#fff" />
                             <Text style={styles.retakeText}>ถ่ายใหม่</Text>
@@ -338,6 +497,56 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 18,
         fontWeight: 'bold',
+    },
+    modeSelectorContainer: {
+        position: 'absolute',
+        left: 0,
+        right: 0,
+        alignItems: 'center',
+        zIndex: 5,
+    },
+    modeSelector: {
+        flexDirection: 'row',
+        backgroundColor: 'rgba(0,0,0,0.6)',
+        borderRadius: 30,
+        padding: 4,
+    },
+    modeButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingHorizontal: 16,
+        paddingVertical: 10,
+        borderRadius: 26,
+        gap: 6,
+    },
+    modeButtonActive: {
+        backgroundColor: '#fff',
+    },
+    modeText: {
+        color: '#fff',
+        fontSize: 14,
+        fontWeight: '600',
+    },
+    modeTextActive: {
+        color: '#000',
+    },
+    ocrCaptureControls: {
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        alignItems: 'center',
+        paddingTop: 30,
+        backgroundColor: 'rgba(0,0,0,0.4)',
+    },
+    ocrInstructionText: {
+        color: '#fff',
+        fontSize: 16,
+        marginTop: 15,
+        fontWeight: '500',
+        textShadowColor: 'rgba(0,0,0,0.7)',
+        textShadowOffset: { width: 0, height: 1 },
+        textShadowRadius: 3,
     },
     resultContainer: {
         position: 'absolute',

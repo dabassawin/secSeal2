@@ -196,6 +196,30 @@ func (tc *TechnicianController) ReturnSealHandler(c *fiber.Ctx) error {
 		"image_url":   imageURL,
 	})
 }
+
+// ✅ Technician ตรวจสอบซีลก่อนคืน (ว่าอยู่สังกัดเดียวกันหรือไม่)
+func (tc *TechnicianController) CheckReturnableSealHandler(c *fiber.Ctx) error {
+	techID, ok := c.Locals("tech_id").(uint)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Unauthorized"})
+	}
+
+	sealNumber := c.Params("seal_number")
+	if sealNumber == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "seal_number is required"})
+	}
+
+	seal, err := tc.technicianService.CheckReturnableSeal(sealNumber, techID)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	return c.JSON(fiber.Map{
+		"message": "สามารถคืนซีลได้",
+		"seal":    seal,
+	})
+}
+
 func (tc *TechnicianController) UpdateTechnicianHandler(c *fiber.Ctx) error {
 	techIDStr := c.Params("id")
 	techID, err := strconv.Atoi(techIDStr)
