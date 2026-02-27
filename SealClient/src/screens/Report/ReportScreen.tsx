@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
     View, Text, StyleSheet, ScrollView, ActivityIndicator,
     TouchableOpacity, TextInput, Platform
@@ -8,6 +8,56 @@ import { Header } from '@/components/dashboard';
 import { sealService } from '@/services/sealService';
 import { SealStatement, StatementItem } from '@/types';
 import { useAuth } from '@/context/AuthContext';
+
+// ─── Web Date Picker ────────────────────────────────────────────────
+const WebDateInput: React.FC<{ value: string; onChange: (v: string) => void }> = ({ value, onChange }) => {
+    const ref = useRef<HTMLInputElement>(null);
+
+    useEffect(() => {
+        if (ref.current) {
+            ref.current.value = value;
+        }
+    }, [value]);
+
+    return (
+        <input
+            ref={ref}
+            type="date"
+            defaultValue={value}
+            onChange={(e) => onChange(e.target.value)}
+            style={{
+                height: 42,
+                border: '1px solid #ddd',
+                borderRadius: 8,
+                paddingLeft: 12,
+                paddingRight: 12,
+                fontSize: 14,
+                backgroundColor: '#FAFAFA',
+                color: '#333',
+                width: '100%',
+                boxSizing: 'border-box' as const,
+                cursor: 'pointer',
+                outline: 'none',
+                fontFamily: 'inherit',
+            }}
+        />
+    );
+};
+
+// ─── Date Input Wrapper ─────────────────────────────────────────────
+const DatePickerInput: React.FC<{ value: string; onChange: (v: string) => void }> = ({ value, onChange }) => {
+    if (Platform.OS === 'web') {
+        return <WebDateInput value={value} onChange={onChange} />;
+    }
+    return (
+        <TextInput
+            style={styles.dateInput}
+            value={value}
+            onChangeText={onChange}
+            placeholder="YYYY-MM-DD"
+        />
+    );
+};
 
 // ─── Status Badge ───────────────────────────────────────────────────
 const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
@@ -110,23 +160,11 @@ export const ReportScreen: React.FC = () => {
                     <View style={styles.filterRow}>
                         <View style={styles.dateField}>
                             <Text style={styles.dateLabel}>วันเริ่มต้น</Text>
-                            <TextInput
-                                style={styles.dateInput}
-                                value={startDate}
-                                onChangeText={setStartDate}
-                                placeholder="YYYY-MM-DD"
-                                {...(Platform.OS === 'web' ? { type: 'date' } as any : {})}
-                            />
+                            <DatePickerInput value={startDate} onChange={setStartDate} />
                         </View>
                         <View style={styles.dateField}>
                             <Text style={styles.dateLabel}>วันสิ้นสุด</Text>
-                            <TextInput
-                                style={styles.dateInput}
-                                value={endDate}
-                                onChangeText={setEndDate}
-                                placeholder="YYYY-MM-DD"
-                                {...(Platform.OS === 'web' ? { type: 'date' } as any : {})}
-                            />
+                            <DatePickerInput value={endDate} onChange={setEndDate} />
                         </View>
                         <TouchableOpacity style={styles.searchButton} onPress={fetchStatement}>
                             <Text style={styles.searchButtonText}>🔍 ดูรายงาน</Text>
