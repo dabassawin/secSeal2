@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated, Alert, ActivityIndicator, Image, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, Alert, ActivityIndicator, Image, TextInput, Keyboard, Platform } from 'react-native';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { API_CONFIG, getApiUrl } from '../config/api.config';
@@ -21,7 +21,36 @@ export default function ScanScreen() {
     const [result, setResult] = useState<{ message: string; type: 'success' | 'warning' | 'error' | 'info' } | null>(null);
     const cameraRef = useRef<CameraView>(null);
     const [fadeAnim] = useState(new Animated.Value(0));
+    const [keyboardHeightAnim] = useState(new Animated.Value(0));
     const insets = useSafeAreaInsets();
+
+    useEffect(() => {
+        const keyboardWillShowListener = Keyboard.addListener(
+            Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+            (e) => {
+                Animated.timing(keyboardHeightAnim, {
+                    toValue: e.endCoordinates.height,
+                    duration: 250,
+                    useNativeDriver: false,
+                }).start();
+            }
+        );
+        const keyboardWillHideListener = Keyboard.addListener(
+            Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+            () => {
+                Animated.timing(keyboardHeightAnim, {
+                    toValue: 0,
+                    duration: 250,
+                    useNativeDriver: false,
+                }).start();
+            }
+        );
+
+        return () => {
+            keyboardWillHideListener.remove();
+            keyboardWillShowListener.remove();
+        };
+    }, []);
 
     useEffect(() => {
         if (result) {
@@ -417,25 +446,29 @@ export default function ScanScreen() {
 
             {/* ช่องกรอกเลขเอง แสดงเฉพาะโหมด barcode และยังไม่ได้สแกน */}
             {scanMode === 'barcode' && !scanned && !result && (
-                <KeyboardAvoidingView
-                    behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-                    style={[styles.manualInputFloatingContainer, { bottom: 20 + insets.bottom }]}
+                <Animated.View
+                    style={[
+                        styles.manualInputFloatingWrapper,
+                        { transform: [{ translateY: Animated.multiply(keyboardHeightAnim, -1) }] }
+                    ]}
                 >
-                    <View style={styles.manualInputRow}>
-                        <TextInput
-                            style={styles.manualInputFloatingField}
-                            placeholder="หรือกรอกเลขซีลเองที่นี่..."
-                            placeholderTextColor="#666"
-                            value={manualInput}
-                            onChangeText={setManualInput}
-                            autoCapitalize="characters"
-                            autoCorrect={false}
-                        />
-                        <TouchableOpacity style={styles.manualSubmitSmallButton} onPress={handleManualSubmit}>
-                            <Ionicons name="send" size={20} color="#fff" />
-                        </TouchableOpacity>
+                    <View style={[styles.manualInputFloatingContainer, { paddingBottom: 20 + insets.bottom }]}>
+                        <View style={styles.manualInputRow}>
+                            <TextInput
+                                style={styles.manualInputFloatingField}
+                                placeholder="หรือกรอกเลขซีลเองที่นี่..."
+                                placeholderTextColor="#666"
+                                value={manualInput}
+                                onChangeText={setManualInput}
+                                autoCapitalize="characters"
+                                autoCorrect={false}
+                            />
+                            <TouchableOpacity style={styles.manualSubmitSmallButton} onPress={handleManualSubmit}>
+                                <Ionicons name="send" size={20} color="#fff" />
+                            </TouchableOpacity>
+                        </View>
                     </View>
-                </KeyboardAvoidingView>
+                </Animated.View>
             )}
 
             {scannedSealNumber && !photoUri && !result && (
@@ -816,11 +849,15 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: 'bold',
     },
-    manualInputFloatingContainer: {
+    manualInputFloatingWrapper: {
         position: 'absolute',
-        left: 20,
-        right: 20,
+        bottom: 0,
+        left: 0,
+        right: 0,
         zIndex: 4,
+    },
+    manualInputFloatingContainer: {
+        paddingHorizontal: 20,
     },
     manualInputRow: {
         flexDirection: 'row',
