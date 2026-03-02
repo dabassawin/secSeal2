@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated, Alert, ActivityIndicator, Image } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, Alert, ActivityIndicator, Image, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { API_CONFIG, getApiUrl } from '../config/api.config';
@@ -15,6 +15,7 @@ export default function ScanScreen() {
     const [scanned, setScanned] = useState(false);
     const [scannedSealNumber, setScannedSealNumber] = useState<string | null>(null);
     const [scanMode, setScanMode] = useState<'barcode' | 'ocr'>('barcode');
+    const [manualInput, setManualInput] = useState('');
     const [isTakingPhoto, setIsTakingPhoto] = useState(false);
     const [photoUri, setPhotoUri] = useState<string | null>(null);
     const [result, setResult] = useState<{ message: string; type: 'success' | 'warning' | 'error' | 'info' } | null>(null);
@@ -107,6 +108,58 @@ export default function ScanScreen() {
         setPhotoUri(null);
         setResult(null);
         setScanMode('barcode');
+        setManualInput('');
+    };
+
+    const handleManualSubmit = async () => {
+        if (!manualInput.trim()) {
+            Alert.alert('แจ้งเตือน', 'กรุณากรอกหมายเลขซีล');
+            return;
+        }
+
+        let sealNumber = manualInput.trim().toUpperCase();
+        if (sealNumber.startsWith("PEA ")) {
+            sealNumber = sealNumber.slice(4);
+        } else if (sealNumber.startsWith("PEA")) {
+            sealNumber = sealNumber.replace(/^PEA\s*/i, "");
+        }
+
+        setScanned(true);
+
+        try {
+            const token = await SecureStore.getItemAsync('userToken');
+            if (!token) {
+                Alert.alert("ข้อผิดพลาด", "ไม่พบข้อมูลประจำตัว กรุณาเข้าสู่ระบบใหม่", [
+                    { text: "ตกลง", onPress: resetScan }
+                ], { cancelable: false });
+                return;
+            }
+
+            const response = await fetch(getApiUrl(`/check-seal/${sealNumber}`), {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            const checkResult = await response.json();
+
+            if (!response.ok) {
+                Alert.alert("ไม่สามารถใช้งานได้", checkResult.error || "เกิดข้อผิดพลาดในการตรวจสอบ", [
+                    { text: "ตกลง", onPress: resetScan }
+                ], { cancelable: false });
+                return;
+            }
+
+            setScannedSealNumber(sealNumber);
+            setManualInput('');
+
+        } catch (error) {
+            console.error("Error validating seal:", error);
+            Alert.alert("ข้อผิดพลาด", "ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้", [
+                { text: "ตกลง", onPress: resetScan }
+            ], { cancelable: false });
+            return;
+        }
     };
 
     const processOcrImage = async (uri: string) => {
@@ -361,6 +414,30 @@ export default function ScanScreen() {
             />
 
             {!scanned && renderModeSelector()}
+
+            {/* ช่องกรอกเลขเอง แสดงเฉพาะโหมด barcode และยังไม่ได้สแกน */}
+            {scanMode === 'barcode' && !scanned && !result && (
+                <KeyboardAvoidingView
+                    behavior={Platform.OS === 'ios' ? 'padding' : 'position'}
+                    keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : -20}
+                    style={[styles.manualInputFloatingContainer, { bottom: 20 + insets.bottom }]}
+                >
+                    <View style={styles.manualInputRow}>
+                        <TextInput
+                            style={styles.manualInputFloatingField}
+                            placeholder="หรือกรอกเลขซีลเองที่นี่..."
+                            placeholderTextColor="#666"
+                            value={manualInput}
+                            onChangeText={setManualInput}
+                            autoCapitalize="characters"
+                            autoCorrect={false}
+                        />
+                        <TouchableOpacity style={styles.manualSubmitSmallButton} onPress={handleManualSubmit}>
+                            <Ionicons name="send" size={20} color="#fff" />
+                        </TouchableOpacity>
+                    </View>
+                </KeyboardAvoidingView>
+            )}
 
             {scannedSealNumber && !photoUri && !result && (
                 <View style={[styles.photoCaptureOverlay, { paddingBottom: 50 + insets.bottom }]}>
@@ -739,5 +816,39 @@ const styles = StyleSheet.create({
         color: '#fff',
         fontSize: 16,
         fontWeight: 'bold',
+    },
+    manualInputFloatingContainer: {
+        position: 'absolute',
+        left: 20,
+        right: 20,
+        zIndex: 4,
+    },
+    manualInputRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(255,255,255,0.95)',
+        borderRadius: 30,
+        paddingHorizontal: 15,
+        paddingVertical: 10,
+        elevation: 5,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 5,
+    },
+    manualInputFloatingField: {
+        flex: 1,
+        fontSize: 16,
+        color: '#000',
+        paddingVertical: 8,
+    },
+    manualSubmitSmallButton: {
+        backgroundColor: '#007AFF',
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginLeft: 10,
     },
 });
