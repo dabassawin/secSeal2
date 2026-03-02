@@ -28,9 +28,14 @@ export default function ScanScreen() {
         const keyboardWillShowListener = Keyboard.addListener(
             Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
             (e) => {
+                // On Android, sometimes the first keyboard event includes the system navigation bar height in `endCoordinates.height`.
+                // If we also use `insets.bottom` on our container, we're double-counting that space.
+                // We subtract the inset on Android so it only pushes the *actual* keyboard difference.
+                const adjustHeight = Platform.OS === 'android' ? e.endCoordinates.height - insets.bottom : e.endCoordinates.height;
+
                 Animated.timing(keyboardHeightAnim, {
-                    toValue: e.endCoordinates.height,
-                    duration: 250,
+                    toValue: Math.max(0, adjustHeight), // Ensure it doesn't go negative
+                    duration: 200,
                     useNativeDriver: false,
                 }).start();
             }
@@ -40,7 +45,7 @@ export default function ScanScreen() {
             () => {
                 Animated.timing(keyboardHeightAnim, {
                     toValue: 0,
-                    duration: 250,
+                    duration: 200,
                     useNativeDriver: false,
                 }).start();
             }
@@ -50,7 +55,7 @@ export default function ScanScreen() {
             keyboardWillHideListener.remove();
             keyboardWillShowListener.remove();
         };
-    }, []);
+    }, [insets.bottom]);
 
     useEffect(() => {
         if (result) {
