@@ -418,8 +418,7 @@ export default function ScanScreen() {
             {/* ช่องกรอกเลขเอง แสดงเฉพาะโหมด barcode และยังไม่ได้สแกน */}
             {scanMode === 'barcode' && !scanned && !result && (
                 <KeyboardAvoidingView
-                    behavior={Platform.OS === 'ios' ? 'padding' : 'position'}
-                    keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : -20}
+                    behavior={Platform.OS === 'ios' ? 'padding' : undefined}
                     style={[styles.manualInputFloatingContainer, { bottom: 20 + insets.bottom }]}
                 >
                     <View style={styles.manualInputRow}>
