@@ -48,12 +48,13 @@ const Dropdown: React.FC<{
     value: string;
     options: { label: string; value: string }[];
     onChange: (val: string) => void;
-}> = ({ label, value, options, onChange }) => {
+    zIndex?: number;
+}> = ({ label, value, options, onChange, zIndex = 10 }) => {
     const [open, setOpen] = useState(false);
     const selectedLabel = options.find(o => o.value === value)?.label || 'ทั้งหมด';
 
     return (
-        <View style={dropStyles.container}>
+        <View style={[dropStyles.container, { zIndex }]}>
             <Text style={dropStyles.label}>{label}</Text>
             <TouchableOpacity style={dropStyles.select} onPress={() => setOpen(!open)}>
                 <Text style={dropStyles.selectText} numberOfLines={1}>{selectedLabel}</Text>
@@ -145,13 +146,15 @@ const DateInput: React.FC<{
 // ─── CSV/Excel/PDF Export ────────────────────────────
 const exportCSV = (items: SealReportItem[]) => {
     if (Platform.OS !== 'web') return;
-    const headers = ['หมายเลขซีล', 'สถานะ', 'สังกัด กฟภ.', 'ผู้จ่าย', 'ช่างที่รับ', 'เลขมิเตอร์', 'วันที่สร้าง', 'วันที่จ่าย', 'วันที่ติดตั้ง'];
+    const headers = ['หมายเลขซีล', 'สถานะ', 'สังกัด กฟภ.', 'ผู้จ่าย', 'ช่างที่รับ', 'ช่างที่ติดตั้ง', 'ผู้รับคืน', 'เลขมิเตอร์', 'วันที่สร้าง', 'วันที่จ่าย', 'วันที่ติดตั้ง'];
     const rows = items.map(item => [
         item.seal_number,
         item.status,
         item.pea_code,
         item.issued_by_name || '-',
         item.technician_name || '-',
+        item.used_by_name || '-',
+        item.returned_by_name || '-',
         item.installed_serial || '-',
         formatDate(item.created_at),
         formatDate(item.issued_at),
@@ -167,10 +170,12 @@ const exportCSV = (items: SealReportItem[]) => {
 
 const exportExcel = (items: SealReportItem[]) => {
     if (Platform.OS !== 'web') return;
-    const headers = ['หมายเลขซีล', 'สถานะ', 'สังกัด กฟภ.', 'ผู้จ่าย', 'ช่างที่รับ', 'เลขมิเตอร์', 'วันที่สร้าง', 'วันที่จ่าย', 'วันที่ติดตั้ง'];
+    const headers = ['หมายเลขซีล', 'สถานะ', 'สังกัด กฟภ.', 'ผู้จ่าย', 'ช่างที่รับ', 'ช่างที่ติดตั้ง', 'ผู้รับคืน', 'เลขมิเตอร์', 'วันที่สร้าง', 'วันที่จ่าย', 'วันที่ติดตั้ง'];
     const rows = items.map(item => [
         item.seal_number, item.status, item.pea_code,
-        item.issued_by_name || '-', item.technician_name || '-', item.installed_serial || '-',
+        item.issued_by_name || '-', item.technician_name || '-',
+        item.used_by_name || '-', item.returned_by_name || '-',
+        item.installed_serial || '-',
         formatDate(item.created_at), formatDate(item.issued_at), formatDate(item.used_at),
     ]);
     let html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="UTF-8"></head><body><table>';
@@ -188,10 +193,12 @@ const exportExcel = (items: SealReportItem[]) => {
 
 const exportPDF = (items: SealReportItem[]) => {
     if (Platform.OS !== 'web') return;
-    const headers = ['หมายเลขซีล', 'สถานะ', 'สังกัด กฟภ.', 'ผู้จ่าย', 'ช่างที่รับ', 'เลขมิเตอร์', 'วันที่สร้าง', 'วันที่จ่าย', 'วันที่ติดตั้ง'];
+    const headers = ['หมายเลขซีล', 'สถานะ', 'สังกัด กฟภ.', 'ผู้จ่าย', 'ช่างที่รับ', 'ช่างที่ติดตั้ง', 'ผู้รับคืน', 'เลขมิเตอร์', 'วันที่สร้าง', 'วันที่จ่าย', 'วันที่ติดตั้ง'];
     const rows = items.map(item => [
         item.seal_number, item.status, item.pea_code,
-        item.issued_by_name || '-', item.technician_name || '-', item.installed_serial || '-',
+        item.issued_by_name || '-', item.technician_name || '-',
+        item.used_by_name || '-', item.returned_by_name || '-',
+        item.installed_serial || '-',
         formatDate(item.created_at), formatDate(item.issued_at), formatDate(item.used_at),
     ]);
     let html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>รายงานสรุปข้อมูลซีล</title>
@@ -331,20 +338,20 @@ export const ReportScreen: React.FC = () => {
                 </View>
 
                 {/* ── Filters Card ────────────────── */}
-                <View style={styles.card}>
+                <View style={[styles.card, { zIndex: 100, overflow: 'visible' as any }]}>
                     <View style={styles.cardHeader}>
                         <Text style={styles.cardTitle}>🔍 ตัวกรองข้อมูล</Text>
                     </View>
-                    <View style={[styles.filterRow, { zIndex: 100 }]}>
+                    <View style={[styles.filterRow, { zIndex: 100, overflow: 'visible' as any }]}>
                         <DateInput label="วันที่เริ่มต้น" value={startDate} onChange={setStartDate} />
                         <DateInput label="วันที่สิ้นสุด" value={endDate} onChange={setEndDate} />
-                        <Dropdown label="สังกัด (PEA Code)" value={peaCode} options={peaOptions} onChange={setPeaCode} />
-                        <Dropdown label="สถานะซีล" value={statusFilter} options={statusOptions} onChange={setStatusFilter} />
+                        <Dropdown label="สังกัด (PEA Code)" value={peaCode} options={peaOptions} onChange={setPeaCode} zIndex={20} />
+                        <Dropdown label="สถานะซีล" value={statusFilter} options={statusOptions} onChange={setStatusFilter} zIndex={10} />
                     </View>
                 </View>
 
                 {/* ── Export + Search Section ─────── */}
-                <View style={styles.card}>
+                <View style={[styles.card, { zIndex: 50 }]}>
                     <View style={styles.exportRow}>
                         <View style={styles.exportLeft}>
                             <Text style={styles.exportIcon}>📋</Text>
@@ -421,6 +428,12 @@ export const ReportScreen: React.FC = () => {
                                         <View style={[styles.cell, styles.cellName]}>
                                             <Text style={styles.headerText}>ช่างที่รับ</Text>
                                         </View>
+                                        <View style={[styles.cell, styles.cellName]}>
+                                            <Text style={styles.headerText}>ช่างที่ติดตั้ง</Text>
+                                        </View>
+                                        <View style={[styles.cell, styles.cellName]}>
+                                            <Text style={styles.headerText}>ผู้รับคืน</Text>
+                                        </View>
                                         <View style={[styles.cell, styles.cellSerial]}>
                                             <Text style={styles.headerText}>เลขมิเตอร์</Text>
                                         </View>
@@ -459,6 +472,12 @@ export const ReportScreen: React.FC = () => {
                                                 </View>
                                                 <View style={[styles.cell, styles.cellName]}>
                                                     <Text style={styles.cellText}>{item.technician_name || '-'}</Text>
+                                                </View>
+                                                <View style={[styles.cell, styles.cellName]}>
+                                                    <Text style={styles.cellText}>{item.used_by_name || '-'}</Text>
+                                                </View>
+                                                <View style={[styles.cell, styles.cellName]}>
+                                                    <Text style={styles.cellText}>{item.returned_by_name || '-'}</Text>
                                                 </View>
                                                 <View style={[styles.cell, styles.cellSerial]}>
                                                     <Text style={styles.cellText}>{item.installed_serial || '-'}</Text>
