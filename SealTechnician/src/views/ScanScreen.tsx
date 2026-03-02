@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated, Alert, ActivityIndicator, Image, TextInput, Keyboard, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, Alert, ActivityIndicator, Image, TextInput, Platform } from 'react-native';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { API_CONFIG, getApiUrl } from '../config/api.config';
@@ -21,41 +21,7 @@ export default function ScanScreen() {
     const [result, setResult] = useState<{ message: string; type: 'success' | 'warning' | 'error' | 'info' } | null>(null);
     const cameraRef = useRef<CameraView>(null);
     const [fadeAnim] = useState(new Animated.Value(0));
-    const [keyboardHeightAnim] = useState(new Animated.Value(0));
     const insets = useSafeAreaInsets();
-
-    useEffect(() => {
-        const keyboardWillShowListener = Keyboard.addListener(
-            Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
-            (e) => {
-                // On Android, sometimes the first keyboard event includes the system navigation bar height in `endCoordinates.height`.
-                // If we also use `insets.bottom` on our container, we're double-counting that space.
-                // We subtract the inset on Android so it only pushes the *actual* keyboard difference.
-                const adjustHeight = Platform.OS === 'android' ? e.endCoordinates.height - insets.bottom : e.endCoordinates.height;
-
-                Animated.timing(keyboardHeightAnim, {
-                    toValue: Math.max(0, adjustHeight), // Ensure it doesn't go negative
-                    duration: 200,
-                    useNativeDriver: false,
-                }).start();
-            }
-        );
-        const keyboardWillHideListener = Keyboard.addListener(
-            Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
-            () => {
-                Animated.timing(keyboardHeightAnim, {
-                    toValue: 0,
-                    duration: 200,
-                    useNativeDriver: false,
-                }).start();
-            }
-        );
-
-        return () => {
-            keyboardWillHideListener.remove();
-            keyboardWillShowListener.remove();
-        };
-    }, [insets.bottom]);
 
     useEffect(() => {
         if (result) {
@@ -451,17 +417,8 @@ export default function ScanScreen() {
 
             {/* ช่องกรอกเลขเอง แสดงเฉพาะโหมด barcode และยังไม่ได้สแกน */}
             {scanMode === 'barcode' && !scanned && !result && (
-                <Animated.View
-                    style={[
-                        styles.manualInputFloatingWrapper,
-                        // We translate up by the keyboard height.
-                        // However, on Android, pushing by the full keyboard height often pushes it *too* high 
-                        // because we already have bottom padding. We'll use a clamping or offset approach in the translate.
-                        // For Android, we apply a fractional multiplier or subtract the safe area to prevent over-jumping.
-                        { transform: [{ translateY: Animated.multiply(keyboardHeightAnim, Platform.OS === 'ios' ? -1 : -0.9) }] }
-                    ]}
-                >
-                    <View style={[styles.manualInputFloatingContainer, { paddingBottom: 15 + insets.bottom }]}>
+                <View style={styles.manualInputFloatingWrapper}>
+                    <View style={[styles.manualInputFloatingContainer, { paddingBottom: 20 + insets.bottom }]}>
                         <View style={styles.manualInputRow}>
                             <TextInput
                                 style={styles.manualInputFloatingField}
@@ -477,7 +434,7 @@ export default function ScanScreen() {
                             </TouchableOpacity>
                         </View>
                     </View>
-                </Animated.View>
+                </View>
             )}
 
             {scannedSealNumber && !photoUri && !result && (
