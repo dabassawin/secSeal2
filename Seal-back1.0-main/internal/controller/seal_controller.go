@@ -111,10 +111,11 @@ func (sc *SealController) GenerateSealsMultipleBatchesHandler(c *fiber.Ctx) erro
 
 	var request struct {
 		Batches []struct {
-			SealNumber string `json:"seal_number"`
-			Count      int    `json:"count"`
-			PeaCode    string `json:"pea_code"` // ✅ รับ PeaCode
-			Status     string `json:"status"`   // ✅ รับ status
+			SealNumber    string `json:"seal_number"`
+			Count         int    `json:"count"`
+			PeaCode       string `json:"pea_code"`        // ✅ รับ PeaCode
+			Status        string `json:"status"`          // ✅ รับ status
+			CreateRemarks string `json:"create_remarks"` // ✅ รับหมายเหตุ
 		} `json:"batches"`
 	}
 
@@ -143,7 +144,7 @@ func (sc *SealController) GenerateSealsMultipleBatchesHandler(c *fiber.Ctx) erro
 			})
 		}
 
-		seals, err := sc.sealService.GenerateAndCreateSealsFromNumber(batch.SealNumber, batch.Count, userID, batch.PeaCode, batch.Status)
+		seals, err := sc.sealService.GenerateAndCreateSealsFromNumber(batch.SealNumber, batch.Count, userID, batch.PeaCode, batch.Status, batch.CreateRemarks)
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 		}
@@ -190,6 +191,22 @@ func (sc *SealController) GetSealReportHandler(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to generate report"})
 	}
 	return c.JSON(report)
+}
+
+// -------------------------------------------------------------------
+// 5.1) GetSealStatementHandler
+// GET /api/seals/statement?pea_code=&start_date=&end_date=
+// -------------------------------------------------------------------
+func (sc *SealController) GetSealStatementHandler(c *fiber.Ctx) error {
+	peaCode := c.Query("pea_code", "")
+	startDate := c.Query("start_date", "")
+	endDate := c.Query("end_date", "")
+
+	statement, err := sc.sealService.GetSealStatement(peaCode, startDate, endDate)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to generate statement: " + err.Error()})
+	}
+	return c.JSON(statement)
 }
 
 // -------------------------------------------------------------------
@@ -330,7 +347,7 @@ func (sc *SealController) GenerateSealsHandler(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Seal number is required"})
 	}
 
-	seals, err := sc.sealService.GenerateAndCreateSealsFromNumber(request.SealNumber, request.Count, userID, request.PeaCode, request.Status)
+	seals, err := sc.sealService.GenerateAndCreateSealsFromNumber(request.SealNumber, request.Count, userID, request.PeaCode, request.Status, "")
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
@@ -363,7 +380,7 @@ func (sc *SealController) CreateSealHandler(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Count must be greater than zero"})
 	}
 
-	seals, err := sc.sealService.GenerateAndCreateSealsFromNumber(request.SealNumber, request.Count, userID, request.PeaCode, request.Status)
+	seals, err := sc.sealService.GenerateAndCreateSealsFromNumber(request.SealNumber, request.Count, userID, request.PeaCode, request.Status, "")
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
@@ -596,9 +613,10 @@ func (sc *SealController) AssignSealsByTechCodeHandler(c *fiber.Ctx) error {
 	}
 
 	var req struct {
-		TechnicianCode string   `json:"technician_code"`
-		SealNumbers    []string `json:"seal_numbers"`
-		Remark         string   `json:"remark,omitempty"`
+		TechnicianCode string            `json:"technician_code"`
+		SealNumbers    []string          `json:"seal_numbers"`
+		Remark         string            `json:"remark,omitempty"`
+		SealRemarks    map[string]string `json:"seal_remarks,omitempty"` // per-seal remark
 	}
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
@@ -610,7 +628,7 @@ func (sc *SealController) AssignSealsByTechCodeHandler(c *fiber.Ctx) error {
 	}
 
 	// เรียก SealService.AssignSealsByTechCode
-	if err := sc.sealService.AssignSealsByTechCode(req.TechnicianCode, req.SealNumbers, req.Remark, userID); err != nil {
+	if err := sc.sealService.AssignSealsByTechCode(req.TechnicianCode, req.SealNumbers, req.Remark, req.SealRemarks, userID); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
 	}
 
