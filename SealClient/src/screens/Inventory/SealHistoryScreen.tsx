@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Image, Modal, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Image, Modal, Alert, Platform } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { colors, sizes } from '@/constants';
 import { Header } from '@/components/dashboard';
@@ -81,6 +81,18 @@ export const SealHistoryScreen: React.FC = () => {
             setLoading(false);
         }
     }, [sealNumber]);
+
+    // เมื่อกดปุ่ม Back ของเบราว์เซอร์ ให้ reload หน้า 1 ครั้ง
+    // เพื่อให้ React Navigation resolve URL ไปยังหน้าคลังซีลที่ถูกต้อง
+    useEffect(() => {
+        if (Platform.OS === 'web') {
+            const handlePopState = () => {
+                window.location.reload();
+            };
+            window.addEventListener('popstate', handlePopState);
+            return () => window.removeEventListener('popstate', handlePopState);
+        }
+    }, []);
 
     const fetchData = async () => {
         if (!sealNumber) return;
@@ -366,6 +378,7 @@ export const SealHistoryScreen: React.FC = () => {
                             <Image
                                 source={{ uri: `http://localhost:3000/${seal?.image1 || (seal as any)?.Image1}`.replace('uploads\\', 'uploads/').replace('uploads//', 'uploads/') }}
                                 style={styles.fullScreenImage}
+
                                 resizeMode="contain"
                             />
                         )}

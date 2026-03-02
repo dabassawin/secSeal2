@@ -16,6 +16,7 @@ interface StagedBatch {
     count: number;
     status: 'checking' | 'available' | 'unavailable';
     creationStatus: string;
+    createRemarks: string;
 }
 
 export const CreateSealScreen: React.FC = () => {
@@ -167,7 +168,8 @@ export const CreateSealScreen: React.FC = () => {
             type: 'Single',
             count: 1,
             status: 'available',
-            creationStatus: 'พร้อมใช้งาน' // Default
+            creationStatus: 'พร้อมใช้งาน', // Default
+            createRemarks: ''
         };
 
         setStagedBatches(prev => [newEntry, ...prev]);
@@ -212,10 +214,11 @@ export const CreateSealScreen: React.FC = () => {
                 const newEntries: StagedBatch[] = canCreate.map((result, index) => ({
                     id: `${timestamp}-${index}`,
                     sealNumber: result.seal_number,
-                    type: 'Single', // Since we expanded them, they are individual items
+                    type: 'Single',
                     count: 1,
                     status: 'available',
-                    creationStatus: 'พร้อมใช้งาน' // Default
+                    creationStatus: 'พร้อมใช้งาน', // Default
+                    createRemarks: ''
                 }));
 
                 // Filter out local duplicates before adding
@@ -264,6 +267,10 @@ export const CreateSealScreen: React.FC = () => {
         setStagedBatches(prev => prev.map(s => s.id === id ? { ...s, creationStatus: newStatus } : s));
     };
 
+    const handleUpdateRemarks = (id: string, remarks: string) => {
+        setStagedBatches(prev => prev.map(s => s.id === id ? { ...s, createRemarks: remarks } : s));
+    };
+
     const handleConfirmCreation = async () => {
         if (!selectedPea) {
             setModalStatus('error');
@@ -288,7 +295,8 @@ export const CreateSealScreen: React.FC = () => {
                 seal_number: b.sealNumber,
                 count: b.count,
                 pea_code: code,
-                status: b.creationStatus
+                status: b.creationStatus,
+                create_remarks: b.createRemarks
             }));
 
             await sealService.generateBatches(batchesPayload);
@@ -423,7 +431,7 @@ export const CreateSealScreen: React.FC = () => {
                     <View style={styles.tableHead}>
                         <Text style={[styles.th, { flex: 0.5 }]}>#</Text>
                         <Text style={[styles.th, { flex: 3 }]}>START SERIAL</Text>
-                        <Text style={[styles.th, { flex: 1.5 }]}>TYPE</Text>
+                        <Text style={[styles.th, { flex: 1.5 }]}>หมายเหตุ</Text>
                         <Text style={[styles.th, { flex: 2 }]}>STATUS CHECK</Text>
                         <Text style={[styles.th, { flex: 1, textAlign: 'center' }]}>ACTION</Text>
                     </View>
@@ -459,7 +467,14 @@ export const CreateSealScreen: React.FC = () => {
                                         ))}
                                     </View>
                                 </View>
-                                <Text style={[styles.td, { flex: 1.5, color: '#666' }]}>{item.type}</Text>
+                                <View style={{ flex: 1.5 }}>
+                                    <TextInput
+                                        style={styles.remarkInput}
+                                        placeholder="พิมพ์หมายเหตุ..."
+                                        value={item.createRemarks}
+                                        onChangeText={(text) => handleUpdateRemarks(item.id, text)}
+                                    />
+                                </View>
                                 <View style={{ flex: 2 }}>
                                     {item.status === 'checking' && <Text style={styles.statusChecking}>⏳ Checking...</Text>}
                                     {item.status === 'available' && <Text style={styles.statusOk}>✅ Ready</Text>}
@@ -699,6 +714,7 @@ const styles = StyleSheet.create({
     statusOk: { color: '#4caf50', fontWeight: 'bold', fontSize: 13 },
     statusError: { color: '#f44336', fontWeight: 'bold', fontSize: 13 },
     deleteIcon: { fontSize: 16, color: '#ccc' },
+    remarkInput: { borderWidth: 1, borderColor: '#e0e0e0', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4, fontSize: 12, backgroundColor: '#fafafa', minHeight: 32 },
     emptyState: { padding: 40, alignItems: 'center' },
     emptyText: { color: '#ccc', fontSize: 16 },
 

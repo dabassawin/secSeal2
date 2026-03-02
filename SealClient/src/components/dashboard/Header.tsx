@@ -1,7 +1,8 @@
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { colors, sizes } from '@/constants';
 import { useAuth } from '@/context/AuthContext';
 import { useNavigation, DrawerActions } from '@react-navigation/native';
+import peaLogo from '../../assets/pea_logo.png';
 
 export const Header: React.FC = () => {
     const { logout, user } = useAuth();
@@ -19,7 +20,7 @@ export const Header: React.FC = () => {
                     style={{ flexDirection: 'row', alignItems: 'center' }}
                 >
                     <View style={styles.logoContainer}>
-                        <Text style={styles.logoIcon}>🛡️</Text>
+                        <Image source={peaLogo} style={styles.logoImage} resizeMode="contain" />
                     </View>
                     <Text style={styles.title}>SecuritySeal</Text>
                 </TouchableOpacity>
@@ -62,9 +63,9 @@ const styles = StyleSheet.create({
     logoContainer: {
         marginRight: sizes.sm,
     },
-    logoIcon: {
-        fontSize: sizes.fontXl,
-        color: colors.textDark,
+    logoImage: {
+        width: 32,
+        height: 32,
     },
     title: {
         fontSize: sizes.fontLg,

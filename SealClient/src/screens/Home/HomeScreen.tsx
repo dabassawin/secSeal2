@@ -94,6 +94,14 @@ export const HomeScreen: React.FC = () => {
                         iconBgColor="#fff3e0"
                         onPress={() => (navigation as any).navigate('Logs')}
                     />
+                    <ActionCard
+                        title="รายงานสรุปซีล"
+                        subtitle="ดูรายงาน ตัวกรอง และส่งออกข้อมูล"
+                        icon="📊"
+                        iconColor="#1565c0"
+                        iconBgColor="#e3f2fd"
+                        onPress={() => (navigation as any).navigate('Report')}
+                    />
                     {/* Action Cards Grid - Row 2 (Left Aligned) */}
                     <ActionCard
                         title="มอบหมายซีล (Assign)"

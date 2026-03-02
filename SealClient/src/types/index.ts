@@ -56,3 +56,4 @@ export interface Technician {
     created_at?: string;
     updated_at?: string;
 }
+

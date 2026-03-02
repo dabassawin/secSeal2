@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import { View, Text, StyleSheet, Platform } from 'react-native';
 import { colors, sizes } from '@/constants';
 
 interface StatusCardProps {
@@ -27,14 +27,18 @@ const styles = StyleSheet.create({
         borderRadius: sizes.radiusSm,
         padding: sizes.md,
         borderLeftWidth: 4,
-        shadowColor: "#000",
-        shadowOffset: {
-            width: 0,
-            height: 2,
-        },
-        shadowOpacity: 0.1,
-        shadowRadius: 3.84,
-        elevation: 5,
+        ...Platform.select({
+            web: {
+                boxShadow: '0px 2px 3.84px rgba(0, 0, 0, 0.1)'
+            },
+            default: {
+                shadowColor: "#000",
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.1,
+                shadowRadius: 3.84,
+                elevation: 5,
+            }
+        }),
         marginBottom: sizes.md,
         // Responsive width management will be handled by parent container via flex
         flex: 1,

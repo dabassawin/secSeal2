@@ -32,6 +32,9 @@ func SetupSealRoutes(router fiber.Router, sealController *controller.SealControl
 	// -- 5) GET /api/seals/report : admin-only report (public for testing)
 	seal.Get("/report", sealController.GetSealReportHandler)
 
+	// -- 5.1) GET /api/seals/statement : statement report with date range
+	seal.Get("/statement", sealController.GetSealStatementHandler)
+
 	// -- 6) GET /api/seals/check : check multiple seals with query params (public for testing)
 	seal.Get("/check", sealController.CheckMultipleSealsHandler)
 

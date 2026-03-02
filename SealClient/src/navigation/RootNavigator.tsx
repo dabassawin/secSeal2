@@ -5,6 +5,7 @@ import { createDrawerNavigator, DrawerContentScrollView, DrawerItemList, DrawerI
 import { View, ActivityIndicator, Text } from 'react-native';
 
 import { useAuth } from '../context/AuthContext';
+import { colors } from '../constants/colors';
 import LoginScreen from '../screens/LoginScreen';
 import { HomeScreen } from '../screens/Home/HomeScreen';
 import { SealInventoryScreen } from '../screens/Inventory/SealInventoryScreen';
@@ -13,15 +14,19 @@ import { AuditLogScreen } from '../screens/Log/AuditLogScreen';
 import { SealHistoryScreen } from '../screens/Inventory/SealHistoryScreen';
 import {
     TechnicianListScreen,
+    TechnicianDetailScreen,
     AddTechnicianScreen,
     ImportTechnicianScreen,
     AssignSealScreen,
     CreateUserScreen,
-    ChangeWorkplaceScreen
+    ChangeWorkplaceScreen,
+    ReportScreen
 } from '../screens';
 import TechnicianHomeScreen from '../screens/TechnicianHomeScreen';
 
 const SealStack = createStackNavigator();
+const TechAdminStack = createStackNavigator();
+const InventoryStack = createStackNavigator();
 const Stack = createStackNavigator();
 const Drawer = createDrawerNavigator();
 
@@ -48,6 +53,24 @@ const SealStackNavigator = () => {
     );
 };
 
+const TechAdminStackNavigator = () => {
+    return (
+        <TechAdminStack.Navigator screenOptions={{ headerShown: false, cardStyle: { flex: 1 } }}>
+            <TechAdminStack.Screen name="TechnicianList" component={TechnicianListScreen} />
+            <TechAdminStack.Screen name="TechnicianDetail" component={TechnicianDetailScreen} />
+        </TechAdminStack.Navigator>
+    );
+};
+
+const InventoryStackNavigator = () => {
+    return (
+        <InventoryStack.Navigator screenOptions={{ headerShown: false, cardStyle: { flex: 1 } }}>
+            <InventoryStack.Screen name="SealInventory" component={SealInventoryScreen} />
+            <InventoryStack.Screen name="SealHistory" component={SealHistoryScreen} />
+        </InventoryStack.Navigator>
+    );
+};
+
 const StaffNavigator = () => {
     return (
         <Drawer.Navigator
@@ -70,23 +93,15 @@ const StaffNavigator = () => {
             />
             <Drawer.Screen
                 name="Inventory"
-                component={SealInventoryScreen}
+                component={InventoryStackNavigator}
                 options={{
                     title: 'คลังซีล (Inventory)',
                     drawerItemStyle: { display: 'none' }
                 }}
             />
             <Drawer.Screen
-                name="SealHistory"
-                component={SealHistoryScreen}
-                options={{
-                    title: 'ประวัติซีล',
-                    drawerItemStyle: { display: 'none' } // Hide from drawer menu
-                }}
-            />
-            <Drawer.Screen
                 name="Technicians"
-                component={TechnicianListScreen}
+                component={TechAdminStackNavigator}
                 options={{
                     title: 'จัดการรายชื่อช่าง (Technicians)',
                     drawerItemStyle: { display: 'none' }
@@ -139,6 +154,14 @@ const StaffNavigator = () => {
                     drawerItemStyle: { display: 'none' }
                 }}
             />
+            <Drawer.Screen
+                name="Report"
+                component={ReportScreen}
+                options={{
+                    title: 'รายงานสรุป',
+                    drawerItemStyle: { display: 'none' }
+                }}
+            />
             {/* We will add Logs, etc. here later */}
         </Drawer.Navigator>
     );
@@ -159,7 +182,7 @@ const RootNavigator = () => {
     if (isLoading) {
         return (
             <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-                <ActivityIndicator size="large" color="#007AFF" />
+                <ActivityIndicator size="large" color={colors.primary} />
             </View>
         );
     }
@@ -172,12 +195,24 @@ const RootNavigator = () => {
                 StaffApp: {
                     screens: {
                         Dashboard: 'dashboard',
-                        Inventory: 'inventory',
-                        SealHistory: 'inventory/:sealNumber',
-                        Technicians: 'technicians',
+                        Inventory: {
+                            path: 'inventory',
+                            screens: {
+                                SealInventory: '',
+                                SealHistory: ':sealNumber',
+                            },
+                        },
+                        Technicians: {
+                            path: 'technicians',
+                            screens: {
+                                TechnicianList: '',
+                                TechnicianDetail: 'detail/:id',
+                            },
+                        },
                         AddTechnician: 'technicians/add',
                         ImportTechnician: 'technicians/import',
                         AssignSeal: 'seals/assign',
+                        Report: 'report',
                         Seals: {
                             screens: {
                                 CreateSeal: 'seals/create',

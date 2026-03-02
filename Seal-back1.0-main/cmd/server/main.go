@@ -145,6 +145,10 @@ func main() {
 	technicianService := service.NewTechnicianService(technicianRepo)
 	masPeaService := service.NewMasPeaService(masPeaRepo)
 
+	// report service & controller (queries v_seal_report VIEW)
+	reportService := service.NewReportService(config.DB)
+	reportController := controller.NewReportController(reportService)
+
 	// controllers
 	technicianController := controller.NewTechnicianController(technicianService, sealService)
 	userController := controller.NewUserController(userService)
@@ -279,6 +283,7 @@ func main() {
 	secureGroup := app.Group("", middleware.JWTMiddleware())
 	route.SetupSealRoutes(secureGroup, sealController) // ✅ ย้ายกลับมาใน secure group
 	route.SetupUserRoutes(secureGroup, userController)
+	route.SetupReportRoutes(secureGroup, reportController) // ✅ Report routes
 
 	secureGroup.Use("/logs", middleware.AdminOnlyMiddleware)
 	route.SetupLogRoutes(secureGroup, logController)

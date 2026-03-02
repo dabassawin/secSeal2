@@ -20,6 +20,7 @@ export const sealService = {
         }
     },
 
+
     getSeals: async (peaCode?: string): Promise<Seal[]> => {
         try {
             const url = peaCode ? `/api/seals?pea_code=${encodeURIComponent(peaCode)}` : '/api/seals';
@@ -35,7 +36,7 @@ export const sealService = {
         return await api.post('/api/seals', data);
     },
 
-    generateBatches: async (batches: { seal_number: string; count: number; pea_code: string; status?: string }[]) => {
+    generateBatches: async (batches: { seal_number: string; count: number; pea_code: string; status?: string; create_remarks?: string }[]) => {
         return await api.post('/api/seals/generate-batches', { batches });
     },
 
@@ -83,11 +84,12 @@ export const sealService = {
         }
     },
 
-    assignSealsByTechCode: async (technicianCode: string, sealNumbers: string[], remark?: string) => {
+    assignSealsByTechCode: async (technicianCode: string, sealNumbers: string[], remark?: string, sealRemarks?: Record<string, string>) => {
         return await api.post('/api/seals/assign-by-techcode', {
             technician_code: technicianCode,
             seal_numbers: sealNumbers,
-            remark
+            remark,
+            seal_remarks: sealRemarks
         });
     },
 

@@ -26,6 +26,7 @@ type Seal struct {
 	EmployeeCode         string         `json:"employee_code,omitempty"`
 	IssueRemark          string         `json:"issue_remark,omitempty"`
 	AssignedToTechnician *uint          `json:"assigned_to_technician,omitempty"`
+	CreateRemarks        string         `json:"create_remarks,omitempty"`
 
 	// ✅ เพิ่มฟิลด์เก็บลิงก์รูปภาพ (อัปโหลด 2 รูป)
 	Image1 string `json:"image1,omitempty"`

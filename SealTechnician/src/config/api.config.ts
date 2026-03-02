@@ -1,19 +1,18 @@
 // SealTechnician/src/config/api.config.ts
 // This file centralizes API configuration for the entire app
+// ⚠️ Change SERVER_IP below when your network IP changes
 
 import Constants from 'expo-constants';
 
-// Function to get the correct base URL based on environment
-const getBaseUrl = () => {
-  // Always use the local network IP for Expo Go on physical device testing
-  return 'http://192.168.1.30:3000/api';
-};
+// IP address of your machine on the local network
+const SERVER_IP = '192.168.1.30';
+const SERVER_PORT = '3000';
 
-const BASE_URL = getBaseUrl();
+// Base URL is derived from SERVER_IP so you only update one place
+const BASE_URL = `http://${SERVER_IP}:${SERVER_PORT}/api`;
 
 export const API_CONFIG = {
-  // IP address of your machine on the local network
-  SERVER_IP: '192.168.1.35',
+  SERVER_IP,
   SERVER_PORT: '3000',
 
   // API endpoints

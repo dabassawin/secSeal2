@@ -149,7 +149,11 @@ export const TechnicianListScreen: React.FC = () => {
                             </View>
                         ) : (
                             filteredTechs.map((tech, index) => (
-                                <View key={tech.id} style={styles.tableRow}>
+                                <TouchableOpacity
+                                    key={tech.id}
+                                    style={styles.tableRow}
+                                    onPress={() => (navigation as any).navigate('TechnicianDetail', { id: tech.id, technician: tech })}
+                                >
                                     <Text style={[styles.cellText, { flex: 0.5 }]}>{index + 1}</Text>
 
                                     <View style={[styles.cell, { flex: 2.5, flexDirection: 'row', alignItems: 'center' }]}>
@@ -184,15 +188,16 @@ export const TechnicianListScreen: React.FC = () => {
                                         </View>
                                     </View>
 
-                                    <View style={[styles.cell, { flex: 1.2, flexDirection: 'row', justifyContent: 'center' }]}>
-                                        <TouchableOpacity style={styles.actionIcon}>
-                                            <Text style={{ fontSize: 16 }}>👁️</Text>
-                                        </TouchableOpacity>
-                                        <TouchableOpacity style={[styles.actionIcon, { marginLeft: 10 }]}>
-                                            <Text style={{ fontSize: 16 }}>📝</Text>
-                                        </TouchableOpacity>
-                                    </View>
-                                </View>
+                                    <TouchableOpacity
+                                        style={styles.actionIcon}
+                                        onPress={() => (navigation as any).navigate('TechnicianDetail', { id: tech.id, technician: tech })}
+                                    >
+                                        <Text style={{ fontSize: 16 }}>👁️</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity style={[styles.actionIcon, { marginLeft: 10 }]}>
+                                        <Text style={{ fontSize: 16 }}>📝</Text>
+                                    </TouchableOpacity>
+                                </TouchableOpacity>
                             ))
                         )}
                     </ScrollView>
@@ -210,7 +215,7 @@ export const TechnicianListScreen: React.FC = () => {
                     </View>
                 </View>
             </View>
-        </View>
+        </View >
     );
 };
 

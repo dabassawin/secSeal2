@@ -47,14 +47,18 @@ const styles = StyleSheet.create({
         padding: sizes.lg,
         alignItems: 'center',
         justifyContent: 'center',
-        shadowColor: "#000",
-        shadowOffset: {
-            width: 0,
-            height: 2,
-        },
-        shadowOpacity: 0.1,
-        shadowRadius: 3.84,
-        elevation: 5,
+        ...Platform.select({
+            web: {
+                boxShadow: '0px 2px 3.84px rgba(0, 0, 0, 0.1)'
+            },
+            default: {
+                shadowColor: "#000",
+                shadowOffset: { width: 0, height: 2 },
+                shadowOpacity: 0.1,
+                shadowRadius: 3.84,
+                elevation: 5,
+            }
+        }),
         marginBottom: sizes.md,
         minWidth: 250,
         width: '30%',
@@ -64,10 +68,17 @@ const styles = StyleSheet.create({
         borderColor: 'transparent',
     },
     containerHovered: {
-        transform: Platform.OS === 'web' ? [{ scale: 1.02 }] : [],
-        shadowOpacity: 0.2,
-        shadowRadius: 8,
-        elevation: 8,
+        ...Platform.select({
+            web: {
+                transform: [{ scale: 1.02 }],
+                boxShadow: '0px 8px 8px rgba(0, 0, 0, 0.2)'
+            },
+            default: {
+                shadowOpacity: 0.2,
+                shadowRadius: 8,
+                elevation: 8,
+            }
+        }),
         borderColor: colors.primaryPurple,
     },
     iconContainer: {

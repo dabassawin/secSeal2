@@ -5,8 +5,10 @@ export * from './Seal/CreateSealScreen';
 export * from './Seal/AssignSealScreen';
 
 export * from './Technician/TechnicianListScreen';
+export * from './Technician/TechnicianDetailScreen';
 export * from './Technician/AddTechnicianScreen';
 export * from './Technician/ImportTechnicianScreen';
 export * from './User/CreateUserScreen';
 export * from './User/ChangeWorkplaceScreen';
+export * from './Report/ReportScreen';
 
