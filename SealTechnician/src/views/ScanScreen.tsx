@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated, Alert, ActivityIndicator, Image, TextInput, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, Alert, ActivityIndicator, Image, TextInput, Platform, KeyboardAvoidingView } from 'react-native';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { API_CONFIG, getApiUrl } from '../config/api.config';
@@ -417,7 +417,10 @@ export default function ScanScreen() {
 
             {/* ช่องกรอกเลขเอง แสดงเฉพาะโหมด barcode และยังไม่ได้สแกน */}
             {scanMode === 'barcode' && !scanned && !result && (
-                <View style={styles.manualInputFloatingWrapper}>
+                <KeyboardAvoidingView
+                    behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
+                    style={styles.manualInputFloatingWrapper}
+                >
                     <View style={[styles.manualInputFloatingContainer, { paddingBottom: 20 + insets.bottom }]}>
                         <View style={styles.manualInputRow}>
                             <TextInput
@@ -434,7 +437,7 @@ export default function ScanScreen() {
                             </TouchableOpacity>
                         </View>
                     </View>
-                </View>
+                </KeyboardAvoidingView>
             )}
 
             {scannedSealNumber && !photoUri && !result && (
