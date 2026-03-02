@@ -31,7 +31,8 @@ export default function ScanScreen() {
                 // On Android, sometimes the first keyboard event includes the system navigation bar height in `endCoordinates.height`.
                 // If we also use `insets.bottom` on our container, we're double-counting that space.
                 // We subtract the inset on Android so it only pushes the *actual* keyboard difference.
-                const adjustHeight = Platform.OS === 'android' ? e.endCoordinates.height - insets.bottom : e.endCoordinates.height;
+                // We add a small +15 offset so it sits slightly higher above the autocomplete row.
+                const adjustHeight = Platform.OS === 'android' ? e.endCoordinates.height - insets.bottom + 15 : e.endCoordinates.height + 15;
 
                 Animated.timing(keyboardHeightAnim, {
                     toValue: Math.max(0, adjustHeight), // Ensure it doesn't go negative
