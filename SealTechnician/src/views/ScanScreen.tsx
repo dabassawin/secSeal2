@@ -454,10 +454,14 @@ export default function ScanScreen() {
                 <Animated.View
                     style={[
                         styles.manualInputFloatingWrapper,
-                        { transform: [{ translateY: Animated.multiply(keyboardHeightAnim, -1) }] }
+                        // We translate up by the keyboard height.
+                        // However, on Android, pushing by the full keyboard height often pushes it *too* high 
+                        // because we already have bottom padding. We'll use a clamping or offset approach in the translate.
+                        // For Android, we apply a fractional multiplier or subtract the safe area to prevent over-jumping.
+                        { transform: [{ translateY: Animated.multiply(keyboardHeightAnim, Platform.OS === 'ios' ? -1 : -0.9) }] }
                     ]}
                 >
-                    <View style={[styles.manualInputFloatingContainer, { paddingBottom: 20 + insets.bottom }]}>
+                    <View style={[styles.manualInputFloatingContainer, { paddingBottom: 15 + insets.bottom }]}>
                         <View style={styles.manualInputRow}>
                             <TextInput
                                 style={styles.manualInputFloatingField}
