@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated, Alert, ActivityIndicator, Image, TextInput, Keyboard, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, Alert, ActivityIndicator, Image, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { API_CONFIG, getApiUrl } from '../config/api.config';
@@ -21,42 +21,7 @@ export default function ScanScreen() {
     const [result, setResult] = useState<{ message: string; type: 'success' | 'warning' | 'error' | 'info' } | null>(null);
     const cameraRef = useRef<CameraView>(null);
     const [fadeAnim] = useState(new Animated.Value(0));
-    const [keyboardHeightAnim] = useState(new Animated.Value(0));
     const insets = useSafeAreaInsets();
-
-    useEffect(() => {
-        const keyboardWillShowListener = Keyboard.addListener(
-            Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
-            (e) => {
-                // On Android, sometimes the first keyboard event includes the system navigation bar height in `endCoordinates.height`.
-                // If we also use `insets.bottom` on our container, we're double-counting that space.
-                // We subtract the inset on Android so it only pushes the *actual* keyboard difference.
-                // We add a small +15 offset so it sits slightly higher above the autocomplete row.
-                const adjustHeight = Platform.OS === 'android' ? e.endCoordinates.height - insets.bottom + 15 : e.endCoordinates.height + 15;
-
-                Animated.timing(keyboardHeightAnim, {
-                    toValue: Math.max(0, adjustHeight), // Ensure it doesn't go negative
-                    duration: 200,
-                    useNativeDriver: false,
-                }).start();
-            }
-        );
-        const keyboardWillHideListener = Keyboard.addListener(
-            Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
-            () => {
-                Animated.timing(keyboardHeightAnim, {
-                    toValue: 0,
-                    duration: 200,
-                    useNativeDriver: false,
-                }).start();
-            }
-        );
-
-        return () => {
-            keyboardWillHideListener.remove();
-            keyboardWillShowListener.remove();
-        };
-    }, [insets.bottom]);
 
     useEffect(() => {
         if (result) {
@@ -452,13 +417,12 @@ export default function ScanScreen() {
 
             {/* ช่องกรอกเลขเอง แสดงเฉพาะโหมด barcode และยังไม่ได้สแกน */}
             {scanMode === 'barcode' && !scanned && !result && (
-                <Animated.View
-                    style={[
-                        styles.manualInputFloatingWrapper,
-                        { transform: [{ translateY: Animated.multiply(keyboardHeightAnim, -1) }] }
-                    ]}
+                <KeyboardAvoidingView
+                    behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                    keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20} // Offset added here
+                    style={[styles.manualInputFloatingWrapper, { bottom: 20 + insets.bottom }]}
                 >
-                    <View style={[styles.manualInputFloatingContainer, { paddingBottom: 20 + insets.bottom }]}>
+                    <View style={styles.manualInputFloatingContainer}>
                         <View style={styles.manualInputRow}>
                             <TextInput
                                 style={styles.manualInputFloatingField}
@@ -474,7 +438,7 @@ export default function ScanScreen() {
                             </TouchableOpacity>
                         </View>
                     </View>
-                </Animated.View>
+                </KeyboardAvoidingView>
             )}
 
             {scannedSealNumber && !photoUri && !result && (
@@ -857,7 +821,6 @@ const styles = StyleSheet.create({
     },
     manualInputFloatingWrapper: {
         position: 'absolute',
-        bottom: 0,
         left: 0,
         right: 0,
         zIndex: 4,
