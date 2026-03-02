@@ -22,7 +22,7 @@ export const useHomeViewModel = () => {
 
             // Filter seals
             const active = data.filter(s => s.status === 'จ่าย' || s.status === 'พร้อมใช้งาน');
-            const history = data.filter(s => s.status === 'ติดตั้งแล้ว' || s.status === 'ใช้งานแล้ว');
+            const history = data.filter(s => s.status === 'ติดตั้งแล้ว' || s.status === 'ใช้งานแล้ว' || s.status === 'เสียหาย' || s.status === 'รอตรวจสอบคืน');
 
             setActiveSeals(active);
             setHistorySeals(history);

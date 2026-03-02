@@ -84,16 +84,18 @@ export default function HomeScreen({ onLogout }: HomeScreenProps) {
 
             <View style={styles.cardRight}>
                 <View style={[styles.statusBadge,
-                (item.status === 'ติดตั้งแล้ว' || item.status === 'ใช้งานแล้ว') ? styles.statusSuccess : styles.statusPending
+                (item.status === 'เสียหาย' || item.status === 'รอตรวจสอบคืน') ? styles.statusFailed :
+                    (item.status === 'ติดตั้งแล้ว' || item.status === 'ใช้งานแล้ว') ? styles.statusSuccess : styles.statusPending
                 ]}>
                     <Text style={[styles.statusText,
-                    (item.status === 'ติดตั้งแล้ว' || item.status === 'ใช้งานแล้ว') ? styles.textSuccess : styles.textPending
+                    (item.status === 'เสียหาย' || item.status === 'รอตรวจสอบคืน') ? styles.textFailed :
+                        (item.status === 'ติดตั้งแล้ว' || item.status === 'ใช้งานแล้ว') ? styles.textSuccess : styles.textPending
                     ]}>
-                        {(item.status === 'ติดตั้งแล้ว' || item.status === 'ใช้งานแล้ว') ? 'ติดตั้งแล้ว' : 'ยังไม่ติดตั้ง'}
+                        {(item.status === 'เสียหาย' || item.status === 'รอตรวจสอบคืน') ? item.status :
+                            (item.status === 'ใช้งานแล้ว') ? 'คืนแล้ว' :
+                                (item.status === 'ติดตั้งแล้ว') ? 'ติดตั้งแล้ว' : 'ยังไม่ติดตั้ง'}
                     </Text>
                 </View>
-
-
             </View>
         </View>
     );
@@ -467,6 +469,9 @@ const styles = StyleSheet.create({
     statusSuccess: {
         backgroundColor: '#E8F5E9',
     },
+    statusFailed: {
+        backgroundColor: '#FFEBEE',
+    },
     statusText: {
         fontSize: 10,
         fontWeight: 'bold',
@@ -476,6 +481,9 @@ const styles = StyleSheet.create({
     },
     textSuccess: {
         color: '#4CAF50',
+    },
+    textFailed: {
+        color: '#F44336',
     },
     actionButton: {
         backgroundColor: '#fff',

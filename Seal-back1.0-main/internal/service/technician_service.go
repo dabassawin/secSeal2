@@ -141,7 +141,7 @@ func (s *TechnicianService) ReturnSealWithImage(sealNumber string, techID uint, 
 		seal.Status = "รอตรวจสอบคืน"
 	}
 
-	seal.ReturnedBy = &techID
+	seal.ReturnedByTechnician = &techID
 	seal.ReturnedAt = &now
 	seal.ReturnRemarks = remarks // ✅ บันทึกเหตุผลการคืน
 

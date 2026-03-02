@@ -14,6 +14,7 @@ type Seal struct {
 	IssuedBy             *uint          `json:"issued_by,omitempty"`
 	IssuedTo             *uint          `json:"issued_to,omitempty"`
 	ReturnedBy           *uint          `json:"returned_by,omitempty"`
+	ReturnedByTechnician *uint          `json:"returned_by_technician,omitempty"`
 	UsedBy               *uint          `json:"used_by,omitempty"`
 	IssuedAt             *time.Time     `json:"issued_at,omitempty"`
 	UsedAt               *time.Time     `json:"used_at,omitempty"`
