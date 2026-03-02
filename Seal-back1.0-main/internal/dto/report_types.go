@@ -20,8 +20,9 @@ type SealReportRow struct {
 	IssuedByName       string     `json:"issued_by_name"`
 	TechnicianName     string     `json:"technician_name"`
 	TechnicianCompany  string     `json:"technician_company"`
-	UsedByName         string     `json:"used_by_name"`
-	ReturnedByName     string     `json:"returned_by_name"`
+	UsedByName                string     `json:"used_by_name"`
+	ReturnedByTechnicianName  string     `json:"returned_by_technician_name"`
+	ReturnedByName            string     `json:"returned_by_name"`
 }
 
 // SealReportResponse is the JSON response for the report API

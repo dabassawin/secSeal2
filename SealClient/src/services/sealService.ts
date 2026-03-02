@@ -99,5 +99,22 @@ export const sealService = {
 
     updateSealStatus: async (sealNumber: string, status: string) => {
         return await api.put(`/api/seals/${sealNumber}/status`, { status });
-    }
+    },
+
+    getPendingReturns: async (peaCode?: string) => {
+        try {
+            const url = peaCode
+                ? `/api/seals/pending-returns?pea_code=${encodeURIComponent(peaCode)}`
+                : '/api/seals/pending-returns';
+            const response = await api.get(url);
+            return response.data;
+        } catch (error) {
+            console.error('Error fetching pending returns:', error);
+            return { items: [], total: 0 };
+        }
+    },
+
+    acceptReturn: async (sealNumber: string) => {
+        return await api.put(`/api/seals/${sealNumber}/accept-return`);
+    },
 };

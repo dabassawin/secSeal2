@@ -146,7 +146,7 @@ const DateInput: React.FC<{
 // ─── CSV/Excel/PDF Export ────────────────────────────
 const exportCSV = (items: SealReportItem[]) => {
     if (Platform.OS !== 'web') return;
-    const headers = ['หมายเลขซีล', 'สถานะ', 'สังกัด กฟภ.', 'ผู้จ่าย', 'ช่างที่รับ', 'ช่างที่ติดตั้ง', 'ผู้รับคืน', 'เลขมิเตอร์', 'วันที่สร้าง', 'วันที่จ่าย', 'วันที่ติดตั้ง'];
+    const headers = ['หมายเลขซีล', 'สถานะ', 'สังกัด กฟภ.', 'ผู้จ่าย', 'ช่างที่รับ', 'ช่างที่ติดตั้ง', 'ช่างที่ส่งคืน', 'ผู้รับคืน', 'เลขมิเตอร์', 'วันที่สร้าง', 'วันที่จ่าย', 'วันที่ติดตั้ง'];
     const rows = items.map(item => [
         item.seal_number,
         item.status,
@@ -154,6 +154,7 @@ const exportCSV = (items: SealReportItem[]) => {
         item.issued_by_name || '-',
         item.technician_name || '-',
         item.used_by_name || '-',
+        item.returned_by_technician_name || '-',
         item.returned_by_name || '-',
         item.installed_serial || '-',
         formatDate(item.created_at),
@@ -170,12 +171,12 @@ const exportCSV = (items: SealReportItem[]) => {
 
 const exportExcel = (items: SealReportItem[]) => {
     if (Platform.OS !== 'web') return;
-    const headers = ['หมายเลขซีล', 'สถานะ', 'สังกัด กฟภ.', 'ผู้จ่าย', 'ช่างที่รับ', 'ช่างที่ติดตั้ง', 'ผู้รับคืน', 'เลขมิเตอร์', 'วันที่สร้าง', 'วันที่จ่าย', 'วันที่ติดตั้ง'];
+    const headers = ['หมายเลขซีล', 'สถานะ', 'สังกัด กฟภ.', 'ผู้จ่าย', 'ช่างที่รับ', 'ช่างที่ติดตั้ง', 'ช่างที่ส่งคืน', 'ผู้รับคืน', 'เลขมิเตอร์', 'วันที่สร้าง', 'วันที่จ่าย', 'วันที่ติดตั้ง'];
     const rows = items.map(item => [
         item.seal_number, item.status, item.pea_code,
         item.issued_by_name || '-', item.technician_name || '-',
-        item.used_by_name || '-', item.returned_by_name || '-',
-        item.installed_serial || '-',
+        item.used_by_name || '-', item.returned_by_technician_name || '-',
+        item.returned_by_name || '-', item.installed_serial || '-',
         formatDate(item.created_at), formatDate(item.issued_at), formatDate(item.used_at),
     ]);
     let html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="UTF-8"></head><body><table>';
@@ -193,12 +194,12 @@ const exportExcel = (items: SealReportItem[]) => {
 
 const exportPDF = (items: SealReportItem[]) => {
     if (Platform.OS !== 'web') return;
-    const headers = ['หมายเลขซีล', 'สถานะ', 'สังกัด กฟภ.', 'ผู้จ่าย', 'ช่างที่รับ', 'ช่างที่ติดตั้ง', 'ผู้รับคืน', 'เลขมิเตอร์', 'วันที่สร้าง', 'วันที่จ่าย', 'วันที่ติดตั้ง'];
+    const headers = ['หมายเลขซีล', 'สถานะ', 'สังกัด กฟภ.', 'ผู้จ่าย', 'ช่างที่รับ', 'ช่างที่ติดตั้ง', 'ช่างที่ส่งคืน', 'ผู้รับคืน', 'เลขมิเตอร์', 'วันที่สร้าง', 'วันที่จ่าย', 'วันที่ติดตั้ง'];
     const rows = items.map(item => [
         item.seal_number, item.status, item.pea_code,
         item.issued_by_name || '-', item.technician_name || '-',
-        item.used_by_name || '-', item.returned_by_name || '-',
-        item.installed_serial || '-',
+        item.used_by_name || '-', item.returned_by_technician_name || '-',
+        item.returned_by_name || '-', item.installed_serial || '-',
         formatDate(item.created_at), formatDate(item.issued_at), formatDate(item.used_at),
     ]);
     let html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>รายงานสรุปข้อมูลซีล</title>
@@ -432,6 +433,9 @@ export const ReportScreen: React.FC = () => {
                                             <Text style={styles.headerText}>ช่างที่ติดตั้ง</Text>
                                         </View>
                                         <View style={[styles.cell, styles.cellName]}>
+                                            <Text style={styles.headerText}>ช่างที่ส่งคืน</Text>
+                                        </View>
+                                        <View style={[styles.cell, styles.cellName]}>
                                             <Text style={styles.headerText}>ผู้รับคืน</Text>
                                         </View>
                                         <View style={[styles.cell, styles.cellSerial]}>
@@ -475,6 +479,9 @@ export const ReportScreen: React.FC = () => {
                                                 </View>
                                                 <View style={[styles.cell, styles.cellName]}>
                                                     <Text style={styles.cellText}>{item.used_by_name || '-'}</Text>
+                                                </View>
+                                                <View style={[styles.cell, styles.cellName]}>
+                                                    <Text style={styles.cellText}>{item.returned_by_technician_name || '-'}</Text>
                                                 </View>
                                                 <View style={[styles.cell, styles.cellName]}>
                                                     <Text style={styles.cellText}>{item.returned_by_name || '-'}</Text>

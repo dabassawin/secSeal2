@@ -20,7 +20,8 @@ import {
     AssignSealScreen,
     CreateUserScreen,
     ChangeWorkplaceScreen,
-    ReportScreen
+    ReportScreen,
+    ReturnVerificationScreen
 } from '../screens';
 import TechnicianHomeScreen from '../screens/TechnicianHomeScreen';
 
@@ -162,6 +163,14 @@ const StaffNavigator = () => {
                     drawerItemStyle: { display: 'none' }
                 }}
             />
+            <Drawer.Screen
+                name="ReturnVerification"
+                component={ReturnVerificationScreen}
+                options={{
+                    title: 'รับคืนซีล',
+                    drawerItemStyle: { display: 'none' }
+                }}
+            />
             {/* We will add Logs, etc. here later */}
         </Drawer.Navigator>
     );
@@ -213,6 +222,7 @@ const RootNavigator = () => {
                         ImportTechnician: 'technicians/import',
                         AssignSeal: 'seals/assign',
                         Report: 'report',
+                        ReturnVerification: 'return-verification',
                         Seals: {
                             screens: {
                                 CreateSeal: 'seals/create',

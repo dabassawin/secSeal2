@@ -58,7 +58,8 @@ export const SealHistoryScreen: React.FC = () => {
     const [logs, setLogs] = useState<Log[]>([]);
     const [loading, setLoading] = useState(true);
     const [confirmModalVisible, setConfirmModalVisible] = useState(false);
-    const [imageModalVisible, setImageModalVisible] = useState(false);
+    const [galleryModalVisible, setGalleryModalVisible] = useState(false);
+    const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);
 
     // Edit Status State
     const [editStatusModalVisible, setEditStatusModalVisible] = useState(false);
@@ -239,14 +240,18 @@ export const SealHistoryScreen: React.FC = () => {
                         {/* Sidebar Info */}
                         <View style={styles.sidebar}>
                             <View style={styles.infoCard}>
-                                <Text style={styles.infoCardTitle}>รูปภาพซีล (ล่าสุด)</Text>
+                                <Text style={styles.infoCardTitle}>รูปภาพซีล</Text>
                                 {(seal?.image1 || (seal as any)?.Image1) ? (
-                                    <TouchableOpacity onPress={() => setImageModalVisible(true)} activeOpacity={0.8}>
+                                    <TouchableOpacity onPress={() => {
+                                        const uri = `http://localhost:3000/${seal?.image1 || (seal as any)?.Image1}`.replace('uploads\\', 'uploads/').replace('uploads//', 'uploads/');
+                                        setSelectedImageUri(uri);
+                                    }} activeOpacity={0.8}>
                                         <Image
                                             source={{ uri: `http://localhost:3000/${seal?.image1 || (seal as any)?.Image1}`.replace('uploads\\', 'uploads/').replace('uploads//', 'uploads/') }}
                                             style={styles.imagePlaceholder}
                                             resizeMode="cover"
                                         />
+                                        <Text style={styles.imageLabel}>📸 รูปติดตั้ง (Image 1)</Text>
                                     </TouchableOpacity>
                                 ) : (
                                     <View style={styles.imagePlaceholder}>
@@ -255,7 +260,20 @@ export const SealHistoryScreen: React.FC = () => {
                                         </View>
                                     </View>
                                 )}
-                                <TouchableOpacity style={styles.whiteBtn}>
+                                {(seal?.image2 || (seal as any)?.Image2) ? (
+                                    <TouchableOpacity onPress={() => {
+                                        const uri = `http://localhost:3000/${seal?.image2 || (seal as any)?.Image2}`.replace('uploads\\', 'uploads/').replace('uploads//', 'uploads/');
+                                        setSelectedImageUri(uri);
+                                    }} activeOpacity={0.8} style={{ marginTop: 10 }}>
+                                        <Image
+                                            source={{ uri: `http://localhost:3000/${seal?.image2 || (seal as any)?.Image2}`.replace('uploads\\', 'uploads/').replace('uploads//', 'uploads/') }}
+                                            style={styles.imagePlaceholder}
+                                            resizeMode="cover"
+                                        />
+                                        <Text style={styles.imageLabel}>📥 รูปคืนซีล (Image 2)</Text>
+                                    </TouchableOpacity>
+                                ) : null}
+                                <TouchableOpacity style={styles.whiteBtn} onPress={() => setGalleryModalVisible(true)}>
                                     <Text style={styles.whiteBtnText}>ดูแกลเลอรี่ทั้งหมด</Text>
                                 </TouchableOpacity>
                             </View>
@@ -368,20 +386,61 @@ export const SealHistoryScreen: React.FC = () => {
                     </View>
                 </Modal>
 
-                {/* Fullscreen Image Modal */}
-                <Modal visible={imageModalVisible} transparent={true} animationType="fade" onRequestClose={() => setImageModalVisible(false)}>
+                {/* Fullscreen Single Image Modal */}
+                <Modal visible={!!selectedImageUri} transparent={true} animationType="fade" onRequestClose={() => setSelectedImageUri(null)}>
                     <View style={styles.fullScreenOverlay}>
-                        <TouchableOpacity style={styles.closeOverlayBtn} onPress={() => setImageModalVisible(false)}>
+                        <TouchableOpacity style={styles.closeOverlayBtn} onPress={() => setSelectedImageUri(null)}>
                             <Text style={styles.closeOverlayText}>✕ ปิดหน้าต่าง</Text>
                         </TouchableOpacity>
-                        {(seal?.image1 || (seal as any)?.Image1) && (
+                        {selectedImageUri && (
                             <Image
-                                source={{ uri: `http://localhost:3000/${seal?.image1 || (seal as any)?.Image1}`.replace('uploads\\', 'uploads/').replace('uploads//', 'uploads/') }}
+                                source={{ uri: selectedImageUri }}
                                 style={styles.fullScreenImage}
-
                                 resizeMode="contain"
                             />
                         )}
+                    </View>
+                </Modal>
+
+                {/* Gallery Modal - show all images */}
+                <Modal visible={galleryModalVisible} transparent={true} animationType="fade" onRequestClose={() => setGalleryModalVisible(false)}>
+                    <View style={styles.fullScreenOverlay}>
+                        <TouchableOpacity style={styles.closeOverlayBtn} onPress={() => setGalleryModalVisible(false)}>
+                            <Text style={styles.closeOverlayText}>✕ ปิดแกลเลอรี่</Text>
+                        </TouchableOpacity>
+                        <ScrollView contentContainerStyle={styles.galleryContainer}>
+                            <Text style={styles.galleryTitle}>📸 แกลเลอรี่ซีล: {sealNumber}</Text>
+                            {(seal?.image1 || (seal as any)?.Image1) ? (
+                                <View style={styles.galleryItem}>
+                                    <Text style={styles.galleryLabel}>รูปติดตั้ง (Image 1)</Text>
+                                    <Image
+                                        source={{ uri: `http://localhost:3000/${seal?.image1 || (seal as any)?.Image1}`.replace('uploads\\', 'uploads/').replace('uploads//', 'uploads/') }}
+                                        style={styles.galleryImage}
+                                        resizeMode="contain"
+                                    />
+                                </View>
+                            ) : (
+                                <View style={styles.galleryItem}>
+                                    <Text style={styles.galleryLabel}>รูปติดตั้ง (Image 1)</Text>
+                                    <Text style={styles.galleryEmpty}>ไม่มีรูป</Text>
+                                </View>
+                            )}
+                            {(seal?.image2 || (seal as any)?.Image2) ? (
+                                <View style={styles.galleryItem}>
+                                    <Text style={styles.galleryLabel}>รูปคืนซีล (Image 2)</Text>
+                                    <Image
+                                        source={{ uri: `http://localhost:3000/${seal?.image2 || (seal as any)?.Image2}`.replace('uploads\\', 'uploads/').replace('uploads//', 'uploads/') }}
+                                        style={styles.galleryImage}
+                                        resizeMode="contain"
+                                    />
+                                </View>
+                            ) : (
+                                <View style={styles.galleryItem}>
+                                    <Text style={styles.galleryLabel}>รูปคืนซีล (Image 2)</Text>
+                                    <Text style={styles.galleryEmpty}>ไม่มีรูป</Text>
+                                </View>
+                            )}
+                        </ScrollView>
                     </View>
                 </Modal>
 
@@ -692,5 +751,12 @@ const styles = StyleSheet.create({
     fullScreenOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center' },
     fullScreenImage: { width: '100%', height: '80%' },
     closeOverlayBtn: { position: 'absolute', top: 40, right: 20, padding: 10, zIndex: 10, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 20 },
-    closeOverlayText: { color: 'white', fontSize: 16, fontWeight: 'bold' }
+    closeOverlayText: { color: 'white', fontSize: 16, fontWeight: 'bold' },
+    imageLabel: { fontSize: 12, color: '#999', textAlign: 'center', marginTop: 4, marginBottom: 4 },
+    galleryContainer: { alignItems: 'center', paddingVertical: 80, paddingHorizontal: 20 },
+    galleryTitle: { color: 'white', fontSize: 22, fontWeight: 'bold', marginBottom: 30 },
+    galleryItem: { marginBottom: 30, alignItems: 'center', width: '100%' },
+    galleryLabel: { color: '#ccc', fontSize: 14, fontWeight: 'bold', marginBottom: 10 },
+    galleryImage: { width: '100%', height: 350, borderRadius: 10 },
+    galleryEmpty: { color: '#666', fontSize: 14, fontStyle: 'italic' as any }
 });

@@ -111,6 +111,14 @@ export const HomeScreen: React.FC = () => {
                         iconBgColor="#d7ccc8"
                         onPress={() => (navigation as any).navigate('AssignSeal')}
                     />
+                    <ActionCard
+                        title="รับคืนซีล"
+                        subtitle="ตรวจสอบและรับซีลคืนจากช่าง"
+                        icon="📥"
+                        iconColor="#c62828"
+                        iconBgColor="#ffebee"
+                        onPress={() => (navigation as any).navigate('ReturnVerification')}
+                    />
                     {user?.role === 'admin' && (
                         <ActionCard
                             title="สร้างผู้ใช้งาน"
