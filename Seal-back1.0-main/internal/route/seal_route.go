@@ -71,7 +71,7 @@ func SetupSealRoutes(router fiber.Router, sealController *controller.SealControl
 	// -- 16) POST /api/seals/assign-by-techcode : assign seals by technician_code (ฟีเจอร์ใหม่)
 	seal.Post("/assign-by-techcode", middleware.JWTMiddleware(), sealController.AssignSealsByTechCodeHandler)
 	seal.Put("/:seal_number/cancel", middleware.JWTMiddleware(), sealController.CancelSealHandler)
-	
+
 	// -- 17) PUT /api/seals/:seal_number/status : update seal status
 	seal.Put("/:seal_number/status", middleware.JWTMiddleware(), sealController.UpdateSealStatusAdminHandler)
 }
@@ -81,6 +81,7 @@ func SetupPublicSealRoutes(router fiber.Router, sealController *controller.SealC
 	// Use root router to avoid group middleware issues
 	// ✅ ใช้ TechnicianJWTMiddleware เพราะ endpoint นี้ถูกเรียกจากแอปช่าง
 	router.Post("/api/scan-seal", middleware.TechnicianJWTMiddleware(), sealController.ScanAndUseSealHandler)
+	router.Get("/api/scan-seal/check/:seal_number", sealController.CheckSealForScanHandler)
 	// ✅ endpoint สำหรับเช็คข้อมูลซีลก่อนใช้งาน
 	router.Get("/api/check-seal/:seal_number", middleware.TechnicianJWTMiddleware(), sealController.CheckSealOwnershipHandler)
 }

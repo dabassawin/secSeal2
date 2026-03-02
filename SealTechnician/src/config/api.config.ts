@@ -26,6 +26,7 @@ export const API_CONFIG = {
     TECHNICIAN_RETURN_SEAL: '/technician/seals/return',
     TECHNICIAN_NOTIFICATIONS: '/technician/notifications',
     SCAN_SEAL: '/scan-seal',
+    CHECK_SCAN_SEAL: '/scan-seal/check',
   },
 
   // Timeout settings (in milliseconds)

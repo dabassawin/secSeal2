@@ -16,6 +16,7 @@ type RootStackParamList = {
     Notification: undefined;
 };
 
+
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'Home'>;
 
 interface HomeScreenProps {
