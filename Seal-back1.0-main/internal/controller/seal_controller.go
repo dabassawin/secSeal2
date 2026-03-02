@@ -762,7 +762,31 @@ func (sc *SealController) UpdateSealStatusAdminHandler(c *fiber.Ctx) error {
 }
 
 // -------------------------------------------------------------------
-// 21) CheckSealOwnershipHandler
+// -------------------------------------------------------------------
+// 21) CheckSealForScanHandler
+// GET /api/scan-seal/check/:seal_number
+// -------------------------------------------------------------------
+func (sc *SealController) CheckSealForScanHandler(c *fiber.Ctx) error {
+	sealNumber := c.Params("seal_number")
+
+	seal, err := sc.sealService.GetSealByNumber(sealNumber)
+	if err != nil {
+		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "ไม่พบข้อมูล Seal นี้ในระบบ"})
+	}
+
+	// ถ้ามีซีลในระบบแล้ว ตรวจสอบว่าใช้งานไปหรือยัง
+	if seal.Status == "ใช้งานแล้ว" {
+		return c.Status(fiber.StatusConflict).JSON(fiber.Map{"error": "ซีลนี้ถูกใช้งานไปแล้ว"})
+	}
+
+	return c.JSON(fiber.Map{
+		"message": "Seal is valid",
+		"seal":    seal,
+	})
+}
+
+// -------------------------------------------------------------------
+// 22) CheckSealOwnershipHandler
 // GET /api/check-seal/:seal_number
 // ตรวจสอบว่าซีลนี้จ่ายให้ช่างคนนี้หรือไม่
 // -------------------------------------------------------------------

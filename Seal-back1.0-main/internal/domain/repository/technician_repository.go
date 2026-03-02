@@ -113,6 +113,11 @@ func (r *TechnicianRepository) UpdatePasswordByID(techID uint, hashedPassword st
 	return r.db.Model(&model.Technician{}).Where("id = ?", techID).Update("password", hashedPassword).Error
 }
 
+// UpdatePushTokenByID updates only the Expo push token
+func (r *TechnicianRepository) UpdatePushTokenByID(techID uint, token string) error {
+	return r.db.Model(&model.Technician{}).Where("id = ?", techID).Update("expo_push_token", token).Error
+}
+
 // GetLogsByUserID fetches logs for a specific technician sorted by newest first
 func (r *TechnicianRepository) GetLogsByUserID(userID uint) ([]model.Log, error) {
 	var logs []model.Log

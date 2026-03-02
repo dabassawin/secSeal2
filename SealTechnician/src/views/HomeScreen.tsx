@@ -18,6 +18,7 @@ type RootStackParamList = {
     ReturnSeal: undefined;
 };
 
+
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'Home'>;
 
 interface HomeScreenProps {

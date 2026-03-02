@@ -17,6 +17,7 @@ type RootStackParamList = {
     ReturnSeal: undefined;
 };
 
+
 type NavigationProp = NativeStackNavigationProp<RootStackParamList, 'History'>;
 
 const { width } = Dimensions.get('window');

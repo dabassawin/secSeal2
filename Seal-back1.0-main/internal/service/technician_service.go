@@ -18,6 +18,19 @@ import (
 
 var technicianSecretKey = []byte("your-technician-secret-key")
 
+// notifyTechnicianAsync is a helper to fire off push notifications without blocking responses
+/*
+func (s *TechnicianService) notifyTechnicianAsync(techID uint, title, body string) {
+	go func() {
+		tech, err := s.repo.FindByID(techID)
+		if err == nil && tech.ExpoPushToken != "" {
+			// Assuming utils.SendExpoPushNotification exists and is imported
+			// utils.SendExpoPushNotification(tech.ExpoPushToken, title, body, nil)
+		}
+	}()
+}
+*/
+
 // TechnicianService รับผิดชอบ business logic สำหรับการลงทะเบียนและล็อกอินของช่าง
 type TechnicianService struct {
 	repo *repository.TechnicianRepository
@@ -283,6 +296,11 @@ func (s *TechnicianService) UploadSealImages(sealNumber string, techID uint, ima
 	}
 
 	return s.repo.UpdateSeal(seal)
+}
+
+// UpdatePushToken updates the technician's Expo push token
+func (s *TechnicianService) UpdatePushToken(techID uint, token string) error {
+	return s.repo.UpdatePushTokenByID(techID, token)
 }
 
 // GetNotifications retrieves all logs for a specific technician

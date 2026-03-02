@@ -29,6 +29,7 @@ export const API_CONFIG = {
     TECHNICIAN_ME: '/technician/me',
     TECHNICIAN_AVATAR: '/technician/avatar',
     SCAN_SEAL: '/scan-seal',
+    CHECK_SCAN_SEAL: '/scan-seal/check',
   },
 
   // Timeout settings (in milliseconds)

@@ -28,6 +28,7 @@ func SetupTechnicianRoutes(router fiber.Router, techController *controller.Techn
 	protectedTech.Post("/seals/return", techController.ReturnSealHandler)
 	protectedTech.Get("/seals/check-return/:seal_number", techController.CheckReturnableSealHandler)
 	protectedTech.Post("/seals/upload-images", techController.UploadSealImagesHandler)
+	protectedTech.Post("/device-token", techController.UpdateDeviceTokenHandler)
 
 	// Profile Picture & Info
 	protectedTech.Get("/me", techController.GetMeHandler)
