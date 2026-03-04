@@ -371,7 +371,7 @@ export default function ReturnSealScreen({ onLogout }: ReturnSealScreenProps) {
                             })}
                         </View>
 
-                        <Text style={styles.inputLabel}>รูปภาพหลักฐาน (ถ้ามี)</Text>
+                        <Text style={styles.inputLabel}>รูปภาพหลักฐาน</Text>
                         {photoUri ? (
                             <View style={styles.photoContainer}>
                                 <Image source={{ uri: photoUri }} style={styles.previewPhoto} />

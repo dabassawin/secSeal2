@@ -142,17 +142,8 @@ func (s *TechnicianService) ReturnSealWithImage(sealNumber string, techID uint, 
 
 	now := time.Now()
 
-	// Determine the new status based on the return reason
-	switch remarks {
-	case "ซีลเก่าที่ถูกตัดออก":
-		seal.Status = "ใช้งานแล้ว"
-	case "ชำรุดก่อนใช้งาน":
-		seal.Status = "เสียหาย"
-	case "ไม่ได้ใช้งาน (คืนคลัง)":
-		seal.Status = "พร้อมใช้งาน"
-	default:
-		seal.Status = "รอตรวจสอบคืน"
-	}
+	// ช่างคืนซีล → รอตรวจสอบเสมอ สถานะสุดท้ายจะกำหนดตอน Admin กด AcceptReturn
+	seal.Status = "รอตรวจสอบคืน"
 
 	seal.ReturnedByTechnician = &techID
 	seal.ReturnedAt = &now

@@ -143,10 +143,10 @@ func parseInt64(s string) int64 {
 	return n
 }
 
-// GetSealsByTechnician ดึงซีลทั้งหมดที่จ่ายให้ช่างคนนั้น
+// GetSealsByTechnician ดึงซีลทั้งหมดที่จ่ายให้ช่างคนนั้น รวมถึงที่ช่างคืนไปแล้ว
 func (r *SealRepository) GetSealsByTechnician(techID uint) ([]model.Seal, error) {
 	var seals []model.Seal
-	err := r.db.Where("assigned_to_technician = ?", techID).Find(&seals).Error
+	err := r.db.Where("assigned_to_technician = ? OR returned_by_technician = ?", techID, techID).Find(&seals).Error
 	return seals, err
 }
 
