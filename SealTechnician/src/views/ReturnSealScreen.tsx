@@ -23,12 +23,15 @@ interface ReturnSealScreenProps {
     onLogout: () => void;
 }
 
+// Global variable to persist scanned seals when navigating away from the screen
+let globalScannedSeals: Seal[] = [];
+
 export default function ReturnSealScreen({ onLogout }: ReturnSealScreenProps) {
     const navigation = useNavigation<NavigationProp>();
     const insets = useSafeAreaInsets();
 
     const [permission, requestPermission] = useCameraPermissions();
-    const [scannedSeals, setScannedSeals] = useState<Seal[]>([]);
+    const [scannedSeals, setScannedSeals] = useState<Seal[]>(globalScannedSeals);
     const [isScanning, setIsScanning] = useState(false);
 
     const [seals, setSeals] = useState<Seal[]>([]);
@@ -46,6 +49,12 @@ export default function ReturnSealScreen({ onLogout }: ReturnSealScreenProps) {
         'ซีลเก่าที่ถูกตัดออก',
         'ไม่ได้ใช้งาน (คืนคลัง)'
     ];
+
+    // Helper to update both local state and global persistence
+    const updateScannedSeals = (newSeals: Seal[]) => {
+        globalScannedSeals = newSeals;
+        setScannedSeals(newSeals);
+    };
 
     const fetchSeals = async () => {
         setIsLoading(true);
@@ -68,6 +77,8 @@ export default function ReturnSealScreen({ onLogout }: ReturnSealScreenProps) {
     useFocusEffect(
         useCallback(() => {
             fetchSeals();
+            // Also sync state with global in case it changed externally
+            setScannedSeals(globalScannedSeals);
         }, [])
     );
 
@@ -125,7 +136,7 @@ export default function ReturnSealScreen({ onLogout }: ReturnSealScreenProps) {
                 {
                     text: 'ตกลง', onPress: () => {
                         closeReturnModal();
-                        setScannedSeals(prev => prev.filter(s => s.id !== selectedSeal!.id));
+                        updateScannedSeals(scannedSeals.filter(s => s.id !== selectedSeal.id));
                         fetchSeals();
                     }
                 }
@@ -165,14 +176,18 @@ export default function ReturnSealScreen({ onLogout }: ReturnSealScreenProps) {
 
         try {
             const response = await TechnicianService.checkReturnableSeal(sealNumber);
-            setScannedSeals(prev => [response.seal, ...prev]);
+            updateScannedSeals([response.seal, ...scannedSeals]);
         } catch (error: any) {
             Alert.alert('ไม่สามารถคืนได้', error.message || `ไม่พบซีล ${sealNumber} หรือซีลนี้ไม่อยู่ในเงื่อนไขการคืน`);
         }
     };
 
+    const removeScannedItem = (id: number) => {
+        updateScannedSeals(scannedSeals.filter(s => s.id !== id));
+    };
+
     const renderSealItem = ({ item }: { item: Seal }) => (
-        <TouchableOpacity style={styles.sealCard} onPress={() => openReturnModal(item)}>
+        <View style={styles.sealCard}>
             <View style={styles.sealInfo}>
                 <Ionicons name="cube-outline" size={24} color="#6A0DAD" />
                 <View style={styles.sealDetails}>
@@ -180,11 +195,24 @@ export default function ReturnSealScreen({ onLogout }: ReturnSealScreenProps) {
                     <Text style={styles.sealStatus}>สถานะปัจจุบัน: {item.status}</Text>
                 </View>
             </View>
-            <View style={styles.returnButton}>
-                <Text style={styles.returnButtonText}>คืนซีล</Text>
-                <Ionicons name="chevron-forward" size={16} color="#fff" />
+
+            <View style={styles.actionButtons}>
+                <TouchableOpacity
+                    style={styles.deleteButton}
+                    onPress={() => removeScannedItem(item.id)}
+                >
+                    <Ionicons name="trash-outline" size={18} color="#F44336" />
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                    style={styles.returnButton}
+                    onPress={() => openReturnModal(item)}
+                >
+                    <Text style={styles.returnButtonText}>คืนซีล</Text>
+                    <Ionicons name="chevron-forward" size={16} color="#fff" />
+                </TouchableOpacity>
             </View>
-        </TouchableOpacity>
+        </View>
     );
 
     return (
@@ -491,6 +519,18 @@ const styles = StyleSheet.create({
         fontSize: 14,
         color: '#666',
     },
+    actionButtons: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+    },
+    deleteButton: {
+        backgroundColor: '#FFEBEE',
+        padding: 8,
+        borderRadius: 12,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
     returnButton: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -678,3 +718,4 @@ const styles = StyleSheet.create({
     scanIconContainer: { alignItems: 'center', justifyContent: 'center' },
     scanButtonText: { color: '#fff', fontSize: 8, fontWeight: 'bold', marginTop: 2 }
 });
+
