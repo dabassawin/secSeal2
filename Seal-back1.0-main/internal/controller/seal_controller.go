@@ -734,7 +734,7 @@ func (sc *SealController) ScanAndUseSealHandler(c *fiber.Ctx) error {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to save image"})
 		}
 		log.Println("✅ Image saved to", savePath)
-		imagePath = savePath
+		imagePath = "/uploads/" + fileName
 	}
 
 	// For technician app, the middleware sets "tech_id" in locals

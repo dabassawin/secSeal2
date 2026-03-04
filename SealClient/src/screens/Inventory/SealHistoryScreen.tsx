@@ -4,6 +4,7 @@ import { useRoute, useNavigation } from '@react-navigation/native';
 import { colors, sizes } from '@/constants';
 import { Header } from '@/components/dashboard';
 import { sealService } from '@/services/sealService';
+import api from '@/services/api';
 import { Seal, Log } from '@/types';
 
 const ActivityItem: React.FC<{ log: Log; isLast?: boolean }> = ({ log, isLast }) => {
@@ -158,7 +159,8 @@ export const SealHistoryScreen: React.FC = () => {
         if (cleanPath.startsWith('/')) {
             cleanPath = cleanPath.substring(1);
         }
-        return `http://localhost:3000/${cleanPath}`;
+        const baseURL = api.defaults.baseURL || 'http://localhost:3000';
+        return `${baseURL}/${cleanPath}`;
     };
 
     if (!sealNumber) {
