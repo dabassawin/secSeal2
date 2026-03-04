@@ -11,4 +11,5 @@ export * from './Technician/ImportTechnicianScreen';
 export * from './User/CreateUserScreen';
 export * from './User/ChangeWorkplaceScreen';
 export * from './Report/ReportScreen';
+export * from './Seal/ReturnVerificationScreen';
 

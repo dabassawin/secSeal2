@@ -159,7 +159,7 @@ func (s *TechnicianService) ReturnSealWithImage(sealNumber string, techID uint, 
 	seal.ReturnRemarks = remarks // ✅ บันทึกเหตุผลการคืน
 
 	if imageURL != "" {
-		seal.Image1 = imageURL // เซฟเป็นรูปที่ 1 (ถ้ามีรูปเพิ่มเติมสามารถเพิ่ม Image2 ได้)
+		seal.Image2 = imageURL // เซฟเป็นรูปที่ 2 (รูปหลักฐานการคืน)
 	}
 
 	// ✅ บันทึกข้อมูลลงฐานข้อมูล

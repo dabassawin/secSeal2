@@ -4,6 +4,10 @@ import { colors, sizes } from '@/constants';
 import { Header } from '@/components/dashboard';
 import { useAuth } from '@/context/AuthContext';
 import { reportService, SealReportItem, ReportFilters } from '@/services/reportService';
+import { PieChart, PieChartData } from '@/components/charts/PieChart';
+import { BarChart, BarChartData } from '@/components/charts/BarChart';
+import { KPICard } from '@/components/charts/KPICard';
+import { AnomalyReport, getAnomalyCount } from '@/components/report/AnomalyReport';
 
 // ─── Status badge colors ────────────────────────────
 const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
@@ -146,7 +150,7 @@ const DateInput: React.FC<{
 // ─── CSV/Excel/PDF Export ────────────────────────────
 const exportCSV = (items: SealReportItem[]) => {
     if (Platform.OS !== 'web') return;
-    const headers = ['หมายเลขซีล', 'สถานะ', 'สังกัด กฟภ.', 'ผู้จ่าย', 'ช่างที่รับ', 'ช่างที่ติดตั้ง', 'ผู้รับคืน', 'เลขมิเตอร์', 'วันที่สร้าง', 'วันที่จ่าย', 'วันที่ติดตั้ง'];
+    const headers = ['หมายเลขซีล', 'สถานะ', 'สังกัด กฟภ.', 'ผู้จ่าย', 'ช่างที่รับ', 'ช่างที่ติดตั้ง', 'ช่างที่ส่งคืน', 'ผู้รับคืน', 'เลขมิเตอร์', 'วันที่สร้าง', 'วันที่จ่าย', 'วันที่ติดตั้ง'];
     const rows = items.map(item => [
         item.seal_number,
         item.status,
@@ -154,6 +158,7 @@ const exportCSV = (items: SealReportItem[]) => {
         item.issued_by_name || '-',
         item.technician_name || '-',
         item.used_by_name || '-',
+        item.returned_by_technician_name || '-',
         item.returned_by_name || '-',
         item.installed_serial || '-',
         formatDate(item.created_at),
@@ -170,12 +175,12 @@ const exportCSV = (items: SealReportItem[]) => {
 
 const exportExcel = (items: SealReportItem[]) => {
     if (Platform.OS !== 'web') return;
-    const headers = ['หมายเลขซีล', 'สถานะ', 'สังกัด กฟภ.', 'ผู้จ่าย', 'ช่างที่รับ', 'ช่างที่ติดตั้ง', 'ผู้รับคืน', 'เลขมิเตอร์', 'วันที่สร้าง', 'วันที่จ่าย', 'วันที่ติดตั้ง'];
+    const headers = ['หมายเลขซีล', 'สถานะ', 'สังกัด กฟภ.', 'ผู้จ่าย', 'ช่างที่รับ', 'ช่างที่ติดตั้ง', 'ช่างที่ส่งคืน', 'ผู้รับคืน', 'เลขมิเตอร์', 'วันที่สร้าง', 'วันที่จ่าย', 'วันที่ติดตั้ง'];
     const rows = items.map(item => [
         item.seal_number, item.status, item.pea_code,
         item.issued_by_name || '-', item.technician_name || '-',
-        item.used_by_name || '-', item.returned_by_name || '-',
-        item.installed_serial || '-',
+        item.used_by_name || '-', item.returned_by_technician_name || '-',
+        item.returned_by_name || '-', item.installed_serial || '-',
         formatDate(item.created_at), formatDate(item.issued_at), formatDate(item.used_at),
     ]);
     let html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel"><head><meta charset="UTF-8"></head><body><table>';
@@ -193,12 +198,12 @@ const exportExcel = (items: SealReportItem[]) => {
 
 const exportPDF = (items: SealReportItem[]) => {
     if (Platform.OS !== 'web') return;
-    const headers = ['หมายเลขซีล', 'สถานะ', 'สังกัด กฟภ.', 'ผู้จ่าย', 'ช่างที่รับ', 'ช่างที่ติดตั้ง', 'ผู้รับคืน', 'เลขมิเตอร์', 'วันที่สร้าง', 'วันที่จ่าย', 'วันที่ติดตั้ง'];
+    const headers = ['หมายเลขซีล', 'สถานะ', 'สังกัด กฟภ.', 'ผู้จ่าย', 'ช่างที่รับ', 'ช่างที่ติดตั้ง', 'ช่างที่ส่งคืน', 'ผู้รับคืน', 'เลขมิเตอร์', 'วันที่สร้าง', 'วันที่จ่าย', 'วันที่ติดตั้ง'];
     const rows = items.map(item => [
         item.seal_number, item.status, item.pea_code,
         item.issued_by_name || '-', item.technician_name || '-',
-        item.used_by_name || '-', item.returned_by_name || '-',
-        item.installed_serial || '-',
+        item.used_by_name || '-', item.returned_by_technician_name || '-',
+        item.returned_by_name || '-', item.installed_serial || '-',
         formatDate(item.created_at), formatDate(item.issued_at), formatDate(item.used_at),
     ]);
     let html = `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>รายงานสรุปข้อมูลซีล</title>
@@ -240,8 +245,15 @@ export const ReportScreen: React.FC = () => {
     const firstOfYear = new Date(today.getFullYear(), 0, 1);
     const [startDate, setStartDate] = useState(formatDateInput(firstOfYear));
     const [endDate, setEndDate] = useState(formatDateInput(today));
-    const [peaCode, setPeaCode] = useState('');
+    const [peaCode, setPeaCode] = useState(user?.pea_code || '');
     const [statusFilter, setStatusFilter] = useState('');
+
+    // Update peaCode if user loads late
+    useEffect(() => {
+        if (user?.pea_code && !peaCode) {
+            setPeaCode(user.pea_code);
+        }
+    }, [user?.pea_code]);
 
     // Data
     const [items, setItems] = useState<SealReportItem[]>([]);
@@ -252,6 +264,85 @@ export const ReportScreen: React.FC = () => {
     const [sortField, setSortField] = useState<SortField>('created_at');
     const [sortDir, setSortDir] = useState<SortDir>('desc');
     const [page, setPage] = useState(1);
+    const [showDashboard, setShowDashboard] = useState(true);
+    const [showAnomalies, setShowAnomalies] = useState(false);
+
+    // ─── Dashboard computed data ────────────────────
+    const dashboardData = useMemo(() => {
+        if (items.length === 0) return null;
+
+        // Status counts for pie chart
+        const statusCounts: Record<string, number> = {};
+        items.forEach(item => {
+            statusCounts[item.status] = (statusCounts[item.status] || 0) + 1;
+        });
+
+        const STATUS_CHART_COLORS: Record<string, string> = {
+            'พร้อมใช้งาน': '#4caf50',
+            'จ่าย': '#ff9800',
+            'ติดตั้งแล้ว': '#2196f3',
+            'ใช้งานแล้ว': '#9c27b0',
+            'เสียหาย': '#f44336',
+            'สูญหาย': '#b71c1c',
+        };
+
+        const pieData: PieChartData[] = Object.entries(statusCounts).map(([label, value]) => ({
+            label,
+            value,
+            color: STATUS_CHART_COLORS[label] || '#999',
+        }));
+
+        // Monthly creation counts for bar chart
+        const monthCounts: Record<string, number> = {};
+        items.forEach(item => {
+            if (item.created_at) {
+                const d = new Date(item.created_at);
+                const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+                monthCounts[key] = (monthCounts[key] || 0) + 1;
+            }
+        });
+
+        const MONTH_NAMES = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+        const barData: BarChartData[] = Object.entries(monthCounts)
+            .sort(([a], [b]) => a.localeCompare(b))
+            .slice(-12)  // Last 12 months max
+            .map(([key, value]) => {
+                const monthIdx = parseInt(key.split('-')[1]) - 1;
+                return {
+                    label: MONTH_NAMES[monthIdx],
+                    value,
+                    color: '#7c4dff',
+                };
+            });
+
+        // KPI calculations
+        const total = items.length;
+        const installed = statusCounts['ติดตั้งแล้ว'] || 0;
+        const used = statusCounts['ใช้งานแล้ว'] || 0;
+        const damaged = statusCounts['เสียหาย'] || 0;
+        const lost = statusCounts['สูญหาย'] || 0;
+        const issued = statusCounts['จ่าย'] || 0;
+        const totalIssued = installed + used + damaged + lost + issued;
+        const installRate = totalIssued > 0 ? (((installed + used) / totalIssued) * 100).toFixed(1) : '0.0';
+        const issueRate = total > 0 ? (((damaged + lost) / total) * 100).toFixed(1) : '0.0';
+
+        // Average days from issue to install
+        let avgDays = '-';
+        const daysArr: number[] = [];
+        items.forEach(item => {
+            if (item.issued_at && item.used_at) {
+                const diff = new Date(item.used_at).getTime() - new Date(item.issued_at).getTime();
+                if (diff > 0) daysArr.push(diff / (1000 * 60 * 60 * 24));
+            }
+        });
+        if (daysArr.length > 0) {
+            avgDays = (daysArr.reduce((a, b) => a + b, 0) / daysArr.length).toFixed(1);
+        }
+
+        return { pieData, barData, total, totalIssued, installed, used, damaged, lost, issued, installRate, issueRate, avgDays };
+    }, [items]);
+
+    const anomalyCount = useMemo(() => getAnomalyCount(items), [items]);
 
     // ─── Fetch data ─────────────────────────────────
     const fetchData = useCallback(async () => {
@@ -333,9 +424,94 @@ export const ReportScreen: React.FC = () => {
             <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
                 {/* ── Title ─────────────────────────── */}
                 <View style={styles.titleSection}>
-                    <Text style={styles.title}>รายงานสรุปข้อมูลซีล</Text>
-                    <Text style={styles.subtitle}>ระบบจัดการซีล PEAsecSeal</Text>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <View>
+                            <Text style={styles.title}>รายงานสรุปข้อมูลซีล</Text>
+                            <Text style={styles.subtitle}>ระบบจัดการซีล PEAsecSeal</Text>
+                        </View>
+                        <TouchableOpacity
+                            style={styles.toggleDashboardBtn}
+                            onPress={() => setShowDashboard(!showDashboard)}
+                        >
+                            <Text style={styles.toggleDashboardText}>
+                                {showDashboard ? '📊 ซ่อน Dashboard' : '📊 แสดง Dashboard'}
+                            </Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={[styles.toggleAnomalyBtn, showAnomalies && styles.toggleAnomalyBtnActive]}
+                            onPress={() => setShowAnomalies(!showAnomalies)}
+                        >
+                            <Text style={[styles.toggleAnomalyText, showAnomalies && styles.toggleAnomalyTextActive]}>
+                                {showAnomalies ? '⚠️ ซ่อน Alerts' : '⚠️ ดู Alerts'}
+                            </Text>
+                            {anomalyCount > 0 && (
+                                <View style={styles.anomalyBadge}>
+                                    <Text style={styles.anomalyBadgeText}>{anomalyCount}</Text>
+                                </View>
+                            )}
+                        </TouchableOpacity>
+                    </View>
                 </View>
+
+                {/* ── Dashboard Section ────────────── */}
+                {showDashboard && dashboardData && (
+                    <>
+                        {/* KPI Cards */}
+                        <View style={styles.kpiRow}>
+                            <KPICard
+                                title="ซีลทั้งหมด"
+                                value={dashboardData.total.toLocaleString()}
+                                subtitle="ในช่วงเวลาที่เลือก"
+                                icon="📦"
+                                color="#7c4dff"
+                            />
+                            <KPICard
+                                title="อัตราติดตั้งสำเร็จ"
+                                value={`${dashboardData.installRate}%`}
+                                subtitle={`${(dashboardData.installed + dashboardData.used).toLocaleString()} / ${dashboardData.totalIssued.toLocaleString()} ชิ้น`}
+                                icon="✅"
+                                color="#4caf50"
+                            />
+                            <KPICard
+                                title="เสียหาย / สูญหาย"
+                                value={`${dashboardData.issueRate}%`}
+                                subtitle={`${(dashboardData.damaged + dashboardData.lost).toLocaleString()} ชิ้น`}
+                                icon="⚠️"
+                                color="#f44336"
+                            />
+                            <KPICard
+                                title="ระยะเวลาเฉลี่ย (จ่าย→ติดตั้ง)"
+                                value={dashboardData.avgDays === '-' ? '-' : `${dashboardData.avgDays} วัน`}
+                                subtitle="เฉลี่ยตั้งแต่จ่ายจนติดตั้ง"
+                                icon="⏱️"
+                                color="#2196f3"
+                            />
+                        </View>
+
+                        {/* Charts Row */}
+                        <View style={styles.chartsRow}>
+                            <View style={styles.chartCard}>
+                                <PieChart
+                                    data={dashboardData.pieData}
+                                    title="🔵 สัดส่วนสถานะซีล"
+                                    size={180}
+                                />
+                            </View>
+                            <View style={[styles.chartCard, { flex: 1.5 }]}>
+                                <BarChart
+                                    data={dashboardData.barData}
+                                    title="📈 จำนวนซีลที่สร้างแยกตามเดือน"
+                                    barHeight={180}
+                                />
+                            </View>
+                        </View>
+                    </>
+                )}
+
+                {/* ── Anomaly Report Section ────────── */}
+                {showAnomalies && (
+                    <AnomalyReport items={items} onClose={() => setShowAnomalies(false)} />
+                )}
 
                 {/* ── Filters Card ────────────────── */}
                 <View style={[styles.card, { zIndex: 100, overflow: 'visible' as any }]}>
@@ -432,6 +608,9 @@ export const ReportScreen: React.FC = () => {
                                             <Text style={styles.headerText}>ช่างที่ติดตั้ง</Text>
                                         </View>
                                         <View style={[styles.cell, styles.cellName]}>
+                                            <Text style={styles.headerText}>ช่างที่ส่งคืน</Text>
+                                        </View>
+                                        <View style={[styles.cell, styles.cellName]}>
                                             <Text style={styles.headerText}>ผู้รับคืน</Text>
                                         </View>
                                         <View style={[styles.cell, styles.cellSerial]}>
@@ -475,6 +654,9 @@ export const ReportScreen: React.FC = () => {
                                                 </View>
                                                 <View style={[styles.cell, styles.cellName]}>
                                                     <Text style={styles.cellText}>{item.used_by_name || '-'}</Text>
+                                                </View>
+                                                <View style={[styles.cell, styles.cellName]}>
+                                                    <Text style={styles.cellText}>{item.returned_by_technician_name || '-'}</Text>
                                                 </View>
                                                 <View style={[styles.cell, styles.cellName]}>
                                                     <Text style={styles.cellText}>{item.returned_by_name || '-'}</Text>
@@ -533,6 +715,25 @@ const styles = StyleSheet.create({
     titleSection: { width: '100%', maxWidth: 1200, marginBottom: sizes.lg },
     title: { fontSize: sizes.fontXl, fontWeight: 'bold', color: colors.primaryPurple },
     subtitle: { fontSize: sizes.fontSm, color: colors.textLight, marginTop: 2 },
+
+    // Dashboard toggle
+    toggleDashboardBtn: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: sizes.radiusRound, backgroundColor: '#f3e5f5', borderWidth: 1, borderColor: '#ce93d8' },
+    toggleDashboardText: { fontSize: sizes.fontSm, color: colors.primaryPurple, fontWeight: '600' },
+
+    // Anomaly toggle
+    toggleAnomalyBtn: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 8, borderRadius: sizes.radiusRound, backgroundColor: '#ffebee', borderWidth: 1, borderColor: '#ef9a9a', gap: 6, marginLeft: 8 },
+    toggleAnomalyBtnActive: { backgroundColor: '#c62828', borderColor: '#c62828' },
+    toggleAnomalyText: { fontSize: sizes.fontSm, color: '#c62828', fontWeight: '600' },
+    toggleAnomalyTextActive: { color: 'white' },
+    anomalyBadge: { minWidth: 22, height: 22, borderRadius: 11, backgroundColor: '#f44336', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 5 },
+    anomalyBadgeText: { fontSize: 11, color: 'white', fontWeight: 'bold' },
+
+    // KPI Row
+    kpiRow: { width: '100%', maxWidth: 1200, flexDirection: 'row', flexWrap: 'wrap', marginBottom: sizes.md },
+
+    // Charts Row
+    chartsRow: { width: '100%', maxWidth: 1200, flexDirection: 'row', flexWrap: 'wrap', gap: sizes.md, marginBottom: sizes.md },
+    chartCard: { flex: 1, minWidth: 320, backgroundColor: 'white', borderRadius: sizes.radiusMd, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 4, elevation: 2 },
 
     // Card
     card: { width: '100%', maxWidth: 1200, backgroundColor: 'white', borderRadius: sizes.radiusMd, marginBottom: sizes.md, overflow: 'visible' as any, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 4, elevation: 2 },

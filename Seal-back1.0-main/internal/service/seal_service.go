@@ -1005,3 +1005,95 @@ func (s *SealService) GetSealStatement(peaCode string, startDate string, endDate
 		Items:   items,
 	}, nil
 }
+
+// -------------------------------------------------------------------
+// PendingReturnItem — DTO for pending returns list
+// -------------------------------------------------------------------
+type PendingReturnItem struct {
+	ID              uint       `json:"id"`
+	SealNumber      string     `json:"seal_number"`
+	Status          string     `json:"status"`
+	PeaCode         string     `json:"pea_code"`
+	ReturnRemarks   string     `json:"return_remarks"`
+	ReturnedAt      *time.Time `json:"returned_at"`
+	Image1          string     `json:"image1,omitempty"`
+	TechnicianID    *uint      `json:"technician_id"`
+	TechnicianName  string     `json:"technician_name"`
+	TechnicianCode  string     `json:"technician_code"`
+}
+
+// GetPendingReturns returns seals that a technician has returned but user hasn't confirmed yet
+func (s *SealService) GetPendingReturns(peaCode string) ([]PendingReturnItem, error) {
+	var results []PendingReturnItem
+
+	query := s.db.Table("seals").
+		Select(`seals.id, seals.seal_number, seals.status, seals.pea_code,
+			seals.return_remarks, seals.returned_at, seals.image1,
+			seals.returned_by_technician as technician_id,
+			COALESCE(t.first_name || ' ' || t.last_name, '') as technician_name,
+			COALESCE(t.technician_code, '') as technician_code`).
+		Joins("LEFT JOIN technicians t ON t.id = seals.returned_by_technician").
+		Where("seals.returned_by_technician IS NOT NULL").
+		Where("seals.returned_by IS NULL").
+		Where("seals.deleted_at IS NULL").
+		Order("seals.returned_at DESC")
+
+	if peaCode != "" {
+		query = query.Where("seals.pea_code = ?", peaCode)
+	}
+
+	if err := query.Scan(&results).Error; err != nil {
+		return nil, err
+	}
+	return results, nil
+}
+
+// AcceptReturn — user confirms the return
+// - "ไม่ได้ใช้งาน (คืนคลัง)" / "รอตรวจสอบคืน" → กลับเป็น 'พร้อมใช้งาน'
+// - "ซีลเก่าที่ถูกตัดออก" → คงสถานะ 'ใช้งานแล้ว' (แค่บันทึกผู้รับคืน)
+// - "ชำรุดก่อนใช้งาน" → คงสถานะ 'เสียหาย' (แค่บันทึกผู้รับคืน)
+func (s *SealService) AcceptReturn(sealNumber string, userID uint) error {
+	seal, err := s.repo.FindByNumber(sealNumber)
+	if err != nil {
+		return errors.New("ไม่พบซีลในระบบ")
+	}
+
+	if seal.ReturnedByTechnician == nil {
+		return errors.New("ซีลนี้ยังไม่ได้ถูกส่งคืนจากช่าง")
+	}
+	if seal.ReturnedBy != nil {
+		return errors.New("ซีลนี้ถูกรับคืนแล้ว")
+	}
+
+	now := time.Now()
+	seal.ReturnedBy = &userID
+	seal.ReturnedAt = &now
+
+	// เปลี่ยนสถานะตามเหตุผลการคืน
+	switch seal.ReturnRemarks {
+	case "ซีลเก่าที่ถูกตัดออก":
+		// ซีลเก่าที่ตัดแล้ว → คงสถานะ "ใช้งานแล้ว"
+		// แค่บันทึก returned_by เพื่อ audit trail
+	case "ชำรุดก่อนใช้งาน":
+		// ซีลชำรุด → คงสถานะ "เสียหาย"
+		// แค่บันทึก returned_by เพื่อ audit trail
+	default:
+		// "ไม่ได้ใช้งาน (คืนคลัง)" หรืออื่นๆ → กลับเป็นพร้อมใช้งาน
+		seal.Status = "พร้อมใช้งาน"
+		seal.IssuedBy = nil
+		seal.IssuedTo = nil
+		seal.IssuedAt = nil
+		seal.AssignedToTechnician = nil
+	}
+
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		if err := s.repo.Update(seal); err != nil {
+			return err
+		}
+		logEntry := model.Log{
+			UserID: userID,
+			Action: fmt.Sprintf("ยืนยันรับคืนซีล %s (เหตุผล: %s)", sealNumber, seal.ReturnRemarks),
+		}
+		return s.logRepo.Create(&logEntry)
+	})
+}

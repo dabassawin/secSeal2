@@ -656,6 +656,43 @@ func (sc *SealController) CancelSealHandler(c *fiber.Ctx) error {
 }
 
 // -------------------------------------------------------------------
+// GetPendingReturnsHandler
+// GET /api/seals/pending-returns?pea_code=...
+// -------------------------------------------------------------------
+func (sc *SealController) GetPendingReturnsHandler(c *fiber.Ctx) error {
+	peaCode := c.Query("pea_code", "")
+	items, err := sc.sealService.GetPendingReturns(peaCode)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+	return c.JSON(fiber.Map{
+		"items": items,
+		"total": len(items),
+	})
+}
+
+// -------------------------------------------------------------------
+// AcceptReturnHandler
+// PUT /api/seals/:seal_number/accept-return
+// -------------------------------------------------------------------
+func (sc *SealController) AcceptReturnHandler(c *fiber.Ctx) error {
+	userID, ok := c.Locals("user_id").(uint)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Unauthorized"})
+	}
+
+	sealNumber := c.Params("seal_number")
+	err := sc.sealService.AcceptReturn(sealNumber, userID)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	return c.JSON(fiber.Map{
+		"message": fmt.Sprintf("ยืนยันรับคืนซีล %s สำเร็จ", sealNumber),
+	})
+}
+
+// -------------------------------------------------------------------
 // 19) ScanAndUseSealHandler
 // POST /api/seals/scan-use
 // Body: { "seal_number": "..." }
@@ -697,7 +734,7 @@ func (sc *SealController) ScanAndUseSealHandler(c *fiber.Ctx) error {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to save image"})
 		}
 		log.Println("✅ Image saved to", savePath)
-		imagePath = savePath
+		imagePath = "/uploads/" + fileName
 	}
 
 	// For technician app, the middleware sets "tech_id" in locals

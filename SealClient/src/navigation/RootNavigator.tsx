@@ -20,7 +20,8 @@ import {
     AssignSealScreen,
     CreateUserScreen,
     ChangeWorkplaceScreen,
-    ReportScreen
+    ReportScreen,
+    ReturnVerificationScreen
 } from '../screens';
 import TechnicianHomeScreen from '../screens/TechnicianHomeScreen';
 
@@ -34,14 +35,18 @@ const CustomDrawerContent = (props: any) => {
     const { logout } = useAuth();
 
     return (
-        <DrawerContentScrollView {...props}>
-            <DrawerItemList {...props} />
-            <DrawerItem
-                label="ออกจากระบบ"
-                onPress={logout}
-                icon={({ color, size }) => <Text style={{ fontSize: size, color: color }}>🚪</Text>}
-            />
-        </DrawerContentScrollView>
+        <View style={{ flex: 1 }}>
+            <DrawerContentScrollView {...props}>
+                <DrawerItemList {...props} />
+            </DrawerContentScrollView>
+            <View style={{ marginBottom: 20, borderTopWidth: 1, borderTopColor: '#e0e0e0', paddingTop: 10 }}>
+                <DrawerItem
+                    label="ออกจากระบบ"
+                    onPress={logout}
+                    icon={({ color, size }) => <Text style={{ fontSize: size, color: color }}>🚪</Text>}
+                />
+            </View>
+        </View>
     );
 };
 
@@ -136,7 +141,7 @@ const StaffNavigator = () => {
                 component={ChangeWorkplaceScreen}
                 options={{
                     title: 'เปลี่ยนที่ทำงาน',
-                    drawerItemStyle: { display: 'none' }
+                    drawerIcon: ({ color, size }) => <Text style={{ fontSize: size, color: color }}>🏢</Text>
                 }}
             />
             <Drawer.Screen
@@ -151,7 +156,8 @@ const StaffNavigator = () => {
                 name="Logs"
                 component={AuditLogScreen}
                 options={{
-                    drawerItemStyle: { display: 'none' }
+                    title: 'Logs & รายงาน',
+                    drawerIcon: ({ color, size }) => <Text style={{ fontSize: size, color: color }}>📋</Text>
                 }}
             />
             <Drawer.Screen
@@ -159,6 +165,14 @@ const StaffNavigator = () => {
                 component={ReportScreen}
                 options={{
                     title: 'รายงานสรุป',
+                    drawerItemStyle: { display: 'none' }
+                }}
+            />
+            <Drawer.Screen
+                name="ReturnVerification"
+                component={ReturnVerificationScreen}
+                options={{
+                    title: 'รับคืนซีล',
                     drawerItemStyle: { display: 'none' }
                 }}
             />
@@ -213,6 +227,7 @@ const RootNavigator = () => {
                         ImportTechnician: 'technicians/import',
                         AssignSeal: 'seals/assign',
                         Report: 'report',
+                        ReturnVerification: 'return-verification',
                         Seals: {
                             screens: {
                                 CreateSeal: 'seals/create',

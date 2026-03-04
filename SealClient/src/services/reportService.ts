@@ -18,6 +18,7 @@ export interface SealReportItem {
     technician_name: string;
     technician_company: string;
     used_by_name: string;
+    returned_by_technician_name: string;
     returned_by_name: string;
 }
 

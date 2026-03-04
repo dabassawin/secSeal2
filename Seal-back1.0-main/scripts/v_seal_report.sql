@@ -6,6 +6,8 @@
 -- วิธีใช้: นำ SQL นี้ไป run ใน PostgreSQL database ของระบบ
 -- ============================================================
 
+DROP VIEW IF EXISTS v_seal_report;
+
 CREATE OR REPLACE VIEW v_seal_report AS
 SELECT
     s.id,
@@ -23,10 +25,19 @@ SELECT
     s.updated_at,
     -- ผู้จ่าย (User ที่ issued) — issued_by เก็บ emp_id
     COALESCE(u.first_name || ' ' || u.last_name, '') AS issued_by_name,
-    -- ช่างที่รับ (Technician)
+    -- ช่างที่รับ (Technician ที่ assigned)
     COALESCE(t.first_name || ' ' || t.last_name, '') AS technician_name,
-    COALESCE(t.company_name, '') AS technician_company
+    COALESCE(t.company_name, '') AS technician_company,
+    -- ช่างที่ติดตั้ง (used_by → technicians)
+    COALESCE(t_used.first_name || ' ' || t_used.last_name, '') AS used_by_name,
+    -- ช่างที่ส่งคืน (returned_by_technician → technicians)
+    COALESCE(t_ret.first_name || ' ' || t_ret.last_name, '') AS returned_by_technician_name,
+    -- ผู้รับคืน (user ที่ยืนยันรับคืน)
+    COALESCE(u_ret.first_name || ' ' || u_ret.last_name, '') AS returned_by_name
 FROM seals s
 LEFT JOIN users u ON u.emp_id = s.issued_by AND u.deleted_at IS NULL
 LEFT JOIN technicians t ON t.id = s.assigned_to_technician
+LEFT JOIN technicians t_used ON t_used.id = s.used_by
+LEFT JOIN technicians t_ret ON t_ret.id = s.returned_by_technician
+LEFT JOIN users u_ret ON u_ret.id = s.returned_by AND u_ret.deleted_at IS NULL
 WHERE s.deleted_at IS NULL;

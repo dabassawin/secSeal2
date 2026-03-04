@@ -10,7 +10,7 @@ import (
 )
 
 func SaveImage(file *multipart.FileHeader) (string, error) {
-	uploadDir := "./internal/uploads"
+	uploadDir := "./uploads"
 	err := os.MkdirAll(uploadDir, os.ModePerm)
 	if err != nil {
 		log.Println("❌ [ERROR] Failed to create upload directory:", err)

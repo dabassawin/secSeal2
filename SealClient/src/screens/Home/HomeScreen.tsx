@@ -86,14 +86,7 @@ export const HomeScreen: React.FC = () => {
                         iconBgColor="#efebe9"
                         onPress={() => (navigation as any).navigate('Technicians')}
                     />
-                    <ActionCard
-                        title="Logs & รายงาน"
-                        subtitle="ตรวจสอบประวัติการใช้งานซีลทั้งหมด"
-                        icon="📋"
-                        iconColor="#ff9800"
-                        iconBgColor="#fff3e0"
-                        onPress={() => (navigation as any).navigate('Logs')}
-                    />
+
                     <ActionCard
                         title="รายงานสรุปซีล"
                         subtitle="ดูรายงาน ตัวกรอง และส่งออกข้อมูล"
@@ -111,6 +104,14 @@ export const HomeScreen: React.FC = () => {
                         iconBgColor="#d7ccc8"
                         onPress={() => (navigation as any).navigate('AssignSeal')}
                     />
+                    <ActionCard
+                        title="รับคืนซีล"
+                        subtitle="ตรวจสอบและรับซีลคืนจากช่าง"
+                        icon="📥"
+                        iconColor="#c62828"
+                        iconBgColor="#ffebee"
+                        onPress={() => (navigation as any).navigate('ReturnVerification')}
+                    />
                     {user?.role === 'admin' && (
                         <ActionCard
                             title="สร้างผู้ใช้งาน"
@@ -121,14 +122,7 @@ export const HomeScreen: React.FC = () => {
                             onPress={() => (navigation as any).navigate('CreateUser')}
                         />
                     )}
-                    <ActionCard
-                        title="เปลี่ยนที่ทำงาน"
-                        subtitle="แก้ไขข้อมูลสังกัด"
-                        icon="🏢"
-                        iconColor="#0288d1"
-                        iconBgColor="#e1f5fe"
-                        onPress={() => (navigation as any).navigate('ChangeWorkplace')}
-                    />
+
                     {/* Ghost items for left alignment when centered */}
                     <View style={{ width: '30%', minWidth: 250, marginHorizontal: sizes.xs }} />
                     <View style={{ width: '30%', minWidth: 250, marginHorizontal: sizes.xs }} />

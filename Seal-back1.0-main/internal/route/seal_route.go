@@ -47,32 +47,39 @@ func SetupSealRoutes(router fiber.Router, sealController *controller.SealControl
 	// -- 9) GET /api/seals/status/:status : get seals by status (public for testing)
 	seal.Get("/status/:status", sealController.GetSealsByStatusHandler)
 
-	// -- 10) GET /api/seals/:id/status/:status : get seal by ID & status
+	// -- 10) GET /api/seals/pending-returns : get seals pending user verification
+	// ⚠️ MUST be before /:seal_number wildcard route!
+	seal.Get("/pending-returns", middleware.JWTMiddleware(), sealController.GetPendingReturnsHandler)
+
+	// -- 11) GET /api/seals/:id/status/:status : get seal by ID & status
 	seal.Get("/:id/status/:status", middleware.JWTMiddleware(), sealController.GetSealByIDAndStatusHandler)
 
-	// -- 11) PUT /api/seals/:seal_number/issue : admin issues a seal to a user
+	// -- 12) PUT /api/seals/:seal_number/issue : admin issues a seal to a user
 	seal.Put("/:seal_number/issue", middleware.JWTMiddleware(), sealController.IssueSealHandler)
 
-	// -- 12) PUT /api/seals/:seal_number/use : user uses a previously issued seal
+	// -- 13) PUT /api/seals/:seal_number/use : user uses a previously issued seal
 	seal.Put("/:seal_number/use", middleware.JWTMiddleware(), sealController.UseSealHandler)
 
-	// -- 13) PUT /api/seals/:seal_number/return : user returns a seal after use
+	// -- 14) PUT /api/seals/:seal_number/return : user returns a seal after use
 	seal.Put("/:seal_number/return", middleware.JWTMiddleware(), sealController.ReturnSealHandler)
 
-	// -- 14) GET /api/seals/:seal_number/logs : get logs for a specific seal
+	// -- 15) GET /api/seals/:seal_number/logs : get logs for a specific seal
 	seal.Get("/:seal_number/logs", middleware.JWTMiddleware(), sealController.GetSealLogsHandler)
 
-	// -- 15) GET /api/seals/:seal_number : get a single seal by number (wildcard route - put last!)
+	// -- 16) GET /api/seals/:seal_number : get a single seal by number (wildcard route - put last!)
 	seal.Get("/:seal_number", middleware.JWTMiddleware(), sealController.GetSealHandler)
 
-	// -- 15) POST /api/seals/check : check seals via JSON body
+	// -- 17) POST /api/seals/check : check seals via JSON body
 	seal.Post("/check", sealController.CheckSealsHandler)
 
-	// -- 16) POST /api/seals/assign-by-techcode : assign seals by technician_code (ฟีเจอร์ใหม่)
+	// -- 18) POST /api/seals/assign-by-techcode : assign seals by technician_code (ฟีเจอร์ใหม่)
 	seal.Post("/assign-by-techcode", middleware.JWTMiddleware(), sealController.AssignSealsByTechCodeHandler)
 	seal.Put("/:seal_number/cancel", middleware.JWTMiddleware(), sealController.CancelSealHandler)
 
-	// -- 17) PUT /api/seals/:seal_number/status : update seal status
+	// -- 19) PUT /api/seals/:seal_number/accept-return : user confirms seal return
+	seal.Put("/:seal_number/accept-return", middleware.JWTMiddleware(), sealController.AcceptReturnHandler)
+
+	// -- 20) PUT /api/seals/:seal_number/status : update seal status
 	seal.Put("/:seal_number/status", middleware.JWTMiddleware(), sealController.UpdateSealStatusAdminHandler)
 }
 
