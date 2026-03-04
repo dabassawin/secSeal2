@@ -40,8 +40,7 @@ export default function HomeScreen({ onLogout }: HomeScreenProps) {
     };
 
     useEffect(() => {
-        if (error === 'Invalid token') {
-            Alert.alert('Session Expired', 'Your session has expired or is invalid. Please log in again.');
+        if (error === 'Invalid token' || error?.toLowerCase().includes('token')) {
             handleLogout();
         } else if (error) {
             Alert.alert('Error', error);
@@ -86,15 +85,16 @@ export default function HomeScreen({ onLogout }: HomeScreenProps) {
             <View style={styles.cardRight}>
                 <View style={[styles.statusBadge,
                 (item.status === 'เสียหาย' || item.status === 'รอตรวจสอบคืน') ? styles.statusFailed :
-                    (item.status === 'ติดตั้งแล้ว' || item.status === 'ใช้งานแล้ว') ? styles.statusSuccess : styles.statusPending
+                    (item.status === 'ติดตั้งแล้ว' || item.status === 'ใช้งานแล้ว' || (item.status === 'พร้อมใช้งาน' && item.return_remarks === 'ไม่ได้ใช้งาน (คืนคลัง)')) ? styles.statusSuccess : styles.statusPending
                 ]}>
                     <Text style={[styles.statusText,
                     (item.status === 'เสียหาย' || item.status === 'รอตรวจสอบคืน') ? styles.textFailed :
-                        (item.status === 'ติดตั้งแล้ว' || item.status === 'ใช้งานแล้ว') ? styles.textSuccess : styles.textPending
+                        (item.status === 'ติดตั้งแล้ว' || item.status === 'ใช้งานแล้ว' || (item.status === 'พร้อมใช้งาน' && item.return_remarks === 'ไม่ได้ใช้งาน (คืนคลัง)')) ? styles.textSuccess : styles.textPending
                     ]}>
                         {(item.status === 'เสียหาย' || item.status === 'รอตรวจสอบคืน') ? item.status :
                             (item.status === 'ใช้งานแล้ว') ? 'คืนแล้ว' :
-                                (item.status === 'ติดตั้งแล้ว') ? 'ติดตั้งแล้ว' : 'ยังไม่ติดตั้ง'}
+                                (item.status === 'พร้อมใช้งาน' && item.return_remarks === 'ไม่ได้ใช้งาน (คืนคลัง)') ? 'คืนคลัง' :
+                                    (item.status === 'ติดตั้งแล้ว') ? 'ติดตั้งแล้ว' : 'ยังไม่ติดตั้ง'}
                     </Text>
                 </View>
             </View>

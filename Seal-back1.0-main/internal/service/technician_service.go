@@ -126,8 +126,8 @@ func (s *TechnicianService) ReturnSealWithImage(sealNumber string, techID uint, 
 		return errors.New("ไม่พบซีลในระบบ")
 	}
 
-	// ✅ ตรวจสอบว่าซิลอยู่ในสถานะที่คืนได้ ('จ่าย', 'พร้อมใช้งาน', 'ติดตั้งแล้ว')
-	if seal.Status != "จ่าย" && seal.Status != "พร้อมใช้งาน" && seal.Status != "ติดตั้งแล้ว" {
+	// ✅ ตรวจสอบว่าซิลอยู่ในสถานะที่คืนได้ ('จ่าย', 'ติดตั้งแล้ว')
+	if seal.Status != "จ่าย" && seal.Status != "ติดตั้งแล้ว" {
 		return errors.New("ซีลไม่ได้อยู่ในสถานะที่สามารถคืนได้")
 	}
 
@@ -149,7 +149,7 @@ func (s *TechnicianService) ReturnSealWithImage(sealNumber string, techID uint, 
 	case "ชำรุดก่อนใช้งาน":
 		seal.Status = "เสียหาย"
 	case "ไม่ได้ใช้งาน (คืนคลัง)":
-		seal.Status = "รอตรวจสอบคืน" // Changed from 'พร้อมใช้งาน' to keep track of returns before admin accepts
+		seal.Status = "พร้อมใช้งาน"
 	default:
 		seal.Status = "รอตรวจสอบคืน"
 	}
@@ -181,7 +181,7 @@ func (s *TechnicianService) CheckReturnableSeal(sealNumber string, techID uint) 
 		return nil, errors.New("ไม่พบซีลนี้ในระบบ")
 	}
 
-	if seal.Status != "จ่าย" && seal.Status != "พร้อมใช้งาน" && seal.Status != "ติดตั้งแล้ว" {
+	if seal.Status != "จ่าย" && seal.Status != "ติดตั้งแล้ว" {
 		return nil, errors.New("ซีลไม่ได้อยู่ในสถานะที่สามารถคืนได้")
 	}
 

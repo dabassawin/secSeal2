@@ -41,6 +41,7 @@ const formatDate = (dateString?: string) => {
 };
 
 const formatNotificationText = (action: string) => {
+    console.log("NOTIF ACTION INPUT:", action); // <-- DEBUGGING LINE
     let sealNumber = '';
     let techId = 'ไม่ทราบรหัส';
 
@@ -61,14 +62,22 @@ const formatNotificationText = (action: string) => {
         const idMatch = action.match(/technician_code=([^\s]+)/i);
         if (idMatch) techId = idMatch[1];
     } else if (action.includes('ให้พนักงาน')) {
-        const idMatch = action.match(/ให้พนักงาน\s+(\d+)/);
-        if (idMatch) techId = idMatch[1];
+        const idMatch = action.match(/ให้พนักงาน\s+(.*?)(?:\s*\(|$)/);
+        if (idMatch) techId = idMatch[1].trim();
+    } else if (action.includes('ให้ช่าง')) {
+        const idMatch = action.match(/ให้ช่าง\s+(.*?)(?:\s*\(|$)/);
+        if (idMatch) techId = idMatch[1].trim();
+    } else if (action.includes('ให้')) {
+        const idMatch = action.match(/ให้\s+(.*?)(?:\s*\(|$)/);
+        if (idMatch) techId = idMatch[1].trim();
     }
 
     // Remove trailing parenthesis from techId if it accidentally grabbed one
     if (techId.endsWith(')')) {
         techId = techId.slice(0, -1);
     }
+
+    console.log("EXTRACTED TECH ID:", techId); // <-- DEBUGGING LINE
 
     // 3. Format as requested
     if (action.includes("Assigned seal") || action.includes("จ่ายซิล") || action.includes("จ่ายซีล")) {

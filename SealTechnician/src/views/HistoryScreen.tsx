@@ -69,7 +69,12 @@ export default function HistoryScreen() {
         } else if (activeTab === 'history') {
             sourceData = historySeals.filter(s => s.status === 'ติดตั้งแล้ว' || s.used_at);
         } else {
-            sourceData = historySeals.filter(s => s.status === 'ใช้งานแล้ว' || s.status === 'เสียหาย' || s.status === 'รอตรวจสอบคืน');
+            sourceData = historySeals.filter(s =>
+                s.status === 'ใช้งานแล้ว' ||
+                s.status === 'เสียหาย' ||
+                s.status === 'รอตรวจสอบคืน' ||
+                (s.status === 'พร้อมใช้งาน' && s.return_remarks === 'ไม่ได้ใช้งาน (คืนคลัง)')
+            );
         }
 
         const filteredData = sourceData.filter(seal => {
@@ -133,10 +138,10 @@ export default function HistoryScreen() {
     };
 
     const renderLogItem = ({ item }: { item: Seal }) => {
-        const isCompleted = item.status !== 'จ่าย' && item.status !== 'พร้อมใช้งาน';
+        const isCompleted = item.status !== 'จ่าย' && !(item.status === 'พร้อมใช้งาน' && item.return_remarks !== 'ไม่ได้ใช้งาน (คืนคลัง)');
 
         let displayStatus = item.status;
-        if (item.status === 'จ่าย' || item.status === 'พร้อมใช้งาน') {
+        if (item.status === 'จ่าย' || (item.status === 'พร้อมใช้งาน' && item.return_remarks !== 'ไม่ได้ใช้งาน (คืนคลัง)')) {
             displayStatus = 'ยังไม่ติดตั้ง';
         } else if (item.status === 'ติดตั้งแล้ว') {
             displayStatus = 'ติดตั้งแล้ว';
@@ -146,6 +151,8 @@ export default function HistoryScreen() {
             displayStatus = 'เสียหาย';
         } else if (item.status === 'รอตรวจสอบคืน') {
             displayStatus = 'รอตรวจสอบคืน';
+        } else if (item.status === 'พร้อมใช้งาน' && item.return_remarks === 'ไม่ได้ใช้งาน (คืนคลัง)') {
+            displayStatus = 'คืนคลัง';
         }
 
         let iconName: any = "time-outline";
@@ -159,7 +166,7 @@ export default function HistoryScreen() {
                 iconColor = "#F44336";
                 statusStyle = styles.statusFailed;
                 textStyle = styles.textFailed;
-            } else if (item.status === 'ใช้งานแล้ว') {
+            } else if (item.status === 'ใช้งานแล้ว' || (item.status === 'พร้อมใช้งาน' && item.return_remarks === 'ไม่ได้ใช้งาน (คืนคลัง)')) {
                 iconName = "return-down-back-outline";
                 iconColor = "#FF9800";
                 statusStyle = styles.statusPending; // orange-ish

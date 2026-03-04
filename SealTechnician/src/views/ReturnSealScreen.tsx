@@ -54,7 +54,6 @@ export default function ReturnSealScreen({ onLogout }: ReturnSealScreenProps) {
             // Filter only seals that can be returned (Assigned or active)
             const returnable = data.filter(s =>
                 s.status === 'จ่าย' ||
-                s.status === 'พร้อมใช้งาน' ||
                 s.status === 'ติดตั้งแล้ว'
             );
             setSeals(returnable);
