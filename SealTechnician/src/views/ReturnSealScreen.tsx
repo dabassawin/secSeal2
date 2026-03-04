@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, ActivityIndicator, Alert, Image, Modal } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, ActivityIndicator, Alert, Image, Modal, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
@@ -43,6 +43,8 @@ export default function ReturnSealScreen({ onLogout }: ReturnSealScreenProps) {
     const [reason, setReason] = useState<string>('');
     const [photoUri, setPhotoUri] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
+
+    const [manualInput, setManualInput] = useState('');
 
     const RETURN_REASONS = [
         'ชำรุดก่อนใช้งาน',
@@ -168,7 +170,27 @@ export default function ReturnSealScreen({ onLogout }: ReturnSealScreenProps) {
         }
 
         setIsScanning(false);
+        checkAndAddSeal(sealNumber);
+    };
 
+    const handleManualSubmit = () => {
+        if (!manualInput.trim()) {
+            Alert.alert('แจ้งเตือน', 'กรุณากรอกหมายเลขซีล');
+            return;
+        }
+
+        let sealNumber = manualInput.trim().toUpperCase();
+        if (sealNumber.startsWith("PEA ")) {
+            sealNumber = sealNumber.slice(4);
+        } else if (sealNumber.startsWith("PEA")) {
+            sealNumber = sealNumber.replace(/^PEA\s*/i, "");
+        }
+
+        checkAndAddSeal(sealNumber);
+        setManualInput('');
+    };
+
+    const checkAndAddSeal = async (sealNumber: string) => {
         if (scannedSeals.find(s => s.seal_number === sealNumber)) {
             Alert.alert('แจ้งเตือน', `ซีล ${sealNumber} อยู่ในรายการแล้ว`);
             return;
@@ -251,6 +273,28 @@ export default function ReturnSealScreen({ onLogout }: ReturnSealScreenProps) {
                         <Ionicons name="scan-outline" size={24} color="#fff" />
                         <Text style={styles.scanNewSealBtnText}>สแกนซีลที่ต้องการคืน</Text>
                     </TouchableOpacity>
+
+                    {/* Manual Input Field (Styled like ScanScreen) */}
+                    <View style={styles.manualInputContainer}>
+                        <View style={styles.manualInputRow}>
+                            <TextInput
+                                style={styles.manualInputField}
+                                placeholder="หรือกรอกเลขซีลเองที่นี่..."
+                                placeholderTextColor="#666"
+                                value={manualInput}
+                                onChangeText={setManualInput}
+                                autoCapitalize="characters"
+                                autoCorrect={false}
+                            />
+                            <TouchableOpacity
+                                style={[styles.manualSubmitBtn, !manualInput.trim() && styles.manualSubmitBtnDisabled]}
+                                onPress={handleManualSubmit}
+                                disabled={!manualInput.trim()}
+                            >
+                                <Ionicons name="send" size={20} color="#fff" />
+                            </TouchableOpacity>
+                        </View>
+                    </View>
 
                     {isLoading ? (
                         <View style={styles.centerContainer}>
@@ -448,6 +492,41 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: 'bold',
         marginLeft: 8,
+    },
+    manualInputContainer: {
+        marginBottom: 16,
+        paddingHorizontal: 0,
+    },
+    manualInputRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(255,255,255,0.95)',
+        borderRadius: 30,
+        paddingHorizontal: 15,
+        paddingVertical: 10,
+        elevation: 5,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 5,
+    },
+    manualInputField: {
+        flex: 1,
+        fontSize: 16,
+        color: '#000',
+        paddingVertical: 8,
+    },
+    manualSubmitBtn: {
+        backgroundColor: '#007AFF', // Blue matching ScanScreen
+        width: 40,
+        height: 40,
+        borderRadius: 20,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginLeft: 10,
+    },
+    manualSubmitBtnDisabled: {
+        backgroundColor: '#ccc',
     },
     scannerContainer: {
         flex: 1,
