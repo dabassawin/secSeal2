@@ -1,5 +1,5 @@
 import React, { useCallback, useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, RefreshControl, TouchableOpacity, TextInput, Image, Dimensions, Alert } from 'react-native';
+import { View, Text, StyleSheet, FlatList, RefreshControl, TouchableOpacity, TextInput, Image, Dimensions, Alert, Modal } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
@@ -31,8 +31,34 @@ export default function HomeScreen({ onLogout }: HomeScreenProps) {
     const navigation = useNavigation<NavigationProp>();
     const { activeSeals, historySeals, userInfo, isLoading, error, fetchSeals } = useHomeViewModel();
     const insets = useSafeAreaInsets();
-    const [activeTab, setActiveTab] = useState<'pending' | 'history'>('pending');
+    const [activeTab, setActiveTab] = useState<'pending' | 'history' | 'returned'>('pending');
+    const [dropdownVisible, setDropdownVisible] = useState(false);
     const [searchText, setSearchText] = useState('');
+
+    const pendingSeals = activeSeals;
+    const returnedSeals = historySeals.filter(s =>
+        s.status === 'ใช้งานแล้ว' ||
+        s.status === 'รอตรวจสอบคืน' ||
+        s.status === 'เสียหาย' ||
+        (s.status === 'พร้อมใช้งาน' && s.return_remarks === 'ไม่ได้ใช้งาน (คืนคลัง)')
+    );
+    const completedSeals = historySeals.filter(s =>
+        s.status === 'ติดตั้งแล้ว'
+    );
+
+    const getTabLabel = (tab: string) => {
+        if (tab === 'pending') return `รอดำเนินการ (${pendingSeals.length})`;
+        if (tab === 'history') return `ติดตั้งแล้ว (${completedSeals.length})`;
+        if (tab === 'returned') return `คืนแล้ว (${returnedSeals.length})`;
+        return '';
+    };
+
+    const getTabIcon = (tab: string): "time-outline" | "checkmark-done-outline" | "return-down-back-outline" => {
+        if (tab === 'pending') return 'time-outline';
+        if (tab === 'history') return 'checkmark-done-outline';
+        if (tab === 'returned') return 'return-down-back-outline';
+        return 'time-outline';
+    };
 
     const handleLogout = async () => {
         await AuthService.logout();
@@ -57,7 +83,11 @@ export default function HomeScreen({ onLogout }: HomeScreenProps) {
         fetchSeals();
     }, []);
 
-    const displayedSeals = (activeTab === 'pending' ? activeSeals : historySeals).filter(
+    let currentSeals = pendingSeals;
+    if (activeTab === 'history') currentSeals = completedSeals;
+    else if (activeTab === 'returned') currentSeals = returnedSeals;
+
+    const displayedSeals = currentSeals.filter(
         seal => seal.seal_number.toLowerCase().includes(searchText.toLowerCase())
     );
 
@@ -145,27 +175,40 @@ export default function HomeScreen({ onLogout }: HomeScreenProps) {
 
             {/* Content Section */}
             <View style={[styles.body, { paddingBottom: 80 + insets.bottom }]}>
-                {/* Tabs */}
-                <View style={styles.tabContainer}>
-                    <TouchableOpacity
-                        style={[styles.tab, activeTab === 'pending' && styles.activeTab]}
-                        onPress={() => setActiveTab('pending')}
-                    >
-                        <Ionicons name="time-outline" size={20} color={activeTab === 'pending' ? '#6A0DAD' : '#757575'} style={{ marginRight: 8 }} />
-                        <Text style={[styles.tabText, activeTab === 'pending' && styles.activeTabText]}>
-                            รอดำเนินการ ({activeSeals.length})
-                        </Text>
+                {/* Dropdown Header */}
+                <TouchableOpacity
+                    style={styles.dropdownHeader}
+                    onPress={() => setDropdownVisible(true)}
+                >
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                        <Ionicons name={getTabIcon(activeTab)} size={20} color="#6A0DAD" style={{ marginRight: 8 }} />
+                        <Text style={styles.dropdownHeaderText}>{getTabLabel(activeTab)}</Text>
+                    </View>
+                    <Ionicons name="chevron-down-outline" size={20} color="#757575" />
+                </TouchableOpacity>
+
+                {/* Dropdown Menu Modal */}
+                <Modal visible={dropdownVisible} transparent={true} animationType="fade">
+                    <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setDropdownVisible(false)}>
+                        <View style={styles.dropdownMenu}>
+                            {['pending', 'history', 'returned'].map(tab => (
+                                <TouchableOpacity
+                                    key={tab}
+                                    style={[styles.dropdownItem, activeTab === tab && styles.dropdownItemActive]}
+                                    onPress={() => {
+                                        setActiveTab(tab as any);
+                                        setDropdownVisible(false);
+                                    }}
+                                >
+                                    <Ionicons name={getTabIcon(tab)} size={20} color={activeTab === tab ? '#6A0DAD' : '#757575'} style={{ marginRight: 12 }} />
+                                    <Text style={[styles.dropdownItemText, activeTab === tab && styles.dropdownItemTextActive]}>
+                                        {getTabLabel(tab)}
+                                    </Text>
+                                </TouchableOpacity>
+                            ))}
+                        </View>
                     </TouchableOpacity>
-                    <TouchableOpacity
-                        style={[styles.tab, activeTab === 'history' && styles.activeTab]}
-                        onPress={() => setActiveTab('history')}
-                    >
-                        <Ionicons name="checkbox-outline" size={20} color={activeTab === 'history' ? '#6A0DAD' : '#757575'} style={{ marginRight: 8 }} />
-                        <Text style={[styles.tabText, activeTab === 'history' && styles.activeTabText]}>
-                            เสร็จสิ้นแล้ว
-                        </Text>
-                    </TouchableOpacity>
-                </View>
+                </Modal>
 
                 {/* Search */}
                 <View style={styles.searchContainer}>
@@ -361,31 +404,60 @@ const styles = StyleSheet.create({
         paddingHorizontal: 20,
         paddingBottom: 80, // Space for footer
     },
-    tabContainer: {
+    dropdownHeader: {
         flexDirection: 'row',
         backgroundColor: '#fff',
         borderRadius: 12,
-        padding: 4,
+        paddingHorizontal: 16,
+        paddingVertical: 14,
         marginBottom: 16,
         elevation: 2,
-    },
-    tab: {
-        flex: 1,
-        flexDirection: 'row',
-        paddingVertical: 12,
         alignItems: 'center',
-        justifyContent: 'center',
-        borderRadius: 10,
+        justifyContent: 'space-between',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2,
     },
-    activeTab: {
+    dropdownHeaderText: {
+        color: '#6A0DAD',
+        fontWeight: 'bold',
+        fontSize: 15,
+    },
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.3)',
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: 20,
+    },
+    dropdownMenu: {
+        width: '100%',
+        backgroundColor: '#fff',
+        borderRadius: 16,
+        padding: 8,
+        elevation: 5,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.25,
+        shadowRadius: 4,
+    },
+    dropdownItem: {
+        flexDirection: 'row',
+        paddingVertical: 16,
+        paddingHorizontal: 16,
+        alignItems: 'center',
+        borderRadius: 8,
+    },
+    dropdownItemActive: {
         backgroundColor: '#F3E5F5',
     },
-    tabText: {
+    dropdownItemText: {
         color: '#757575',
-        fontWeight: '600',
-        fontSize: 14,
+        fontSize: 15,
+        fontWeight: '500',
     },
-    activeTabText: {
+    dropdownItemTextActive: {
         color: '#6A0DAD',
         fontWeight: 'bold',
     },
