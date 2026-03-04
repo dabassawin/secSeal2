@@ -7,6 +7,7 @@ import { reportService, SealReportItem, ReportFilters } from '@/services/reportS
 import { PieChart, PieChartData } from '@/components/charts/PieChart';
 import { BarChart, BarChartData } from '@/components/charts/BarChart';
 import { KPICard } from '@/components/charts/KPICard';
+import { AnomalyReport, getAnomalyCount } from '@/components/report/AnomalyReport';
 
 // ─── Status badge colors ────────────────────────────
 const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
@@ -244,8 +245,15 @@ export const ReportScreen: React.FC = () => {
     const firstOfYear = new Date(today.getFullYear(), 0, 1);
     const [startDate, setStartDate] = useState(formatDateInput(firstOfYear));
     const [endDate, setEndDate] = useState(formatDateInput(today));
-    const [peaCode, setPeaCode] = useState('');
+    const [peaCode, setPeaCode] = useState(user?.pea_code || '');
     const [statusFilter, setStatusFilter] = useState('');
+
+    // Update peaCode if user loads late
+    useEffect(() => {
+        if (user?.pea_code && !peaCode) {
+            setPeaCode(user.pea_code);
+        }
+    }, [user?.pea_code]);
 
     // Data
     const [items, setItems] = useState<SealReportItem[]>([]);
@@ -257,6 +265,7 @@ export const ReportScreen: React.FC = () => {
     const [sortDir, setSortDir] = useState<SortDir>('desc');
     const [page, setPage] = useState(1);
     const [showDashboard, setShowDashboard] = useState(true);
+    const [showAnomalies, setShowAnomalies] = useState(false);
 
     // ─── Dashboard computed data ────────────────────
     const dashboardData = useMemo(() => {
@@ -313,7 +322,8 @@ export const ReportScreen: React.FC = () => {
         const damaged = statusCounts['เสียหาย'] || 0;
         const lost = statusCounts['สูญหาย'] || 0;
         const issued = statusCounts['จ่าย'] || 0;
-        const installRate = total > 0 ? (((installed + used) / total) * 100).toFixed(1) : '0.0';
+        const totalIssued = installed + used + damaged + lost + issued;
+        const installRate = totalIssued > 0 ? (((installed + used) / totalIssued) * 100).toFixed(1) : '0.0';
         const issueRate = total > 0 ? (((damaged + lost) / total) * 100).toFixed(1) : '0.0';
 
         // Average days from issue to install
@@ -329,8 +339,10 @@ export const ReportScreen: React.FC = () => {
             avgDays = (daysArr.reduce((a, b) => a + b, 0) / daysArr.length).toFixed(1);
         }
 
-        return { pieData, barData, total, installed, used, damaged, lost, issued, installRate, issueRate, avgDays };
+        return { pieData, barData, total, totalIssued, installed, used, damaged, lost, issued, installRate, issueRate, avgDays };
     }, [items]);
+
+    const anomalyCount = useMemo(() => getAnomalyCount(items), [items]);
 
     // ─── Fetch data ─────────────────────────────────
     const fetchData = useCallback(async () => {
@@ -425,6 +437,19 @@ export const ReportScreen: React.FC = () => {
                                 {showDashboard ? '📊 ซ่อน Dashboard' : '📊 แสดง Dashboard'}
                             </Text>
                         </TouchableOpacity>
+                        <TouchableOpacity
+                            style={[styles.toggleAnomalyBtn, showAnomalies && styles.toggleAnomalyBtnActive]}
+                            onPress={() => setShowAnomalies(!showAnomalies)}
+                        >
+                            <Text style={[styles.toggleAnomalyText, showAnomalies && styles.toggleAnomalyTextActive]}>
+                                {showAnomalies ? '⚠️ ซ่อน Alerts' : '⚠️ ดู Alerts'}
+                            </Text>
+                            {anomalyCount > 0 && (
+                                <View style={styles.anomalyBadge}>
+                                    <Text style={styles.anomalyBadgeText}>{anomalyCount}</Text>
+                                </View>
+                            )}
+                        </TouchableOpacity>
                     </View>
                 </View>
 
@@ -443,7 +468,7 @@ export const ReportScreen: React.FC = () => {
                             <KPICard
                                 title="อัตราติดตั้งสำเร็จ"
                                 value={`${dashboardData.installRate}%`}
-                                subtitle={`${(dashboardData.installed + dashboardData.used).toLocaleString()} ชิ้น`}
+                                subtitle={`${(dashboardData.installed + dashboardData.used).toLocaleString()} / ${dashboardData.totalIssued.toLocaleString()} ชิ้น`}
                                 icon="✅"
                                 color="#4caf50"
                             />
@@ -481,6 +506,11 @@ export const ReportScreen: React.FC = () => {
                             </View>
                         </View>
                     </>
+                )}
+
+                {/* ── Anomaly Report Section ────────── */}
+                {showAnomalies && (
+                    <AnomalyReport items={items} onClose={() => setShowAnomalies(false)} />
                 )}
 
                 {/* ── Filters Card ────────────────── */}
@@ -689,6 +719,14 @@ const styles = StyleSheet.create({
     // Dashboard toggle
     toggleDashboardBtn: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: sizes.radiusRound, backgroundColor: '#f3e5f5', borderWidth: 1, borderColor: '#ce93d8' },
     toggleDashboardText: { fontSize: sizes.fontSm, color: colors.primaryPurple, fontWeight: '600' },
+
+    // Anomaly toggle
+    toggleAnomalyBtn: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 8, borderRadius: sizes.radiusRound, backgroundColor: '#ffebee', borderWidth: 1, borderColor: '#ef9a9a', gap: 6, marginLeft: 8 },
+    toggleAnomalyBtnActive: { backgroundColor: '#c62828', borderColor: '#c62828' },
+    toggleAnomalyText: { fontSize: sizes.fontSm, color: '#c62828', fontWeight: '600' },
+    toggleAnomalyTextActive: { color: 'white' },
+    anomalyBadge: { minWidth: 22, height: 22, borderRadius: 11, backgroundColor: '#f44336', alignItems: 'center', justifyContent: 'center', paddingHorizontal: 5 },
+    anomalyBadgeText: { fontSize: 11, color: 'white', fontWeight: 'bold' },
 
     // KPI Row
     kpiRow: { width: '100%', maxWidth: 1200, flexDirection: 'row', flexWrap: 'wrap', marginBottom: sizes.md },

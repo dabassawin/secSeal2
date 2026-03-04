@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Platform } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Platform, Modal, Pressable } from 'react-native';
 import { colors, sizes } from '@/constants';
 import { Header } from '@/components/dashboard';
 import { useAuth } from '@/context/AuthContext';
@@ -58,6 +58,16 @@ export const ReturnVerificationScreen: React.FC = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const [acceptingId, setAcceptingId] = useState<number | null>(null);
 
+    // ─── Confirmation modal state ────────────────────
+    const [confirmItem, setConfirmItem] = useState<PendingReturnItem | null>(null);
+    const [confirmed, setConfirmed] = useState(false);
+
+    // ─── Batch selection state ───────────────────────
+    const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
+    const [batchModalVisible, setBatchModalVisible] = useState(false);
+    const [batchConfirmed, setBatchConfirmed] = useState(false);
+    const [batchProcessing, setBatchProcessing] = useState(false);
+
     const fetchData = useCallback(async () => {
         setLoading(true);
         try {
@@ -72,17 +82,85 @@ export const ReturnVerificationScreen: React.FC = () => {
 
     useEffect(() => { fetchData(); }, [fetchData]);
 
+    // ─── Single item confirm ─────────────────────────
+    const openConfirmModal = (item: PendingReturnItem) => {
+        setConfirmItem(item);
+        setConfirmed(true);
+    };
+
+    const closeConfirmModal = () => {
+        setConfirmItem(null);
+        setConfirmed(false);
+    };
+
     const handleAcceptReturn = async (sealNumber: string, id: number) => {
         setAcceptingId(id);
+        closeConfirmModal();
         try {
             await sealService.acceptReturn(sealNumber);
             setItems(prev => prev.filter(i => i.id !== id));
+            setSelectedIds(prev => { const next = new Set(prev); next.delete(id); return next; });
         } catch (error: any) {
             if (Platform.OS === 'web') {
                 window.alert(error?.response?.data?.error || 'ไม่สามารถรับคืนซีลได้');
             }
         } finally {
             setAcceptingId(null);
+        }
+    };
+
+    // ─── Batch selection handlers ────────────────────
+    const toggleSelect = (id: number) => {
+        setSelectedIds(prev => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id); else next.add(id);
+            return next;
+        });
+    };
+
+    const toggleSelectAll = () => {
+        if (selectedIds.size === filteredItems.length) {
+            setSelectedIds(new Set());
+        } else {
+            setSelectedIds(new Set(filteredItems.map(i => i.id)));
+        }
+    };
+
+    // ─── Batch confirm ───────────────────────────────
+    const openBatchModal = () => {
+        setBatchModalVisible(true);
+        setBatchConfirmed(true);
+    };
+
+    const closeBatchModal = () => {
+        setBatchModalVisible(false);
+        setBatchConfirmed(false);
+    };
+
+    const handleBatchAccept = async () => {
+        const selectedItems = items.filter(i => selectedIds.has(i.id));
+        if (selectedItems.length === 0) return;
+
+        setBatchProcessing(true);
+        const failedItems: string[] = [];
+
+        for (const item of selectedItems) {
+            try {
+                await sealService.acceptReturn(item.seal_number);
+            } catch {
+                failedItems.push(item.seal_number);
+            }
+        }
+
+        // Remove successfully accepted items
+        const failedSet = new Set(failedItems);
+        setItems(prev => prev.filter(i => !selectedIds.has(i.id) || failedSet.has(i.seal_number)));
+        setSelectedIds(new Set());
+        setBatchProcessing(false);
+        closeBatchModal();
+
+        if (failedItems.length > 0 && Platform.OS === 'web') {
+            window.alert(`ไม่สามารถรับคืนซีลได้ ${failedItems.length} รายการ: ${failedItems.join(', ')}`);
         }
     };
 
@@ -100,9 +178,169 @@ export const ReturnVerificationScreen: React.FC = () => {
         );
     });
 
+    const selectedItems = items.filter(i => selectedIds.has(i.id));
+    const allSelected = filteredItems.length > 0 && selectedIds.size === filteredItems.length;
+
+    // ─── Single Confirm Modal ────────────────────────
+    const renderConfirmModal = () => {
+        if (!confirmItem) return null;
+
+        return (
+            <Modal transparent animationType="fade" visible={!!confirmItem} onRequestClose={closeConfirmModal}>
+                <Pressable style={styles.modalOverlay} onPress={closeConfirmModal}>
+                    <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>☑️ ยืนยันรับของจากช่าง</Text>
+                            <TouchableOpacity onPress={closeConfirmModal} style={styles.modalCloseBtn}>
+                                <Text style={styles.modalCloseText}>✕</Text>
+                            </TouchableOpacity>
+                        </View>
+
+                        <View style={styles.modalInfoBox}>
+                            <View style={styles.modalInfoRow}>
+                                <View style={{ flex: 1 }}>
+                                    <Text style={styles.modalInfoLabel}>หมายเลขซีล</Text>
+                                    <Text style={styles.modalSealNumber}>{confirmItem.seal_number}</Text>
+                                </View>
+                                <View style={{ alignItems: 'flex-end' }}>
+                                    <Text style={styles.modalInfoLabel}>ช่างผู้ส่งคืน</Text>
+                                    <Text style={styles.modalTechName}>{confirmItem.technician_name || '-'}</Text>
+                                </View>
+                            </View>
+                        </View>
+
+                        <Text style={styles.modalSectionLabel}>ข้อมูลที่ช่างบันทึกมาจากแอปมือถือ:</Text>
+                        <View style={styles.modalRemarkBox}>
+                            <View style={styles.modalRemarkIconContainer}>
+                                <Text style={styles.modalRemarkIcon}>📋</Text>
+                            </View>
+                            <View style={{ flex: 1 }}>
+                                <Text style={styles.modalRemarkTitle}>สภาพซีลที่ช่างแจ้ง</Text>
+                                <Text style={styles.modalRemarkValue}>{confirmItem.return_remarks || confirmItem.status}</Text>
+                            </View>
+                        </View>
+
+                        <Text style={styles.modalVerifyLabel}>⊘ เจ้าหน้าที่ตรวจสอบของจริง:</Text>
+                        <TouchableOpacity
+                            style={[styles.modalCheckboxRow, confirmed && styles.modalCheckboxRowChecked]}
+                            onPress={() => setConfirmed(!confirmed)}
+                            activeOpacity={0.7}
+                        >
+                            <View style={[styles.modalCheckbox, confirmed && styles.modalCheckboxChecked]}>
+                                {confirmed && <Text style={styles.modalCheckmark}>✓</Text>}
+                            </View>
+                            <View style={{ flex: 1, marginLeft: 12 }}>
+                                <Text style={[styles.modalCheckboxTitle, confirmed && styles.modalCheckboxTitleChecked]}>
+                                    ตรวจสอบแล้ว ข้อมูลตรงกัน
+                                </Text>
+                                <Text style={styles.modalCheckboxDesc}>
+                                    ได้รับซากซีล / ของจริง เรียบร้อยแล้ว สภาพตรงตามที่ช่างแจ้ง
+                                </Text>
+                            </View>
+                        </TouchableOpacity>
+
+                        <View style={styles.modalActions}>
+                            <TouchableOpacity style={styles.modalCancelBtn} onPress={closeConfirmModal}>
+                                <Text style={styles.modalCancelText}>ยกเลิก</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[styles.modalConfirmBtn, !confirmed && styles.modalConfirmBtnDisabled]}
+                                onPress={() => confirmed && handleAcceptReturn(confirmItem.seal_number, confirmItem.id)}
+                                disabled={!confirmed}
+                            >
+                                <Text style={styles.modalConfirmText}>✓  ยืนยันการรับคืน</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </Pressable>
+                </Pressable>
+            </Modal>
+        );
+    };
+
+    // ─── Batch Confirm Modal ─────────────────────────
+    const renderBatchModal = () => {
+        if (!batchModalVisible) return null;
+
+        return (
+            <Modal transparent animationType="fade" visible={batchModalVisible} onRequestClose={closeBatchModal}>
+                <Pressable style={styles.modalOverlay} onPress={closeBatchModal}>
+                    <Pressable style={styles.modalContent} onPress={(e) => e.stopPropagation()}>
+                        <View style={styles.modalHeader}>
+                            <Text style={styles.modalTitle}>☑️ ยืนยันรับคืนทั้งหมด {selectedItems.length} รายการ</Text>
+                            <TouchableOpacity onPress={closeBatchModal} style={styles.modalCloseBtn}>
+                                <Text style={styles.modalCloseText}>✕</Text>
+                            </TouchableOpacity>
+                        </View>
+
+                        {/* List of selected seals */}
+                        <ScrollView style={styles.batchListScroll}>
+                            {selectedItems.map((item, idx) => {
+                                const remarkStyle = REMARK_COLORS[item.return_remarks] || REMARK_COLORS['รอตรวจสอบคืน'];
+                                return (
+                                    <View key={item.id} style={[styles.batchItem, idx % 2 === 1 && { backgroundColor: '#faf5ff' }]}>
+                                        <View style={{ flex: 1 }}>
+                                            <Text style={styles.batchSealNumber}>{item.seal_number}</Text>
+                                            <Text style={styles.batchTechName}>{item.technician_name}</Text>
+                                        </View>
+                                        <View style={[styles.remarkBadge, { backgroundColor: remarkStyle.bg }]}>
+                                            <Text style={[styles.remarkText, { color: remarkStyle.text }]}>
+                                                {remarkStyle.icon} {item.return_remarks || item.status}
+                                            </Text>
+                                        </View>
+                                    </View>
+                                );
+                            })}
+                        </ScrollView>
+
+                        <Text style={styles.modalVerifyLabel}>⊘ เจ้าหน้าที่ตรวจสอบของจริง:</Text>
+                        <TouchableOpacity
+                            style={[styles.modalCheckboxRow, batchConfirmed && styles.modalCheckboxRowChecked]}
+                            onPress={() => setBatchConfirmed(!batchConfirmed)}
+                            activeOpacity={0.7}
+                        >
+                            <View style={[styles.modalCheckbox, batchConfirmed && styles.modalCheckboxChecked]}>
+                                {batchConfirmed && <Text style={styles.modalCheckmark}>✓</Text>}
+                            </View>
+                            <View style={{ flex: 1, marginLeft: 12 }}>
+                                <Text style={[styles.modalCheckboxTitle, batchConfirmed && styles.modalCheckboxTitleChecked]}>
+                                    ตรวจสอบแล้วทั้ง {selectedItems.length} รายการ
+                                </Text>
+                                <Text style={styles.modalCheckboxDesc}>
+                                    ได้รับซากซีล / ของจริง เรียบร้อยแล้ว สภาพตรงตามที่ช่างแจ้งทุกรายการ
+                                </Text>
+                            </View>
+                        </TouchableOpacity>
+
+                        <View style={styles.modalActions}>
+                            <TouchableOpacity style={styles.modalCancelBtn} onPress={closeBatchModal}>
+                                <Text style={styles.modalCancelText}>ยกเลิก</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[styles.modalConfirmBtn, (!batchConfirmed || batchProcessing) && styles.modalConfirmBtnDisabled]}
+                                onPress={handleBatchAccept}
+                                disabled={!batchConfirmed || batchProcessing}
+                            >
+                                {batchProcessing ? (
+                                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                                        <ActivityIndicator size="small" color="white" />
+                                        <Text style={styles.modalConfirmText}>กำลังดำเนินการ...</Text>
+                                    </View>
+                                ) : (
+                                    <Text style={styles.modalConfirmText}>✓  ยืนยันรับคืนทั้ง {selectedItems.length} รายการ</Text>
+                                )}
+                            </TouchableOpacity>
+                        </View>
+                    </Pressable>
+                </Pressable>
+            </Modal>
+        );
+    };
+
     return (
         <View style={styles.mainContainer}>
             <Header />
+            {renderConfirmModal()}
+            {renderBatchModal()}
             <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
                 {/* ── Title ─────────────────── */}
                 <View style={styles.titleSection}>
@@ -177,83 +415,111 @@ export const ReturnVerificationScreen: React.FC = () => {
                     ) : (
                         <>
                             {/* Table */}
-                            <ScrollView horizontal showsHorizontalScrollIndicator>
-                                <View>
-                                    {/* Header */}
-                                    <View style={styles.headerRow}>
-                                        <View style={[styles.cell, styles.cellTime]}>
-                                            <Text style={styles.headerText}>เวลาที่ช่างกดคืน</Text>
-                                        </View>
-                                        <View style={[styles.cell, styles.cellTech]}>
-                                            <Text style={styles.headerText}>ช่างผู้ส่งคืน</Text>
-                                        </View>
-                                        <View style={[styles.cell, styles.cellSeal]}>
-                                            <Text style={styles.headerText}>หมายเลขซีล</Text>
-                                        </View>
-                                        <View style={[styles.cell, styles.cellRemark]}>
-                                            <Text style={styles.headerText}>สถานะที่ช่างแจ้ง</Text>
-                                        </View>
-                                        <View style={[styles.cell, styles.cellAction]}>
-                                            <Text style={styles.headerText}>จัดการ</Text>
-                                        </View>
+                            <View>
+                                {/* Header */}
+                                <View style={styles.headerRow}>
+                                    {/* Checkbox column */}
+                                    <View style={[styles.cell, styles.cellCheck]}>
+                                        <TouchableOpacity onPress={toggleSelectAll} style={[styles.rowCheckbox, allSelected && styles.rowCheckboxChecked]}>
+                                            {allSelected && <Text style={styles.rowCheckmark}>✓</Text>}
+                                        </TouchableOpacity>
                                     </View>
+                                    <View style={[styles.cell, styles.cellTime]}>
+                                        <Text style={styles.headerText}>เวลาที่ช่างกดคืน</Text>
+                                    </View>
+                                    <View style={[styles.cell, styles.cellTech]}>
+                                        <Text style={styles.headerText}>ช่างผู้ส่งคืน</Text>
+                                    </View>
+                                    <View style={[styles.cell, styles.cellSeal]}>
+                                        <Text style={styles.headerText}>หมายเลขซีล</Text>
+                                    </View>
+                                    <View style={[styles.cell, styles.cellRemark]}>
+                                        <Text style={styles.headerText}>สถานะที่ช่างแจ้ง</Text>
+                                    </View>
+                                    <View style={[styles.cell, styles.cellAction]}>
+                                        <Text style={styles.headerText}>จัดการ</Text>
+                                    </View>
+                                </View>
 
-                                    {/* Data Rows */}
-                                    {filteredItems.map((item, idx) => {
-                                        const dt = formatDateTime(item.returned_at);
-                                        const remarkStyle = REMARK_COLORS[item.return_remarks] || REMARK_COLORS['รอตรวจสอบคืน'];
-                                        const isAccepting = acceptingId === item.id;
-                                        return (
-                                            <View key={item.id} style={[styles.dataRow, idx % 2 === 1 && styles.dataRowAlt]}>
-                                                <View style={[styles.cell, styles.cellTime]}>
-                                                    <View>
-                                                        <Text style={styles.dateText}>{dt.date}</Text>
-                                                        <Text style={styles.timeText}>{dt.time}</Text>
-                                                    </View>
-                                                </View>
-                                                <View style={[styles.cell, styles.cellTech]}>
-                                                    <View style={styles.techAvatar}>
-                                                        <Text style={styles.techAvatarText}>
-                                                            {item.technician_name ? item.technician_name.charAt(0) : '?'}
-                                                        </Text>
-                                                    </View>
-                                                    <View style={{ marginLeft: 10 }}>
-                                                        <Text style={styles.techName}>{item.technician_name || '-'}</Text>
-                                                        <Text style={styles.techCode}>{item.technician_code || '-'}</Text>
-                                                    </View>
-                                                </View>
-                                                <View style={[styles.cell, styles.cellSeal]}>
-                                                    <Text style={styles.sealText}>{item.seal_number}</Text>
-                                                </View>
-                                                <View style={[styles.cell, styles.cellRemark]}>
-                                                    <View style={[styles.remarkBadge, { backgroundColor: remarkStyle.bg }]}>
-                                                        <Text style={[styles.remarkText, { color: remarkStyle.text }]}>
-                                                            {remarkStyle.icon} {item.return_remarks || item.status}
-                                                        </Text>
-                                                    </View>
-                                                </View>
-                                                <View style={[styles.cell, styles.cellAction]}>
-                                                    <TouchableOpacity
-                                                        style={[styles.acceptBtn, isAccepting && styles.acceptBtnDisabled]}
-                                                        onPress={() => handleAcceptReturn(item.seal_number, item.id)}
-                                                        disabled={isAccepting}
-                                                    >
-                                                        {isAccepting ? (
-                                                            <ActivityIndicator size="small" color="white" />
-                                                        ) : (
-                                                            <Text style={styles.acceptBtnText}>ตรวจสอบของจริง</Text>
-                                                        )}
-                                                    </TouchableOpacity>
+                                {/* Data Rows */}
+                                {filteredItems.map((item, idx) => {
+                                    const dt = formatDateTime(item.returned_at);
+                                    const remarkStyle = REMARK_COLORS[item.return_remarks] || REMARK_COLORS['รอตรวจสอบคืน'];
+                                    const isAccepting = acceptingId === item.id;
+                                    const isSelected = selectedIds.has(item.id);
+                                    return (
+                                        <View key={item.id} style={[styles.dataRow, idx % 2 === 1 && styles.dataRowAlt, isSelected && styles.dataRowSelected]}>
+                                            {/* Checkbox */}
+                                            <View style={[styles.cell, styles.cellCheck]}>
+                                                <TouchableOpacity onPress={() => toggleSelect(item.id)} style={[styles.rowCheckbox, isSelected && styles.rowCheckboxChecked]}>
+                                                    {isSelected && <Text style={styles.rowCheckmark}>✓</Text>}
+                                                </TouchableOpacity>
+                                            </View>
+                                            <View style={[styles.cell, styles.cellTime]}>
+                                                <View>
+                                                    <Text style={styles.dateText}>{dt.date}</Text>
+                                                    <Text style={styles.timeText}>{dt.time}</Text>
                                                 </View>
                                             </View>
-                                        );
-                                    })}
-                                </View>
-                            </ScrollView>
+                                            <View style={[styles.cell, styles.cellTech]}>
+                                                <View style={styles.techAvatar}>
+                                                    <Text style={styles.techAvatarText}>
+                                                        {item.technician_name ? item.technician_name.charAt(0) : '?'}
+                                                    </Text>
+                                                </View>
+                                                <View style={{ marginLeft: 10 }}>
+                                                    <Text style={styles.techName}>{item.technician_name || '-'}</Text>
+                                                    <Text style={styles.techCode}>{item.technician_code || '-'}</Text>
+                                                </View>
+                                            </View>
+                                            <View style={[styles.cell, styles.cellSeal]}>
+                                                <Text style={styles.sealText}>{item.seal_number}</Text>
+                                            </View>
+                                            <View style={[styles.cell, styles.cellRemark]}>
+                                                <View style={[styles.remarkBadge, { backgroundColor: remarkStyle.bg }]}>
+                                                    <Text style={[styles.remarkText, { color: remarkStyle.text }]}>
+                                                        {remarkStyle.icon} {item.return_remarks || item.status}
+                                                    </Text>
+                                                </View>
+                                            </View>
+                                            <View style={[styles.cell, styles.cellAction]}>
+                                                <TouchableOpacity
+                                                    style={[styles.acceptBtn, isAccepting && styles.acceptBtnDisabled]}
+                                                    onPress={() => openConfirmModal(item)}
+                                                    disabled={isAccepting}
+                                                >
+                                                    {isAccepting ? (
+                                                        <ActivityIndicator size="small" color="white" />
+                                                    ) : (
+                                                        <Text style={styles.acceptBtnText}>ตรวจสอบ</Text>
+                                                    )}
+                                                </TouchableOpacity>
+                                            </View>
+                                        </View>
+                                    );
+                                })}
+                            </View>
                         </>
                     )}
                 </View>
             </ScrollView>
+
+            {/* ── Floating Batch Action Bar ────── */}
+            {selectedIds.size > 0 && (
+                <View style={styles.batchBar}>
+                    <Text style={styles.batchBarText}>
+                        เลือกแล้ว {selectedIds.size} รายการ
+                    </Text>
+                    <View style={{ flexDirection: 'row', gap: 12 }}>
+                        <TouchableOpacity style={styles.batchClearBtn} onPress={() => setSelectedIds(new Set())}>
+                            <Text style={styles.batchClearText}>ยกเลิกทั้งหมด</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity style={styles.batchConfirmBtn} onPress={openBatchModal}>
+                            <Text style={styles.batchConfirmText}>✓ ยืนยันรับคืน {selectedIds.size} รายการ</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            )}
         </View>
     );
 };
@@ -291,12 +557,19 @@ const styles = StyleSheet.create({
     headerText: { fontSize: sizes.fontXs, fontWeight: 'bold', color: colors.textLight, textTransform: 'uppercase' as any },
     dataRow: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
     dataRowAlt: { backgroundColor: '#fafafa' },
+    dataRowSelected: { backgroundColor: '#f3e5f5' },
     cell: { paddingVertical: 14, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center' },
-    cellTime: { width: 130 },
-    cellTech: { width: 220 },
-    cellSeal: { width: 160 },
-    cellRemark: { width: 200 },
-    cellAction: { width: 170 },
+    cellCheck: { width: 50, justifyContent: 'center', paddingHorizontal: 8 },
+    cellTime: { flex: 1.5 },
+    cellTech: { flex: 2 },
+    cellSeal: { flex: 1.5 },
+    cellRemark: { flex: 2 },
+    cellAction: { flex: 1.5 },
+
+    // Row Checkbox
+    rowCheckbox: { width: 22, height: 22, borderRadius: 4, borderWidth: 2, borderColor: '#ccc', alignItems: 'center', justifyContent: 'center', backgroundColor: 'white' },
+    rowCheckboxChecked: { backgroundColor: colors.primaryPurple, borderColor: colors.primaryPurple },
+    rowCheckmark: { color: 'white', fontSize: 14, fontWeight: 'bold' },
 
     // Date/Time
     dateText: { fontSize: sizes.fontSm, fontWeight: 'bold', color: colors.text },
@@ -326,4 +599,57 @@ const styles = StyleSheet.create({
     emptyContainer: { padding: sizes.xxl, alignItems: 'center' },
     emptyIcon: { fontSize: 48, marginBottom: sizes.md },
     emptyText: { fontSize: sizes.fontMd, color: colors.textLight },
+
+    // ─── Floating Batch Bar ──────────────────────────
+    batchBar: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#7b1fa2', paddingHorizontal: 24, paddingVertical: 14, shadowColor: '#000', shadowOffset: { width: 0, height: -2 }, shadowOpacity: 0.15, shadowRadius: 8, elevation: 8 },
+    batchBarText: { color: 'white', fontSize: 15, fontWeight: 'bold' },
+    batchClearBtn: { paddingHorizontal: 16, paddingVertical: 10, borderRadius: 8, borderWidth: 1, borderColor: 'rgba(255,255,255,0.4)' },
+    batchClearText: { color: 'white', fontSize: 13, fontWeight: '500' },
+    batchConfirmBtn: { backgroundColor: '#4caf50', paddingHorizontal: 20, paddingVertical: 10, borderRadius: 8 },
+    batchConfirmText: { color: 'white', fontSize: 14, fontWeight: 'bold' },
+
+    // ─── Batch Modal List ────────────────────────────
+    batchListScroll: { maxHeight: 200, marginHorizontal: 20, marginTop: 16, marginBottom: 16, borderRadius: 10, borderWidth: 1, borderColor: '#eee' },
+    batchItem: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 14, paddingVertical: 10, backgroundColor: '#f8f9fa', borderBottomWidth: 1, borderBottomColor: '#eee' },
+    batchSealNumber: { fontSize: 14, fontWeight: 'bold', color: '#7b1fa2' },
+    batchTechName: { fontSize: 12, color: '#999', marginTop: 2 },
+
+    // ─── Confirmation Modal ──────────────────────────
+    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.45)', justifyContent: 'center', alignItems: 'center' },
+    modalContent: { backgroundColor: 'white', borderRadius: 16, width: '90%', maxWidth: 520, padding: 0, shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.2, shadowRadius: 24, elevation: 10 },
+
+    modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 24, paddingVertical: 18, borderBottomWidth: 1, borderBottomColor: '#f0f0f0', backgroundColor: '#7b1fa2', borderTopLeftRadius: 16, borderTopRightRadius: 16 },
+    modalTitle: { fontSize: 18, fontWeight: 'bold', color: 'white' },
+    modalCloseBtn: { width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' },
+    modalCloseText: { fontSize: 16, color: 'white', fontWeight: 'bold' },
+
+    modalInfoBox: { margin: 20, marginBottom: 12, padding: 16, backgroundColor: '#faf5ff', borderRadius: 12, borderWidth: 1, borderColor: '#e9d5f5' },
+    modalInfoRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+    modalInfoLabel: { fontSize: 12, color: '#9e9e9e', marginBottom: 4 },
+    modalSealNumber: { fontSize: 20, fontWeight: 'bold', color: '#7b1fa2' },
+    modalTechName: { fontSize: 15, fontWeight: '600', color: '#333' },
+
+    modalSectionLabel: { fontSize: 13, color: '#666', marginHorizontal: 20, marginBottom: 8, fontWeight: '500' },
+    modalRemarkBox: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 20, marginBottom: 16, padding: 14, backgroundColor: '#f8f9fa', borderRadius: 10, borderWidth: 1, borderColor: '#eee' },
+    modalRemarkIconContainer: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#e8eaf6', alignItems: 'center', justifyContent: 'center', marginRight: 12 },
+    modalRemarkIcon: { fontSize: 20 },
+    modalRemarkTitle: { fontSize: 12, color: '#999', marginBottom: 2 },
+    modalRemarkValue: { fontSize: 14, fontWeight: 'bold', color: '#333' },
+
+    modalVerifyLabel: { fontSize: 13, color: '#7b1fa2', marginHorizontal: 20, marginBottom: 8, fontWeight: 'bold' },
+    modalCheckboxRow: { flexDirection: 'row', alignItems: 'center', marginHorizontal: 20, marginBottom: 20, padding: 14, backgroundColor: '#f8f9fa', borderRadius: 10, borderWidth: 1.5, borderColor: '#dee2e6' },
+    modalCheckboxRowChecked: { backgroundColor: '#e8f5e9', borderColor: '#4caf50' },
+    modalCheckbox: { width: 24, height: 24, borderRadius: 6, borderWidth: 2, borderColor: '#bbb', alignItems: 'center', justifyContent: 'center', backgroundColor: 'white' },
+    modalCheckboxChecked: { backgroundColor: '#4caf50', borderColor: '#4caf50' },
+    modalCheckmark: { color: 'white', fontSize: 16, fontWeight: 'bold' },
+    modalCheckboxTitle: { fontSize: 14, fontWeight: 'bold', color: '#555' },
+    modalCheckboxTitleChecked: { color: '#2e7d32' },
+    modalCheckboxDesc: { fontSize: 12, color: '#999', marginTop: 2 },
+
+    modalActions: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16, borderTopWidth: 1, borderTopColor: '#f0f0f0', gap: 12 },
+    modalCancelBtn: { paddingHorizontal: 20, paddingVertical: 10 },
+    modalCancelText: { fontSize: 14, color: '#666', fontWeight: '500' },
+    modalConfirmBtn: { backgroundColor: '#4caf50', paddingHorizontal: 20, paddingVertical: 12, borderRadius: 8 },
+    modalConfirmBtnDisabled: { backgroundColor: '#c8e6c9', opacity: 0.7 },
+    modalConfirmText: { color: 'white', fontSize: 14, fontWeight: 'bold' },
 });
