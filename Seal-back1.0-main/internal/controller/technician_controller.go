@@ -101,8 +101,6 @@ func (tc *TechnicianController) GetAssignedSealsHandler(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Unauthorized"})
 	}
 
-	fmt.Println("✅ Technician ID from Token:", techID) // Debug Log
-
 	seals, err := tc.sealService.GetSealsByTechnician(techID)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
