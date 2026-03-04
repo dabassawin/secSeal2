@@ -4,6 +4,9 @@ import { colors, sizes } from '@/constants';
 import { Header } from '@/components/dashboard';
 import { useAuth } from '@/context/AuthContext';
 import { reportService, SealReportItem, ReportFilters } from '@/services/reportService';
+import { PieChart, PieChartData } from '@/components/charts/PieChart';
+import { BarChart, BarChartData } from '@/components/charts/BarChart';
+import { KPICard } from '@/components/charts/KPICard';
 
 // ─── Status badge colors ────────────────────────────
 const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
@@ -253,6 +256,81 @@ export const ReportScreen: React.FC = () => {
     const [sortField, setSortField] = useState<SortField>('created_at');
     const [sortDir, setSortDir] = useState<SortDir>('desc');
     const [page, setPage] = useState(1);
+    const [showDashboard, setShowDashboard] = useState(true);
+
+    // ─── Dashboard computed data ────────────────────
+    const dashboardData = useMemo(() => {
+        if (items.length === 0) return null;
+
+        // Status counts for pie chart
+        const statusCounts: Record<string, number> = {};
+        items.forEach(item => {
+            statusCounts[item.status] = (statusCounts[item.status] || 0) + 1;
+        });
+
+        const STATUS_CHART_COLORS: Record<string, string> = {
+            'พร้อมใช้งาน': '#4caf50',
+            'จ่าย': '#ff9800',
+            'ติดตั้งแล้ว': '#2196f3',
+            'ใช้งานแล้ว': '#9c27b0',
+            'เสียหาย': '#f44336',
+            'สูญหาย': '#b71c1c',
+        };
+
+        const pieData: PieChartData[] = Object.entries(statusCounts).map(([label, value]) => ({
+            label,
+            value,
+            color: STATUS_CHART_COLORS[label] || '#999',
+        }));
+
+        // Monthly creation counts for bar chart
+        const monthCounts: Record<string, number> = {};
+        items.forEach(item => {
+            if (item.created_at) {
+                const d = new Date(item.created_at);
+                const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+                monthCounts[key] = (monthCounts[key] || 0) + 1;
+            }
+        });
+
+        const MONTH_NAMES = ['ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.', 'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'];
+        const barData: BarChartData[] = Object.entries(monthCounts)
+            .sort(([a], [b]) => a.localeCompare(b))
+            .slice(-12)  // Last 12 months max
+            .map(([key, value]) => {
+                const monthIdx = parseInt(key.split('-')[1]) - 1;
+                return {
+                    label: MONTH_NAMES[monthIdx],
+                    value,
+                    color: '#7c4dff',
+                };
+            });
+
+        // KPI calculations
+        const total = items.length;
+        const installed = statusCounts['ติดตั้งแล้ว'] || 0;
+        const used = statusCounts['ใช้งานแล้ว'] || 0;
+        const damaged = statusCounts['เสียหาย'] || 0;
+        const lost = statusCounts['สูญหาย'] || 0;
+        const issued = statusCounts['จ่าย'] || 0;
+        const installRate = total > 0 ? (((installed + used) / total) * 100).toFixed(1) : '0.0';
+        const issueRate = total > 0 ? (((damaged + lost) / total) * 100).toFixed(1) : '0.0';
+
+        // Average days from issue to install
+        let avgDays = '-';
+        const daysArr: number[] = [];
+        items.forEach(item => {
+            if (item.issued_at && item.used_at) {
+                const diff = new Date(item.used_at).getTime() - new Date(item.issued_at).getTime();
+                if (diff > 0) daysArr.push(diff / (1000 * 60 * 60 * 24));
+            }
+        });
+        if (daysArr.length > 0) {
+            avgDays = (daysArr.reduce((a, b) => a + b, 0) / daysArr.length).toFixed(1);
+        }
+
+        return { pieData, barData, total, installed, used, damaged, lost, issued, installRate, issueRate, avgDays };
+    }, [items]);
 
     // ─── Fetch data ─────────────────────────────────
     const fetchData = useCallback(async () => {
@@ -334,9 +412,76 @@ export const ReportScreen: React.FC = () => {
             <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
                 {/* ── Title ─────────────────────────── */}
                 <View style={styles.titleSection}>
-                    <Text style={styles.title}>รายงานสรุปข้อมูลซีล</Text>
-                    <Text style={styles.subtitle}>ระบบจัดการซีล PEAsecSeal</Text>
+                    <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <View>
+                            <Text style={styles.title}>รายงานสรุปข้อมูลซีล</Text>
+                            <Text style={styles.subtitle}>ระบบจัดการซีล PEAsecSeal</Text>
+                        </View>
+                        <TouchableOpacity
+                            style={styles.toggleDashboardBtn}
+                            onPress={() => setShowDashboard(!showDashboard)}
+                        >
+                            <Text style={styles.toggleDashboardText}>
+                                {showDashboard ? '📊 ซ่อน Dashboard' : '📊 แสดง Dashboard'}
+                            </Text>
+                        </TouchableOpacity>
+                    </View>
                 </View>
+
+                {/* ── Dashboard Section ────────────── */}
+                {showDashboard && dashboardData && (
+                    <>
+                        {/* KPI Cards */}
+                        <View style={styles.kpiRow}>
+                            <KPICard
+                                title="ซีลทั้งหมด"
+                                value={dashboardData.total.toLocaleString()}
+                                subtitle="ในช่วงเวลาที่เลือก"
+                                icon="📦"
+                                color="#7c4dff"
+                            />
+                            <KPICard
+                                title="อัตราติดตั้งสำเร็จ"
+                                value={`${dashboardData.installRate}%`}
+                                subtitle={`${(dashboardData.installed + dashboardData.used).toLocaleString()} ชิ้น`}
+                                icon="✅"
+                                color="#4caf50"
+                            />
+                            <KPICard
+                                title="เสียหาย / สูญหาย"
+                                value={`${dashboardData.issueRate}%`}
+                                subtitle={`${(dashboardData.damaged + dashboardData.lost).toLocaleString()} ชิ้น`}
+                                icon="⚠️"
+                                color="#f44336"
+                            />
+                            <KPICard
+                                title="ระยะเวลาเฉลี่ย (จ่าย→ติดตั้ง)"
+                                value={dashboardData.avgDays === '-' ? '-' : `${dashboardData.avgDays} วัน`}
+                                subtitle="เฉลี่ยตั้งแต่จ่ายจนติดตั้ง"
+                                icon="⏱️"
+                                color="#2196f3"
+                            />
+                        </View>
+
+                        {/* Charts Row */}
+                        <View style={styles.chartsRow}>
+                            <View style={styles.chartCard}>
+                                <PieChart
+                                    data={dashboardData.pieData}
+                                    title="🔵 สัดส่วนสถานะซีล"
+                                    size={180}
+                                />
+                            </View>
+                            <View style={[styles.chartCard, { flex: 1.5 }]}>
+                                <BarChart
+                                    data={dashboardData.barData}
+                                    title="📈 จำนวนซีลที่สร้างแยกตามเดือน"
+                                    barHeight={180}
+                                />
+                            </View>
+                        </View>
+                    </>
+                )}
 
                 {/* ── Filters Card ────────────────── */}
                 <View style={[styles.card, { zIndex: 100, overflow: 'visible' as any }]}>
@@ -540,6 +685,17 @@ const styles = StyleSheet.create({
     titleSection: { width: '100%', maxWidth: 1200, marginBottom: sizes.lg },
     title: { fontSize: sizes.fontXl, fontWeight: 'bold', color: colors.primaryPurple },
     subtitle: { fontSize: sizes.fontSm, color: colors.textLight, marginTop: 2 },
+
+    // Dashboard toggle
+    toggleDashboardBtn: { paddingHorizontal: 16, paddingVertical: 8, borderRadius: sizes.radiusRound, backgroundColor: '#f3e5f5', borderWidth: 1, borderColor: '#ce93d8' },
+    toggleDashboardText: { fontSize: sizes.fontSm, color: colors.primaryPurple, fontWeight: '600' },
+
+    // KPI Row
+    kpiRow: { width: '100%', maxWidth: 1200, flexDirection: 'row', flexWrap: 'wrap', marginBottom: sizes.md },
+
+    // Charts Row
+    chartsRow: { width: '100%', maxWidth: 1200, flexDirection: 'row', flexWrap: 'wrap', gap: sizes.md, marginBottom: sizes.md },
+    chartCard: { flex: 1, minWidth: 320, backgroundColor: 'white', borderRadius: sizes.radiusMd, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 4, elevation: 2 },
 
     // Card
     card: { width: '100%', maxWidth: 1200, backgroundColor: 'white', borderRadius: sizes.radiusMd, marginBottom: sizes.md, overflow: 'visible' as any, shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.08, shadowRadius: 4, elevation: 2 },
