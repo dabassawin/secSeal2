@@ -152,6 +152,15 @@ export const SealHistoryScreen: React.FC = () => {
         setEditStatusModalVisible(true);
     };
 
+    const getImageUrl = (imagePath: string | undefined) => {
+        if (!imagePath) return '';
+        let cleanPath = imagePath.replace(/\\/g, '/');
+        if (cleanPath.startsWith('/')) {
+            cleanPath = cleanPath.substring(1);
+        }
+        return `http://localhost:3000/${cleanPath}`;
+    };
+
     if (!sealNumber) {
         return (
             <View style={styles.centerContainer}>
@@ -243,11 +252,10 @@ export const SealHistoryScreen: React.FC = () => {
                                 <Text style={styles.infoCardTitle}>รูปภาพซีล</Text>
                                 {(seal?.image1 || (seal as any)?.Image1) ? (
                                     <TouchableOpacity onPress={() => {
-                                        const uri = `http://localhost:3000/${seal?.image1 || (seal as any)?.Image1}`.replace('uploads\\', 'uploads/').replace('uploads//', 'uploads/');
-                                        setSelectedImageUri(uri);
+                                        setSelectedImageUri(getImageUrl(seal?.image1 || (seal as any)?.Image1));
                                     }} activeOpacity={0.8}>
                                         <Image
-                                            source={{ uri: `http://localhost:3000/${seal?.image1 || (seal as any)?.Image1}`.replace('uploads\\', 'uploads/').replace('uploads//', 'uploads/') }}
+                                            source={{ uri: getImageUrl(seal?.image1 || (seal as any)?.Image1) }}
                                             style={styles.imagePlaceholder}
                                             resizeMode="cover"
                                         />
@@ -262,11 +270,10 @@ export const SealHistoryScreen: React.FC = () => {
                                 )}
                                 {(seal?.image2 || (seal as any)?.Image2) ? (
                                     <TouchableOpacity onPress={() => {
-                                        const uri = `http://localhost:3000/${seal?.image2 || (seal as any)?.Image2}`.replace('uploads\\', 'uploads/').replace('uploads//', 'uploads/');
-                                        setSelectedImageUri(uri);
+                                        setSelectedImageUri(getImageUrl(seal?.image2 || (seal as any)?.Image2));
                                     }} activeOpacity={0.8} style={{ marginTop: 10 }}>
                                         <Image
-                                            source={{ uri: `http://localhost:3000/${seal?.image2 || (seal as any)?.Image2}`.replace('uploads\\', 'uploads/').replace('uploads//', 'uploads/') }}
+                                            source={{ uri: getImageUrl(seal?.image2 || (seal as any)?.Image2) }}
                                             style={styles.imagePlaceholder}
                                             resizeMode="cover"
                                         />
@@ -414,7 +421,7 @@ export const SealHistoryScreen: React.FC = () => {
                                 <View style={styles.galleryItem}>
                                     <Text style={styles.galleryLabel}>รูปติดตั้ง (Image 1)</Text>
                                     <Image
-                                        source={{ uri: `http://localhost:3000/${seal?.image1 || (seal as any)?.Image1}`.replace('uploads\\', 'uploads/').replace('uploads//', 'uploads/') }}
+                                        source={{ uri: getImageUrl(seal?.image1 || (seal as any)?.Image1) }}
                                         style={styles.galleryImage}
                                         resizeMode="contain"
                                     />
@@ -429,7 +436,7 @@ export const SealHistoryScreen: React.FC = () => {
                                 <View style={styles.galleryItem}>
                                     <Text style={styles.galleryLabel}>รูปคืนซีล (Image 2)</Text>
                                     <Image
-                                        source={{ uri: `http://localhost:3000/${seal?.image2 || (seal as any)?.Image2}`.replace('uploads\\', 'uploads/').replace('uploads//', 'uploads/') }}
+                                        source={{ uri: getImageUrl(seal?.image2 || (seal as any)?.Image2) }}
                                         style={styles.galleryImage}
                                         resizeMode="contain"
                                     />

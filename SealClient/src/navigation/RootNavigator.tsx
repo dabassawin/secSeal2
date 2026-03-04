@@ -35,14 +35,18 @@ const CustomDrawerContent = (props: any) => {
     const { logout } = useAuth();
 
     return (
-        <DrawerContentScrollView {...props}>
-            <DrawerItemList {...props} />
-            <DrawerItem
-                label="ออกจากระบบ"
-                onPress={logout}
-                icon={({ color, size }) => <Text style={{ fontSize: size, color: color }}>🚪</Text>}
-            />
-        </DrawerContentScrollView>
+        <View style={{ flex: 1 }}>
+            <DrawerContentScrollView {...props}>
+                <DrawerItemList {...props} />
+            </DrawerContentScrollView>
+            <View style={{ marginBottom: 20, borderTopWidth: 1, borderTopColor: '#e0e0e0', paddingTop: 10 }}>
+                <DrawerItem
+                    label="ออกจากระบบ"
+                    onPress={logout}
+                    icon={({ color, size }) => <Text style={{ fontSize: size, color: color }}>🚪</Text>}
+                />
+            </View>
+        </View>
     );
 };
 
@@ -137,7 +141,7 @@ const StaffNavigator = () => {
                 component={ChangeWorkplaceScreen}
                 options={{
                     title: 'เปลี่ยนที่ทำงาน',
-                    drawerItemStyle: { display: 'none' }
+                    drawerIcon: ({ color, size }) => <Text style={{ fontSize: size, color: color }}>🏢</Text>
                 }}
             />
             <Drawer.Screen
@@ -152,7 +156,8 @@ const StaffNavigator = () => {
                 name="Logs"
                 component={AuditLogScreen}
                 options={{
-                    drawerItemStyle: { display: 'none' }
+                    title: 'Logs & รายงาน',
+                    drawerIcon: ({ color, size }) => <Text style={{ fontSize: size, color: color }}>📋</Text>
                 }}
             />
             <Drawer.Screen

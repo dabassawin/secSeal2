@@ -39,6 +39,8 @@ export interface Seal {
     updated_at?: string;
     is_deleted?: boolean;
     installed_serial?: string;
+    image1?: string;
+    image2?: string;
 }
 
 export interface Technician {
