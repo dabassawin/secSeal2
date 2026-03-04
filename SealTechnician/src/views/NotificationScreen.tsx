@@ -41,7 +41,6 @@ const formatDate = (dateString?: string) => {
 };
 
 const formatNotificationText = (action: string) => {
-    console.log("NOTIF ACTION INPUT:", action); // <-- DEBUGGING LINE
     let sealNumber = '';
     let techId = 'ไม่ทราบรหัส';
 
@@ -76,8 +75,6 @@ const formatNotificationText = (action: string) => {
     if (techId.endsWith(')')) {
         techId = techId.slice(0, -1);
     }
-
-    console.log("EXTRACTED TECH ID:", techId); // <-- DEBUGGING LINE
 
     // 3. Format as requested
     if (action.includes("Assigned seal") || action.includes("จ่ายซิล") || action.includes("จ่ายซีล")) {
