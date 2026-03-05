@@ -1,0 +1,62 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: peaseal_db
+    restart: always
+    environment:
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-1234}
+      POSTGRES_DB: ${DB_NAME:-SecSeal}
+      TZ: Asia/Bangkok
+    ports:
+      - "5432:5432"
+    volumes:
+      - peadb_data:/var/lib/postgresql/data
+      # Initialize database with scripts if they exist
+      - ./Seal-back1.0-main/scripts:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U ${DB_USER:-postgres} -d ${DB_NAME:-SecSeal}" ]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./Seal-back1.0-main
+      dockerfile: Dockerfile
+    container_name: peaseal_backend
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - DB_HOST=db
+      - DB_PORT=5432
+      - DB_USER=${DB_USER:-postgres}
+      - DB_PASSWORD=${DB_PASSWORD:-1234}
+      - DB_NAME=${DB_NAME:-SecSeal}
+      - PORT=3000
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      # Map uploads folder so files aren't lost when container restarts
+      - ./backend_uploads:/app/uploads
+
+  frontend:
+    build:
+      context: ./SealClient
+      dockerfile: Dockerfile
+    container_name: peaseal_frontend
+    restart: unless-stopped
+    ports:
+      - "3001:3001"
+    environment:
+      # You can add API URLs here if your frontend uses them
+      - VITE_API_URL=http://localhost:3000
+    depends_on:
+      - backend
+
+volumes:
+  peadb_data:

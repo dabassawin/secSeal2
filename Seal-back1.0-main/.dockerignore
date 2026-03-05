@@ -1,0 +1,6 @@
+server.exe
+.env
+uploads/
+.git
+.idea
+vendor/
