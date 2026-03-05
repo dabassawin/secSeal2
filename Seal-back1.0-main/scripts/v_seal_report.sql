@@ -39,5 +39,5 @@ LEFT JOIN users u ON u.emp_id = s.issued_by AND u.deleted_at IS NULL
 LEFT JOIN technicians t ON t.id = s.assigned_to_technician
 LEFT JOIN technicians t_used ON t_used.id = s.used_by
 LEFT JOIN technicians t_ret ON t_ret.id = s.returned_by_technician
-LEFT JOIN users u_ret ON u_ret.id = s.returned_by AND u_ret.deleted_at IS NULL
+LEFT JOIN users u_ret ON u_ret.emp_id = s.returned_by AND u_ret.deleted_at IS NULL
 WHERE s.deleted_at IS NULL;
