@@ -437,7 +437,12 @@ func (s *SealService) GetSealReport(peaCode string) (map[string]interface{}, err
 
 func (s *SealService) GetSealsByTechnician(techID uint) ([]model.Seal, error) {
 	var seals []model.Seal
-	if err := s.db.Where("assigned_to_technician = ?", techID).Find(&seals).Error; err != nil {
+	// ✅ รวมทั้งซีลที่ยังถือ (assigned_to_technician) และซีลที่คืนแล้ว (returned_by_technician)
+	// เพื่อให้ช่างยังเห็นประวัติซีลหลัง Admin ยืนยันรับคืน
+	if err := s.db.Where(
+		"assigned_to_technician = ? OR returned_by_technician = ?",
+		techID, techID,
+	).Find(&seals).Error; err != nil {
 		return nil, err
 	}
 	return seals, nil
@@ -1010,16 +1015,16 @@ func (s *SealService) GetSealStatement(peaCode string, startDate string, endDate
 // PendingReturnItem — DTO for pending returns list
 // -------------------------------------------------------------------
 type PendingReturnItem struct {
-	ID              uint       `json:"id"`
-	SealNumber      string     `json:"seal_number"`
-	Status          string     `json:"status"`
-	PeaCode         string     `json:"pea_code"`
-	ReturnRemarks   string     `json:"return_remarks"`
-	ReturnedAt      *time.Time `json:"returned_at"`
-	Image1          string     `json:"image1,omitempty"`
-	TechnicianID    *uint      `json:"technician_id"`
-	TechnicianName  string     `json:"technician_name"`
-	TechnicianCode  string     `json:"technician_code"`
+	ID             uint       `json:"id"`
+	SealNumber     string     `json:"seal_number"`
+	Status         string     `json:"status"`
+	PeaCode        string     `json:"pea_code"`
+	ReturnRemarks  string     `json:"return_remarks"`
+	ReturnedAt     *time.Time `json:"returned_at"`
+	Image1         string     `json:"image1,omitempty"`
+	TechnicianID   *uint      `json:"technician_id"`
+	TechnicianName string     `json:"technician_name"`
+	TechnicianCode string     `json:"technician_code"`
 }
 
 // GetPendingReturns returns seals that a technician has returned but user hasn't confirmed yet
@@ -1069,14 +1074,16 @@ func (s *SealService) AcceptReturn(sealNumber string, userID uint) error {
 	seal.ReturnedBy = &userID
 	seal.ReturnedAt = &now
 
-	// เปลี่ยนสถานะตามเหตุผลการคืน
+	// เปลี่ยนสถานะสุดท้ายตามเหตุผลการคืนที่ช่างแจ้ง
 	switch seal.ReturnRemarks {
 	case "ซีลเก่าที่ถูกตัดออก":
-		// ซีลเก่าที่ตัดแล้ว → คงสถานะ "ใช้งานแล้ว"
-		// แค่บันทึก returned_by เพื่อ audit trail
+		// ซีลเก่าที่ตัดแล้ว → ใช้งานแล้ว
+		seal.Status = "ใช้งานแล้ว"
+		seal.AssignedToTechnician = nil
 	case "ชำรุดก่อนใช้งาน":
-		// ซีลชำรุด → คงสถานะ "เสียหาย"
-		// แค่บันทึก returned_by เพื่อ audit trail
+		// ซีลชำรุด → เสียหาย
+		seal.Status = "เสียหาย"
+		seal.AssignedToTechnician = nil
 	default:
 		// "ไม่ได้ใช้งาน (คืนคลัง)" หรืออื่นๆ → กลับเป็นพร้อมใช้งาน
 		seal.Status = "พร้อมใช้งาน"
