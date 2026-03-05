@@ -282,6 +282,18 @@ export const SealHistoryScreen: React.FC = () => {
                                         <Text style={styles.imageLabel}>📥 รูปคืนซีล (Image 2)</Text>
                                     </TouchableOpacity>
                                 ) : null}
+                                {(seal?.image3 || (seal as any)?.Image3) ? (
+                                    <TouchableOpacity onPress={() => {
+                                        setSelectedImageUri(getImageUrl(seal?.image3 || (seal as any)?.Image3));
+                                    }} activeOpacity={0.8} style={{ marginTop: 10 }}>
+                                        <Image
+                                            source={{ uri: getImageUrl(seal?.image3 || (seal as any)?.Image3) }}
+                                            style={styles.imagePlaceholder}
+                                            resizeMode="cover"
+                                        />
+                                        <Text style={styles.imageLabel}>🔌 รูปมิเตอร์ (Image 3)</Text>
+                                    </TouchableOpacity>
+                                ) : null}
                                 <TouchableOpacity style={styles.whiteBtn} onPress={() => setGalleryModalVisible(true)}>
                                     <Text style={styles.whiteBtnText}>ดูแกลเลอรี่ทั้งหมด</Text>
                                 </TouchableOpacity>
@@ -449,6 +461,16 @@ export const SealHistoryScreen: React.FC = () => {
                                     <Text style={styles.galleryEmpty}>ไม่มีรูป</Text>
                                 </View>
                             )}
+                            {(seal?.image3 || (seal as any)?.Image3) ? (
+                                <View style={styles.galleryItem}>
+                                    <Text style={styles.galleryLabel}>🔌 รูปมิเตอร์ (Image 3)</Text>
+                                    <Image
+                                        source={{ uri: getImageUrl(seal?.image3 || (seal as any)?.Image3) }}
+                                        style={styles.galleryImage}
+                                        resizeMode="contain"
+                                    />
+                                </View>
+                            ) : null}
                         </ScrollView>
                     </View>
                 </Modal>

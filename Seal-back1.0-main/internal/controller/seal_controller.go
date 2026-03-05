@@ -113,8 +113,8 @@ func (sc *SealController) GenerateSealsMultipleBatchesHandler(c *fiber.Ctx) erro
 		Batches []struct {
 			SealNumber    string `json:"seal_number"`
 			Count         int    `json:"count"`
-			PeaCode       string `json:"pea_code"`        // ✅ รับ PeaCode
-			Status        string `json:"status"`          // ✅ รับ status
+			PeaCode       string `json:"pea_code"`       // ✅ รับ PeaCode
+			Status        string `json:"status"`         // ✅ รับ status
 			CreateRemarks string `json:"create_remarks"` // ✅ รับหมายเหตุ
 		} `json:"batches"`
 	}
@@ -701,7 +701,6 @@ func (sc *SealController) ScanAndUseSealHandler(c *fiber.Ctx) error {
 	sealNumber := c.FormValue("seal_number")
 
 	if sealNumber == "" {
-		// Fallback to JSON body just in case
 		var request struct {
 			SealNumber string `json:"seal_number"`
 		}
@@ -714,27 +713,49 @@ func (sc *SealController) ScanAndUseSealHandler(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Seal number is required"})
 	}
 
+	// รับเลขมิเตอร์ (จะบันทึกใน installed_serial)
+	serialNumber := c.FormValue("serial_number")
+
+	// บันทึกรูปซีล (image1)
 	var imagePath string
 	file, err := c.FormFile("image")
 	if err != nil {
-		log.Println("⚠️ No image or err receiving image:", err)
+		log.Println("⚠️ No seal image or err receiving image:", err)
 	} else {
-		// อัปโหลดไฟล์สำเร็จ ดำเนินการบันทึก
-		log.Println("📷 Received image:", file.Filename, "size:", file.Size)
+		log.Println("📷 Received seal image:", file.Filename, "size:", file.Size)
 		uploadDir := "./uploads"
 		if _, err := os.Stat(uploadDir); os.IsNotExist(err) {
 			os.Mkdir(uploadDir, 0755)
 		}
-
 		fileName := fmt.Sprintf("seal_%s_%s", sealNumber, file.Filename)
 		savePath := filepath.Join(uploadDir, fileName)
-
 		if err := c.SaveFile(file, savePath); err != nil {
-			log.Println("❌ Failed to save image to disk:", err)
+			log.Println("❌ Failed to save seal image:", err)
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to save image"})
 		}
-		log.Println("✅ Image saved to", savePath)
+		log.Println("✅ Seal image saved to", savePath)
 		imagePath = "/uploads/" + fileName
+	}
+
+	// บันทึกรูปมิเตอร์ (image2)
+	var meterImagePath string
+	meterFile, err := c.FormFile("meter_image")
+	if err != nil {
+		log.Println("⚠️ No meter image or err receiving meter_image:", err)
+	} else {
+		log.Println("📷 Received meter image:", meterFile.Filename, "size:", meterFile.Size)
+		uploadDir := "./uploads"
+		if _, err := os.Stat(uploadDir); os.IsNotExist(err) {
+			os.Mkdir(uploadDir, 0755)
+		}
+		fileName := fmt.Sprintf("meter_%s_%s", sealNumber, meterFile.Filename)
+		savePath := filepath.Join(uploadDir, fileName)
+		if err := c.SaveFile(meterFile, savePath); err != nil {
+			log.Println("❌ Failed to save meter image:", err)
+		} else {
+			log.Println("✅ Meter image saved to", savePath)
+			meterImagePath = "/uploads/" + fileName
+		}
 	}
 
 	// For technician app, the middleware sets "tech_id" in locals
@@ -745,9 +766,8 @@ func (sc *SealController) ScanAndUseSealHandler(c *fiber.Ctx) error {
 		userID = id
 	}
 
-	message, err := sc.sealService.ScanAndUseSeal(sealNumber, userID, imagePath)
+	message, err := sc.sealService.ScanAndUseSeal(sealNumber, userID, imagePath, serialNumber, meterImagePath)
 	if err != nil {
-		// Differentiate errors? simple for now
 		if err.Error() == "ซีลนี้ถูกติดตั้งหรือใช้งานไปแล้ว" {
 			return c.Status(fiber.StatusConflict).JSON(fiber.Map{"error": err.Error()})
 		}
@@ -755,10 +775,12 @@ func (sc *SealController) ScanAndUseSealHandler(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(fiber.Map{
-		"message":     "บันทึกการติดตั้งสำเร็จ",
-		"seal_number": sealNumber,
-		"image_path":  imagePath,
-		"logs":        message,
+		"message":          "บันทึกการติดตั้งสำเร็จ",
+		"seal_number":      sealNumber,
+		"image_path":       imagePath,
+		"meter_image_path": meterImagePath,
+		"installed_serial": serialNumber,
+		"logs":             message,
 	})
 }
 

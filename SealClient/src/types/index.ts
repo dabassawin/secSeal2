@@ -41,6 +41,7 @@ export interface Seal {
     installed_serial?: string;
     image1?: string;
     image2?: string;
+    image3?: string; // รูปมิเตอร์
 }
 
 export interface Technician {

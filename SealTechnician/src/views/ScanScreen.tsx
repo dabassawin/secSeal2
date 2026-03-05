@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Animated, Alert, ActivityIndicator, Image, TextInput, Platform, KeyboardAvoidingView } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Animated, Alert, ActivityIndicator, Image, TextInput, Platform, KeyboardAvoidingView, ScrollView } from 'react-native';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { API_CONFIG, getApiUrl } from '../config/api.config';
@@ -10,6 +10,13 @@ import * as SecureStore from 'expo-secure-store';
 
 import { parseJwt } from '../utils/jwt';
 
+// ─── ขั้นตอนการทำงาน ──────────────────────────────────────────────────────────
+// 1. 'scan'   → สแกน / ถ่ายรูป / กรอกเลขซีล
+// 2. 'photo'  → ถ่ายรูปซีล (หลักฐานการติดตั้งซีล)
+// 3. 'meter'  → กรอกเลขมิเตอร์ + ถ่ายรูปมิเตอร์ (optional)
+// 4. 'result' → แสดงผลลัพธ์
+// ─────────────────────────────────────────────────────────────────────────────
+
 export default function ScanScreen() {
     const [permission, requestPermission] = useCameraPermissions();
     const [scanned, setScanned] = useState(false);
@@ -17,11 +24,19 @@ export default function ScanScreen() {
     const [scanMode, setScanMode] = useState<'barcode' | 'ocr'>('barcode');
     const [manualInput, setManualInput] = useState('');
     const [isTakingPhoto, setIsTakingPhoto] = useState(false);
-    const [photoUri, setPhotoUri] = useState<string | null>(null);
+    const [photoUri, setPhotoUri] = useState<string | null>(null);      // รูปซีล (image1)
     const [result, setResult] = useState<{ message: string; type: 'success' | 'warning' | 'error' | 'info' } | null>(null);
     const cameraRef = useRef<CameraView>(null);
     const [fadeAnim] = useState(new Animated.Value(0));
     const insets = useSafeAreaInsets();
+
+    // ─── ขั้นตอนมิเตอร์ ──────────────────────────────────────────────────────
+    const [step, setStep] = useState<'scan' | 'photo' | 'meter' | 'result'>('scan');
+    const [meterSerial, setMeterSerial] = useState('');          // เลขมิเตอร์
+    const [meterPhotoUri, setMeterPhotoUri] = useState<string | null>(null);  // รูปมิเตอร์ (image1)
+    const [isTakingMeterPhoto, setIsTakingMeterPhoto] = useState(false);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    // ─────────────────────────────────────────────────────────────────────────
 
     useEffect(() => {
         if (result) {
@@ -73,25 +88,21 @@ export default function ScanScreen() {
                 return;
             }
 
-            // ✅ เช็คซีลกับ backend ทันที (ตรวจสอบสถานะ + ความเป็นเจ้าของ)
             const response = await fetch(getApiUrl(`/check-seal/${sealNumber}`), {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
+                headers: { 'Authorization': `Bearer ${token}` }
             });
 
             const checkResult = await response.json();
 
             if (!response.ok) {
-                // Backend จะส่ง error message ภาษาไทยมาให้ (เช่น ซีลนี้ได้ถูกใช้งานไปแล้ว)
                 Alert.alert("ไม่สามารถใช้งานได้", checkResult.error || "เกิดข้อผิดพลาดในการตรวจสอบ", [
                     { text: "ตกลง", onPress: resetScan }
                 ], { cancelable: false });
                 return;
             }
 
-            // ✅ ซีลผ่านการตรวจสอบ → ไปหน้าถ่ายรูป
             setScannedSealNumber(sealNumber);
+            setStep('photo');
 
         } catch (error) {
             console.error("Error validating seal:", error);
@@ -106,9 +117,12 @@ export default function ScanScreen() {
         setScanned(false);
         setScannedSealNumber(null);
         setPhotoUri(null);
+        setMeterPhotoUri(null);
+        setMeterSerial('');
         setResult(null);
         setScanMode('barcode');
         setManualInput('');
+        setStep('scan');
     };
 
     const handleManualSubmit = async () => {
@@ -136,9 +150,7 @@ export default function ScanScreen() {
             }
 
             const response = await fetch(getApiUrl(`/check-seal/${sealNumber}`), {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
+                headers: { 'Authorization': `Bearer ${token}` }
             });
 
             const checkResult = await response.json();
@@ -152,6 +164,7 @@ export default function ScanScreen() {
 
             setScannedSealNumber(sealNumber);
             setManualInput('');
+            setStep('photo');
 
         } catch (error) {
             console.error("Error validating seal:", error);
@@ -166,7 +179,6 @@ export default function ScanScreen() {
         setResult({ message: "กำลังอ่านข้อความจากรูปภาพ...", type: 'info' });
 
         try {
-            // ย่อขนาดรูปภาพก่อนส่งไป OCR (เพื่อไม่ให้หนักเกิน Free Tier API)
             const manipulatedImage = await ImageManipulator.manipulateAsync(
                 uri,
                 [{ resize: { width: 800 } }],
@@ -183,25 +195,22 @@ export default function ScanScreen() {
             const match = /\.(\w+)$/.exec(filename);
             const type = match ? `image/${match[1]}` : `image/jpeg`;
 
-            // ส่งเป็น File แทน Base64 เพื่อป้องกันปัญหา Timeout และทำงานได้เร็วขึ้น
             formData.append('file', {
                 uri: manipulatedImage.uri,
                 name: filename,
                 type: type,
             } as any);
 
-            // ส่งรูปไปที่ OCR.space API ฟรี (จำกัดที่ 25000 requests / เดือน)
             const response = await fetch('https://api.ocr.space/parse/image', {
                 method: 'POST',
                 headers: {
-                    'apikey': 'helloworld', // ใส่รหัส API Key ของ OCR.space ที่นี่
-                    // ไม่ต้องใส่ Content-Type เดี๋ยว fetch จะจัดการ boundary ให้เอง
+                    'apikey': 'helloworld',
                 },
                 body: formData,
             });
 
             const responseText = await response.text();
-            console.log("OCR Response Text:", responseText); // Debug: ดูค่าที่ตอบกลับมา
+            console.log("OCR Response Text:", responseText);
 
             const jsonResponse = JSON.parse(responseText);
 
@@ -216,21 +225,17 @@ export default function ScanScreen() {
                 return;
             }
 
-            // ค้นหาตัวอักษรภาษาอังกฤษนำหน้า (ถ้ามี) ตามด้วยตัวเลข (เช่น T256901000049 หรือแค่ตัวเลข 7256901000049) 
-            // โดยให้ครอบคลุมกรณีที่มีคำว่า PEA นำหน้าด้วย
             const matches = parsedText.match(/(?:PEA[\s-]*)?([A-Za-z]?\d{4,15})/i);
 
             if (matches && matches[1]) {
                 let detectedSeal = matches[1].toUpperCase().trim();
 
-                // ตัดคำว่า PEA หรือ pea ออกถ้าหากติดมาด้วย (เช่นในกรณีที่ OCR อ่านติดกันเป็น PEAT2569...)
                 if (detectedSeal.startsWith("PEA")) {
                     detectedSeal = detectedSeal.replace(/^PEA\s*/i, "");
                 }
 
                 setResult({ message: `พบหมายเลขซีล: ${detectedSeal}\nกำลังตรวจสอบ...`, type: 'info' });
 
-                // ตรวจสอบกับ Backend ด้วยหมายเลขซีลที่หาเจอ
                 const token = await SecureStore.getItemAsync('userToken');
                 const checkResponse = await fetch(getApiUrl(`/check-seal/${detectedSeal}`), {
                     headers: { 'Authorization': `Bearer ${token}` }
@@ -238,8 +243,6 @@ export default function ScanScreen() {
 
                 const checkResult = await checkResponse.json();
                 if (!checkResponse.ok) {
-                    // Explicitly handle 409 if needed, otherwise the generic error message from backend will be used.
-                    // The backend is expected to send a specific error message for 409 (e.g., "ซีลนี้ได้ถูกใช้งานไปแล้ว")
                     Alert.alert("ไม่สามารถใช้งานได้", checkResult.error || "เกิดข้อผิดพลาดในการตรวจสอบ", [
                         { text: "ตกลง", onPress: resetScan }
                     ], { cancelable: false });
@@ -247,7 +250,8 @@ export default function ScanScreen() {
                 }
 
                 setScannedSealNumber(detectedSeal);
-                setResult(null); // ล้างแจ้งเตือน info
+                setResult(null);
+                setStep('photo');
             } else {
                 setResult({ message: "ไม่พบหมายเลขซีลในรูปภาพ หรือถ่ายไม่ชัด", type: 'warning' });
             }
@@ -264,8 +268,8 @@ export default function ScanScreen() {
         try {
             const photo = await cameraRef.current.takePictureAsync();
             if (photo) {
-                setScanned(true); // ปิดการแสกนชั่วคราว
-                setPhotoUri(photo.uri); // เก็บรูปไว้เป็นหลักฐานเพื่อติดตั้ง
+                setScanned(true);
+                setPhotoUri(photo.uri);
                 await processOcrImage(photo.uri);
             }
         } catch (error) {
@@ -277,6 +281,7 @@ export default function ScanScreen() {
         }
     };
 
+    // ถ่ายรูปซีล (image1 = หลักฐานซีล)
     const takePhoto = async () => {
         if (!cameraRef.current) return;
         setIsTakingPhoto(true);
@@ -294,42 +299,81 @@ export default function ScanScreen() {
         }
     };
 
+    // ถ่ายรูปมิเตอร์
+    const takeMeterPhoto = async () => {
+        if (!cameraRef.current) return;
+        setIsTakingMeterPhoto(true);
+        try {
+            const photo = await cameraRef.current.takePictureAsync();
+            if (photo) {
+                setMeterPhotoUri(photo.uri);
+            }
+        } catch (error) {
+            Alert.alert("ข้อผิดพลาด", "ไม่สามารถถ่ายรูปได้");
+        } finally {
+            setIsTakingMeterPhoto(false);
+        }
+    };
+
     const retakePhoto = () => {
         setPhotoUri(null);
     };
 
+    const retakeMeterPhoto = () => {
+        setMeterPhotoUri(null);
+    };
+
+    // กดยืนยันรูปซีล → ไปขั้นตอนมิเตอร์
+    const confirmSealPhoto = () => {
+        setStep('meter');
+    };
+
+    // ยืนยันส่งข้อมูลทั้งหมด
     const confirmInstall = () => {
-        if (scannedSealNumber && photoUri) {
-            processScan(scannedSealNumber, photoUri);
+        if (!meterSerial.trim()) {
+            Alert.alert('แจ้งเตือน', 'กรุณากรอกเลขมิเตอร์');
+            return;
+        }
+        if (scannedSealNumber) {
+            processScan(scannedSealNumber, photoUri || undefined, meterSerial.trim(), meterPhotoUri || undefined);
         }
     };
 
-    const processScan = async (sealNumber: string, passedPhotoUri?: string) => {
-        setResult({ message: "กำลังตรวจสอบ...", type: 'info' });
+    const processScan = async (
+        sealNumber: string,
+        sealPhotoUri?: string,
+        serialNumber?: string,
+        meterPhoto?: string
+    ) => {
+        setIsSubmitting(true);
+        setResult({ message: "กำลังบันทึกข้อมูล...", type: 'info' });
+        setStep('result');
 
         try {
             const formData = new FormData();
             formData.append('seal_number', sealNumber);
 
-            const activePhotoUri = passedPhotoUri || photoUri;
-
-            console.log("📸 [ScanScreen] Starting check for photoUri:", activePhotoUri);
-
-            if (activePhotoUri) {
-                const filename = activePhotoUri.split('/').pop() || 'photo.jpg';
+            // รูปซีล → image (บันทึกใน image1)
+            if (sealPhotoUri) {
+                const filename = sealPhotoUri.split('/').pop() || 'seal_photo.jpg';
                 const match = /\.(\w+)$/.exec(filename);
-                // Important for react native: fallback to jpeg if type cannot be guessed
                 const type = match ? `image/${match[1]}` : `image/jpeg`;
-
-                const imageObj = { uri: activePhotoUri, name: filename, type };
-                console.log("📸 [ScanScreen] Appending image to formData:", imageObj);
-
-                formData.append('image', imageObj as any);
+                formData.append('image', { uri: sealPhotoUri, name: filename, type } as any);
             }
 
-            console.log("🚀 [ScanScreen] Sending POST request to:", getApiUrl(API_CONFIG.endpoints.SCAN_SEAL));
+            // เลขมิเตอร์ → serial_number (บันทึกใน installed_serial)
+            if (serialNumber) {
+                formData.append('serial_number', serialNumber);
+            }
 
-            // Retrieve the token from SecureStore to send to the secure backend route
+            // รูปมิเตอร์ → meter_image (บันทึกใน image2)
+            if (meterPhoto) {
+                const filename = meterPhoto.split('/').pop() || 'meter_photo.jpg';
+                const match = /\.(\w+)$/.exec(filename);
+                const type = match ? `image/${match[1]}` : `image/jpeg`;
+                formData.append('meter_image', { uri: meterPhoto, name: filename, type } as any);
+            }
+
             const token = await SecureStore.getItemAsync('userToken');
 
             const response = await fetch(getApiUrl(API_CONFIG.endpoints.SCAN_SEAL), {
@@ -338,7 +382,6 @@ export default function ScanScreen() {
                 headers: {
                     'Accept': 'application/json',
                     'Authorization': token ? `Bearer ${token}` : '',
-                    // DO NOT SET Content-Type manually, let fetch set it with the boundary
                 },
             });
 
@@ -355,6 +398,8 @@ export default function ScanScreen() {
             }
         } catch (error) {
             setResult({ message: `เครือข่ายขัดข้อง: ${(error as Error).message}`, type: 'error' });
+        } finally {
+            setIsSubmitting(false);
         }
     };
 
@@ -401,22 +446,138 @@ export default function ScanScreen() {
         </View>
     );
 
+    // ─── ขั้นตอนที่ 3: กรอกข้อมูลมิเตอร์ ─────────────────────────────────────
+    const renderMeterStep = () => (
+        // ถ้ายังไม่ได้ถ่ายรูปมิเตอร์ → ใช้ transparent เพื่อให้กล้องด้านหลังโชว์ผ่านได้
+        <View style={[styles.meterOverlay, { backgroundColor: meterPhotoUri ? '#f5f5f5' : 'transparent' }]}>
+            {/* ─── กล้องสำหรับถ่ายรูปมิเตอร์ ─── */}
+            {!meterPhotoUri ? (
+                <>
+                    <View style={[styles.meterHeader, { paddingTop: insets.top + 16 }]}>
+                        <Text style={styles.meterHeaderTitle}>ถ่ายรูปมิเตอร์ที่ติดซีลนี้</Text>
+                        <Text style={styles.meterHeaderSeal}>ซีล: {scannedSealNumber}</Text>
+                    </View>
+
+                    <View style={[styles.meterCaptureControls, { paddingBottom: 40 + insets.bottom }]}>
+                        <TouchableOpacity
+                            style={styles.captureButton}
+                            onPress={takeMeterPhoto}
+                            disabled={isTakingMeterPhoto}
+                        >
+                            {isTakingMeterPhoto ? (
+                                <ActivityIndicator color="#000" size="large" />
+                            ) : (
+                                <View style={styles.captureButtonInner} />
+                            )}
+                        </TouchableOpacity>
+                        <Text style={styles.ocrInstructionText}>ถ่ายรูปมิเตอร์ให้ชัดเจน</Text>
+                        <TouchableOpacity
+                            style={styles.skipMeterPhotoButton}
+                            onPress={() => setMeterPhotoUri('skip')}
+                        >
+                            <Text style={styles.skipMeterPhotoText}>ข้ามการถ่ายรูป</Text>
+                        </TouchableOpacity>
+                    </View>
+                </>
+            ) : (
+                // ─── ดูรูปมิเตอร์ + กรอกเลขมิเตอร์ ───
+                <KeyboardAvoidingView
+                    style={{ flex: 1 }}
+                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                    keyboardVerticalOffset={0}
+                >
+                    <ScrollView contentContainerStyle={styles.meterFormScroll} keyboardShouldPersistTaps="handled">
+                        {/* Header */}
+                        <View style={[styles.meterFormHeader, { paddingTop: insets.top + 16 }]}>
+                            <View style={styles.meterHeaderBadge}>
+                                <Ionicons name="speedometer-outline" size={20} color="#fff" />
+                                <Text style={styles.meterHeaderTitle}>ยืนยันข้อมูลมิเตอร์</Text>
+                            </View>
+                            <Text style={styles.meterHeaderSeal}>ซีล: {scannedSealNumber}</Text>
+                        </View>
+
+                        {/* รูปมิเตอร์ */}
+                        {meterPhotoUri !== 'skip' && (
+                            <View style={styles.meterPhotoPreviewBox}>
+                                <Image source={{ uri: meterPhotoUri }} style={styles.meterPhotoPreview} resizeMode="cover" />
+                                <TouchableOpacity style={styles.retakeMeterBtn} onPress={retakeMeterPhoto}>
+                                    <Ionicons name="camera-reverse-outline" size={16} color="#fff" />
+                                    <Text style={styles.retakeMeterText}>ถ่ายใหม่</Text>
+                                </TouchableOpacity>
+                            </View>
+                        )}
+
+                        {/* รูปซีลที่ถ่ายไว้ */}
+                        {photoUri && (
+                            <View style={styles.sealPhotoSmallBox}>
+                                <Text style={styles.sealPhotoSmallLabel}>📷 รูปซีล</Text>
+                                <Image source={{ uri: photoUri }} style={styles.sealPhotoSmall} resizeMode="cover" />
+                            </View>
+                        )}
+
+                        {/* กรอกเลขมิเตอร์ */}
+                        <View style={styles.meterInputSection}>
+                            <View style={styles.meterInputLabelRow}>
+                                <Ionicons name="create-outline" size={20} color="#6A0DAD" />
+                                <Text style={styles.meterInputLabel}>หมายเลขมิเตอร์ *</Text>
+                            </View>
+                            <TextInput
+                                style={styles.meterSerialInput}
+                                placeholder="กรอกหมายเลขมิเตอร์..."
+                                placeholderTextColor="#aaa"
+                                value={meterSerial}
+                                onChangeText={setMeterSerial}
+                                autoCapitalize="characters"
+                                autoCorrect={false}
+                                returnKeyType="done"
+                            />
+                            <Text style={styles.meterInputHint}>หมายเลขนี้จะถูกบันทึกเป็น Serial ของมิเตอร์ที่ติดตั้ง</Text>
+                        </View>
+
+                        {/* ปุ่มยืนยัน */}
+                        <View style={[styles.meterActions, { paddingBottom: 30 + insets.bottom }]}>
+                            <TouchableOpacity style={styles.meterCancelBtn} onPress={resetScan}>
+                                <Ionicons name="close-outline" size={20} color="#666" />
+                                <Text style={styles.meterCancelText}>ยกเลิก</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[styles.meterConfirmBtn, !meterSerial.trim() && styles.meterConfirmBtnDisabled]}
+                                onPress={confirmInstall}
+                                disabled={!meterSerial.trim() || isSubmitting}
+                            >
+                                {isSubmitting ? (
+                                    <ActivityIndicator color="#fff" size="small" />
+                                ) : (
+                                    <>
+                                        <Ionicons name="checkmark-circle-outline" size={22} color="#fff" />
+                                        <Text style={styles.meterConfirmText}>ยืนยันติดตั้ง</Text>
+                                    </>
+                                )}
+                            </TouchableOpacity>
+                        </View>
+                    </ScrollView>
+                </KeyboardAvoidingView>
+            )}
+        </View>
+    );
+
     return (
         <View style={styles.container}>
             <CameraView
                 ref={cameraRef}
                 style={styles.camera}
                 facing="back"
-                onBarcodeScanned={(scanned || scanMode === 'ocr') ? undefined : handleBarcodeScanned}
+                onBarcodeScanned={(scanned || scanMode === 'ocr' || step !== 'scan') ? undefined : handleBarcodeScanned}
                 barcodeScannerSettings={{
                     barcodeTypes: ["qr", "aztec", "codabar", "code39", "code93", "code128", "datamatrix", "ean13", "ean8", "itf14", "pdf417", "upc_a", "upc_e"],
                 }}
             />
 
-            {!scanned && renderModeSelector()}
+            {/* Mode selector แสดงเฉพาะขั้น scan */}
+            {step === 'scan' && !scanned && renderModeSelector()}
 
-            {/* ช่องกรอกเลขเอง แสดงเฉพาะโหมด barcode และยังไม่ได้สแกน */}
-            {scanMode === 'barcode' && !scanned && !result && (
+            {/* ช่องกรอกเลขเอง */}
+            {scanMode === 'barcode' && step === 'scan' && !scanned && !result && (
                 <KeyboardAvoidingView
                     behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
                     style={styles.manualInputFloatingWrapper}
@@ -440,11 +601,15 @@ export default function ScanScreen() {
                 </KeyboardAvoidingView>
             )}
 
-            {scannedSealNumber && !photoUri && !result && (
+            {/* ขั้นที่ 2: ถ่ายรูปซีล */}
+            {step === 'photo' && scannedSealNumber && !photoUri && !result && (
                 <View style={[styles.photoCaptureOverlay, { paddingBottom: 50 + insets.bottom }]}>
                     <View style={styles.photoCaptureHeader}>
-                        <Text style={styles.photoCaptureTitle}>สแกนซีล {scannedSealNumber} สำเร็จ</Text>
-                        <Text style={styles.photoCaptureSubtitle}>กรุณาถ่ายรูปเพื่อยืนยันการติดตั้ง</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', flexWrap: 'nowrap' }}>
+                            <Text style={styles.photoCaptureTitle} numberOfLines={1} adjustsFontSizeToFit>สแกนซีล {scannedSealNumber}</Text>
+                            <Text style={[styles.photoCaptureTitle, { marginLeft: 6 }]}>✅</Text>
+                        </View>
+                        <Text style={styles.photoCaptureSubtitle}>ถ่ายรูปซีลที่ติดตั้ง (ขั้น 1/2)</Text>
                     </View>
                     <View style={styles.photoCaptureControls}>
                         <TouchableOpacity
@@ -465,8 +630,8 @@ export default function ScanScreen() {
                 </View>
             )}
 
-            {/* ปุ่มถ่ายรูปโหมด OCR ถ้าเลือก OCR Mode และยังไม่ได้สแกน */}
-            {scanMode === 'ocr' && !scanned && !result && (
+            {/* ปุ่มถ่ายรูปโหมด OCR */}
+            {scanMode === 'ocr' && step === 'scan' && !scanned && !result && (
                 <View style={[styles.ocrCaptureControls, { paddingBottom: 50 + insets.bottom }]}>
                     <TouchableOpacity
                         style={styles.captureButton}
@@ -483,28 +648,56 @@ export default function ScanScreen() {
                 </View>
             )}
 
-            {/* ✅ Photo Preview ก่อนยืนยัน */}
-            {photoUri && !result && (
+            {/* Preview รูปซีล → ยืนยันไปขั้นมิเตอร์ */}
+            {step === 'photo' && photoUri && !result && (
                 <View style={styles.previewOverlay}>
                     <Image source={{ uri: photoUri }} style={styles.previewImage} resizeMode="cover" />
                     <View style={styles.previewHeader}>
-                        <Text style={styles.previewTitle}>ตรวจสอบรูปภาพ</Text>
-                        <Text style={styles.previewSubtitle}>ซีลเบอร์: {scannedSealNumber}</Text>
+                        <Text style={styles.previewTitle}>ตรวจสอบรูปซีล</Text>
+                        <Text style={styles.previewSubtitle}>ขั้นที่ 1/2 — ซีลเบอร์: {scannedSealNumber}</Text>
                     </View>
                     <View style={[styles.previewControls, { paddingBottom: insets.bottom }]}>
                         <TouchableOpacity style={styles.retakeButton} onPress={retakePhoto}>
                             <Ionicons name="camera-reverse-outline" size={22} color="#fff" />
                             <Text style={styles.retakeText}>ถ่ายใหม่</Text>
                         </TouchableOpacity>
-                        <TouchableOpacity style={styles.confirmButton} onPress={confirmInstall}>
-                            <Ionicons name="checkmark-circle-outline" size={22} color="#fff" />
-                            <Text style={styles.confirmText}>ยืนยันติดตั้ง</Text>
+                        <TouchableOpacity style={styles.confirmButton} onPress={confirmSealPhoto}>
+                            <Ionicons name="arrow-forward-circle-outline" size={22} color="#fff" />
+                            <Text style={styles.confirmText}>ถัดไป: มิเตอร์</Text>
                         </TouchableOpacity>
                     </View>
                 </View>
             )}
 
-            {result && (
+            {/* ขั้นที่ 3: ข้อมูลมิเตอร์ */}
+            {step === 'meter' && renderMeterStep()}
+
+            {/* ผลลัพธ์ */}
+            {result && step === 'result' && (
+                <Animated.View style={[styles.resultContainer, { opacity: fadeAnim, paddingBottom: insets.bottom + 20 }]}>
+                    <View style={styles.resultCard}>
+                        <View style={[styles.iconContainer, { backgroundColor: getResultColor(result.type) + '15' }]}>
+                            <Ionicons name={getResultIcon(result.type) as any} size={36} color={getResultColor(result.type)} />
+                        </View>
+                        <View style={styles.resultTextContainer}>
+                            <Text style={[styles.resultTitle, { color: getResultColor(result.type) }]}>
+                                {result.type === 'success' ? 'สำเร็จ' : result.type === 'error' ? 'ไม่สำเร็จ' : result.type === 'warning' ? 'แจ้งเตือน' : 'กำลังประมวลผล...'}
+                            </Text>
+                            <Text style={styles.resultMessage}>{result.message}</Text>
+                        </View>
+                    </View>
+
+                    {result.type !== 'info' && (
+                        <TouchableOpacity style={styles.scanAgainButton} onPress={resetScan} activeOpacity={0.85}>
+                            <Ionicons name="scan-outline" size={22} color="#fff" />
+                            <Text style={styles.scanAgainText}>สแกนอีกครั้ง</Text>
+                        </TouchableOpacity>
+                    )}
+                </Animated.View>
+            )}
+
+            {/* OCR processing result (ขณะอยู่ขั้น scan) */}
+            {result && step === 'scan' && (
                 <Animated.View style={[styles.resultContainer, { opacity: fadeAnim, paddingBottom: insets.bottom + 20 }]}>
                     <View style={styles.resultCard}>
                         <View style={[styles.iconContainer, { backgroundColor: getResultColor(result.type) + '15' }]}>
@@ -807,7 +1000,7 @@ const styles = StyleSheet.create({
     confirmButton: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#4CAF50',
+        backgroundColor: '#6A0DAD',
         paddingHorizontal: 24,
         paddingVertical: 14,
         borderRadius: 30,
@@ -855,5 +1048,232 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         marginLeft: 10,
+    },
+
+    // ─── Meter Step Styles ───────────────────────────────────────────────────
+    meterOverlay: {
+        ...StyleSheet.absoluteFillObject,
+        zIndex: 20,
+        // backgroundColor จะถูก set เป็น dynamic ตาม state meterPhotoUri
+    },
+    meterHeader: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        zIndex: 21,
+        alignItems: 'center',
+        paddingHorizontal: 20,
+        paddingBottom: 12,
+        backgroundColor: 'rgba(0,0,0,0.55)',
+    },
+    meterHeaderBadge: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        marginBottom: 4,
+    },
+    meterHeaderTitle: {
+        color: '#fff',
+        fontSize: 18,
+        fontWeight: 'bold',
+    },
+    meterHeaderSeal: {
+        color: '#E0B0FF',
+        fontSize: 13,
+        fontWeight: '500',
+    },
+    meterCameraGuide: {
+        position: 'absolute',
+        top: '40%',
+        left: 0,
+        right: 0,
+        alignItems: 'center',
+        zIndex: 21,
+    },
+    meterGuideBox: {
+        alignItems: 'center',
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        borderRadius: 16,
+        paddingHorizontal: 24,
+        paddingVertical: 16,
+        gap: 8,
+    },
+    meterGuideText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: '600',
+    },
+    meterCaptureControls: {
+        position: 'absolute',
+        bottom: 0,
+        left: 0,
+        right: 0,
+        alignItems: 'center',
+        paddingTop: 30,
+        zIndex: 21,
+    },
+    skipMeterPhotoButton: {
+        marginTop: 14,
+        paddingHorizontal: 20,
+        paddingVertical: 10,
+        backgroundColor: 'rgba(255,255,255,0.15)',
+        borderRadius: 20,
+    },
+    skipMeterPhotoText: {
+        color: '#ccc',
+        fontSize: 14,
+    },
+    meterFormScroll: {
+        flexGrow: 1,
+        backgroundColor: '#f5f5f5',
+    },
+    meterFormHeader: {
+        backgroundColor: '#6A0DAD',
+        alignItems: 'center',
+        paddingBottom: 20,
+        borderBottomLeftRadius: 24,
+        borderBottomRightRadius: 24,
+    },
+    meterPhotoPreviewBox: {
+        margin: 20,
+        borderRadius: 16,
+        overflow: 'hidden',
+        elevation: 4,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.15,
+        shadowRadius: 6,
+    },
+    meterPhotoPreview: {
+        width: '100%',
+        height: 200,
+    },
+    retakeMeterBtn: {
+        position: 'absolute',
+        top: 8,
+        right: 8,
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: 'rgba(0,0,0,0.55)',
+        borderRadius: 16,
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        gap: 4,
+    },
+    retakeMeterText: {
+        color: '#fff',
+        fontSize: 13,
+        fontWeight: 'bold',
+    },
+    sealPhotoSmallBox: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginHorizontal: 20,
+        marginBottom: 8,
+        backgroundColor: '#fff',
+        borderRadius: 12,
+        padding: 10,
+        elevation: 2,
+        gap: 12,
+    },
+    sealPhotoSmallLabel: {
+        fontSize: 13,
+        color: '#555',
+        fontWeight: '500',
+    },
+    sealPhotoSmall: {
+        width: 60,
+        height: 60,
+        borderRadius: 8,
+    },
+    meterInputSection: {
+        marginHorizontal: 20,
+        marginBottom: 12,
+        backgroundColor: '#fff',
+        borderRadius: 16,
+        padding: 16,
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.08,
+        shadowRadius: 4,
+    },
+    meterInputLabelRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        marginBottom: 10,
+    },
+    meterInputLabel: {
+        fontSize: 15,
+        fontWeight: 'bold',
+        color: '#333',
+    },
+    meterSerialInput: {
+        backgroundColor: '#f8f9fa',
+        borderRadius: 12,
+        borderWidth: 1.5,
+        borderColor: '#e0e0e0',
+        paddingHorizontal: 16,
+        paddingVertical: 14,
+        fontSize: 18,
+        color: '#222',
+        fontWeight: '600',
+        letterSpacing: 1,
+        marginBottom: 8,
+    },
+    meterInputHint: {
+        fontSize: 12,
+        color: '#999',
+    },
+    meterActions: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        marginHorizontal: 20,
+        gap: 12,
+        marginTop: 8,
+    },
+    meterCancelBtn: {
+        flex: 1,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#fff',
+        borderRadius: 16,
+        paddingVertical: 16,
+        borderWidth: 1,
+        borderColor: '#ddd',
+        gap: 6,
+    },
+    meterCancelText: {
+        color: '#666',
+        fontSize: 15,
+        fontWeight: '600',
+    },
+    meterConfirmBtn: {
+        flex: 2,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#4CAF50',
+        borderRadius: 16,
+        paddingVertical: 16,
+        gap: 8,
+        elevation: 3,
+        shadowColor: '#4CAF50',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 6,
+    },
+    meterConfirmBtnDisabled: {
+        backgroundColor: '#a5d6a7',
+        elevation: 0,
+        shadowOpacity: 0,
+    },
+    meterConfirmText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: 'bold',
     },
 });

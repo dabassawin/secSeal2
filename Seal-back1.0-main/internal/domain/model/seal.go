@@ -29,7 +29,9 @@ type Seal struct {
 	AssignedToTechnician *uint          `json:"assigned_to_technician,omitempty"`
 	CreateRemarks        string         `json:"create_remarks,omitempty"`
 
-	// ✅ เพิ่มฟิลด์เก็บลิงก์รูปภาพ (อัปโหลด 2 รูป)
+	// ✅ เพิ่มฟิลด์เก็บลิงก์รูปภาพ
+	// image1 = รูปซีลที่ติดตั้ง, image2 = รูปซีลที่คืน, image3 = รูปมิเตอร์
 	Image1 string `json:"image1,omitempty"`
 	Image2 string `json:"image2,omitempty"`
+	Image3 string `json:"image3,omitempty"`
 }
