@@ -773,7 +773,7 @@ func (s *SealService) GetAllAssignedSeals() ([]model.Seal, error) {
 // -------------------------------------------------------------------
 // ScanAndUseSeal (Scan & Mark Installed)
 // -------------------------------------------------------------------
-func (s *SealService) ScanAndUseSeal(sealNumber string, userID uint, imagePath string) (string, error) {
+func (s *SealService) ScanAndUseSeal(sealNumber string, userID uint, imagePath string, serialNumber string, meterImagePath string) (string, error) {
 	seal, err := s.repo.FindByNumber(sealNumber)
 	if err != nil {
 		return "", errors.New("ไม่พบซิลในระบบ")
@@ -803,8 +803,17 @@ func (s *SealService) ScanAndUseSeal(sealNumber string, userID uint, imagePath s
 	now := time.Now()
 	seal.Status = "ติดตั้งแล้ว"
 	seal.UsedAt = &now
+	// รูปซีล (image1)
 	if imagePath != "" {
 		seal.Image1 = imagePath
+	}
+	// รูปมิเตอร์ (image3)
+	if meterImagePath != "" {
+		seal.Image3 = meterImagePath
+	}
+	// เลขมิเตอร์ → installed_serial
+	if serialNumber != "" {
+		seal.InstalledSerial = serialNumber
 	}
 	if userID != 0 {
 		seal.UsedBy = &userID
@@ -816,7 +825,7 @@ func (s *SealService) ScanAndUseSeal(sealNumber string, userID uint, imagePath s
 		}
 		logEntry := model.Log{
 			UserID: userID,
-			Action: fmt.Sprintf("สแกนและติดตั้งซีล %s", sealNumber),
+			Action: fmt.Sprintf("สแกนและติดตั้งซีล %s (มิเตอร์: %s)", sealNumber, serialNumber),
 		}
 		return s.logRepo.Create(&logEntry)
 	})
