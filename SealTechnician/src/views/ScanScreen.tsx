@@ -36,6 +36,7 @@ export default function ScanScreen() {
     const [meterPhotoUri, setMeterPhotoUri] = useState<string | null>(null);  // รูปมิเตอร์ (image1)
     const [isTakingMeterPhoto, setIsTakingMeterPhoto] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isScanningMeterBarcode, setIsScanningMeterBarcode] = useState(false);
     // ─────────────────────────────────────────────────────────────────────────
 
     useEffect(() => {
@@ -447,119 +448,145 @@ export default function ScanScreen() {
     );
 
     // ─── ขั้นตอนที่ 3: กรอกข้อมูลมิเตอร์ ─────────────────────────────────────
-    const renderMeterStep = () => (
-        // ถ้ายังไม่ได้ถ่ายรูปมิเตอร์ → ใช้ transparent เพื่อให้กล้องด้านหลังโชว์ผ่านได้
-        <View style={[styles.meterOverlay, { backgroundColor: meterPhotoUri ? '#f5f5f5' : 'transparent' }]}>
-            {/* ─── กล้องสำหรับถ่ายรูปมิเตอร์ ─── */}
-            {!meterPhotoUri ? (
-                <>
+    const renderMeterStep = () => {
+        if (isScanningMeterBarcode) {
+            return (
+                <View style={[styles.meterOverlay, { backgroundColor: 'transparent' }]}>
                     <View style={[styles.meterHeader, { paddingTop: insets.top + 16 }]}>
-                        <Text style={styles.meterHeaderTitle}>ถ่ายรูปมิเตอร์ที่ติดซีลนี้</Text>
-                        <Text style={styles.meterHeaderSeal}>ซีล: {scannedSealNumber}</Text>
+                        <Text style={styles.meterHeaderTitle}>สแกนบาร์โค้ดมิเตอร์</Text>
+                        <Text style={styles.meterHeaderSeal}>นำบาร์โค้ดมาไว้ในกรอบ</Text>
                     </View>
+                    <View style={[styles.manualInputFloatingWrapper, { paddingBottom: 50 + insets.bottom, alignItems: 'center' }]}>
+                        <TouchableOpacity style={styles.cancelCaptureButton} onPress={() => setIsScanningMeterBarcode(false)}>
+                            <Text style={styles.cancelCaptureText}>ยกเลิก</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            );
+        }
 
-                    <View style={[styles.meterCaptureControls, { paddingBottom: 40 + insets.bottom }]}>
-                        <TouchableOpacity
-                            style={styles.captureButton}
-                            onPress={takeMeterPhoto}
-                            disabled={isTakingMeterPhoto}
-                        >
-                            {isTakingMeterPhoto ? (
-                                <ActivityIndicator color="#000" size="large" />
-                            ) : (
-                                <View style={styles.captureButtonInner} />
-                            )}
-                        </TouchableOpacity>
-                        <Text style={styles.ocrInstructionText}>ถ่ายรูปมิเตอร์ให้ชัดเจน</Text>
-                        <TouchableOpacity
-                            style={styles.skipMeterPhotoButton}
-                            onPress={() => setMeterPhotoUri('skip')}
-                        >
-                            <Text style={styles.skipMeterPhotoText}>ข้ามการถ่ายรูป</Text>
-                        </TouchableOpacity>
-                    </View>
-                </>
-            ) : (
-                // ─── ดูรูปมิเตอร์ + กรอกเลขมิเตอร์ ───
-                <KeyboardAvoidingView
-                    style={{ flex: 1 }}
-                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                    keyboardVerticalOffset={0}
-                >
-                    <ScrollView contentContainerStyle={styles.meterFormScroll} keyboardShouldPersistTaps="handled">
-                        {/* Header */}
-                        <View style={[styles.meterFormHeader, { paddingTop: insets.top + 16 }]}>
-                            <View style={styles.meterHeaderBadge}>
-                                <Ionicons name="speedometer-outline" size={20} color="#fff" />
-                                <Text style={styles.meterHeaderTitle}>ยืนยันข้อมูลมิเตอร์</Text>
-                            </View>
+        return (
+            // ถ้ายังไม่ได้ถ่ายรูปมิเตอร์ → ใช้ transparent เพื่อให้กล้องด้านหลังโชว์ผ่านได้
+            <View style={[styles.meterOverlay, { backgroundColor: meterPhotoUri ? '#f5f5f5' : 'transparent' }]}>
+                {/* ─── กล้องสำหรับถ่ายรูปมิเตอร์ ─── */}
+                {!meterPhotoUri ? (
+                    <>
+                        <View style={[styles.meterHeader, { paddingTop: insets.top + 16 }]}>
+                            <Text style={styles.meterHeaderTitle}>ถ่ายรูปมิเตอร์ที่ติดซีลนี้</Text>
                             <Text style={styles.meterHeaderSeal}>ซีล: {scannedSealNumber}</Text>
                         </View>
 
-                        {/* รูปมิเตอร์ */}
-                        {meterPhotoUri !== 'skip' && (
-                            <View style={styles.meterPhotoPreviewBox}>
-                                <Image source={{ uri: meterPhotoUri }} style={styles.meterPhotoPreview} resizeMode="cover" />
-                                <TouchableOpacity style={styles.retakeMeterBtn} onPress={retakeMeterPhoto}>
-                                    <Ionicons name="camera-reverse-outline" size={16} color="#fff" />
-                                    <Text style={styles.retakeMeterText}>ถ่ายใหม่</Text>
-                                </TouchableOpacity>
-                            </View>
-                        )}
-
-                        {/* รูปซีลที่ถ่ายไว้ */}
-                        {photoUri && (
-                            <View style={styles.sealPhotoSmallBox}>
-                                <Text style={styles.sealPhotoSmallLabel}>📷 รูปซีล</Text>
-                                <Image source={{ uri: photoUri }} style={styles.sealPhotoSmall} resizeMode="cover" />
-                            </View>
-                        )}
-
-                        {/* กรอกเลขมิเตอร์ */}
-                        <View style={styles.meterInputSection}>
-                            <View style={styles.meterInputLabelRow}>
-                                <Ionicons name="create-outline" size={20} color="#6A0DAD" />
-                                <Text style={styles.meterInputLabel}>หมายเลขมิเตอร์ *</Text>
-                            </View>
-                            <TextInput
-                                style={styles.meterSerialInput}
-                                placeholder="กรอกหมายเลขมิเตอร์..."
-                                placeholderTextColor="#aaa"
-                                value={meterSerial}
-                                onChangeText={setMeterSerial}
-                                autoCapitalize="characters"
-                                autoCorrect={false}
-                                returnKeyType="done"
-                            />
-                            <Text style={styles.meterInputHint}>หมายเลขนี้จะถูกบันทึกเป็น Serial ของมิเตอร์ที่ติดตั้ง</Text>
-                        </View>
-
-                        {/* ปุ่มยืนยัน */}
-                        <View style={[styles.meterActions, { paddingBottom: 30 + insets.bottom }]}>
-                            <TouchableOpacity style={styles.meterCancelBtn} onPress={resetScan}>
-                                <Ionicons name="close-outline" size={20} color="#666" />
-                                <Text style={styles.meterCancelText}>ยกเลิก</Text>
-                            </TouchableOpacity>
+                        <View style={[styles.meterCaptureControls, { paddingBottom: 40 + insets.bottom }]}>
                             <TouchableOpacity
-                                style={[styles.meterConfirmBtn, !meterSerial.trim() && styles.meterConfirmBtnDisabled]}
-                                onPress={confirmInstall}
-                                disabled={!meterSerial.trim() || isSubmitting}
+                                style={styles.captureButton}
+                                onPress={takeMeterPhoto}
+                                disabled={isTakingMeterPhoto}
                             >
-                                {isSubmitting ? (
-                                    <ActivityIndicator color="#fff" size="small" />
+                                {isTakingMeterPhoto ? (
+                                    <ActivityIndicator color="#000" size="large" />
                                 ) : (
-                                    <>
-                                        <Ionicons name="checkmark-circle-outline" size={22} color="#fff" />
-                                        <Text style={styles.meterConfirmText}>ยืนยันติดตั้ง</Text>
-                                    </>
+                                    <View style={styles.captureButtonInner} />
                                 )}
                             </TouchableOpacity>
+                            <Text style={styles.ocrInstructionText}>ถ่ายรูปมิเตอร์ให้ชัดเจน</Text>
+                            <TouchableOpacity
+                                style={styles.skipMeterPhotoButton}
+                                onPress={() => setMeterPhotoUri('skip')}
+                            >
+                                <Text style={styles.skipMeterPhotoText}>ข้ามการถ่ายรูป</Text>
+                            </TouchableOpacity>
                         </View>
-                    </ScrollView>
-                </KeyboardAvoidingView>
-            )}
-        </View>
-    );
+                    </>
+                ) : (
+                    // ─── ดูรูปมิเตอร์ + กรอกเลขมิเตอร์ ───
+                    <KeyboardAvoidingView
+                        style={{ flex: 1 }}
+                        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+                        keyboardVerticalOffset={0}
+                    >
+                        <ScrollView contentContainerStyle={styles.meterFormScroll} keyboardShouldPersistTaps="handled">
+                            {/* Header */}
+                            <View style={[styles.meterFormHeader, { paddingTop: insets.top + 16 }]}>
+                                <View style={styles.meterHeaderBadge}>
+                                    <Ionicons name="speedometer-outline" size={20} color="#fff" />
+                                    <Text style={styles.meterHeaderTitle}>ยืนยันข้อมูลมิเตอร์</Text>
+                                </View>
+                                <Text style={styles.meterHeaderSeal}>ซีล: {scannedSealNumber}</Text>
+                            </View>
+
+                            {/* รูปมิเตอร์ */}
+                            {meterPhotoUri !== 'skip' && (
+                                <View style={styles.meterPhotoPreviewBox}>
+                                    <Image source={{ uri: meterPhotoUri }} style={styles.meterPhotoPreview} resizeMode="cover" />
+                                    <TouchableOpacity style={styles.retakeMeterBtn} onPress={retakeMeterPhoto}>
+                                        <Ionicons name="camera-reverse-outline" size={16} color="#fff" />
+                                        <Text style={styles.retakeMeterText}>ถ่ายใหม่</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            )}
+
+                            {/* รูปซีลที่ถ่ายไว้ */}
+                            {photoUri && (
+                                <View style={styles.sealPhotoSmallBox}>
+                                    <Text style={styles.sealPhotoSmallLabel}>📷 รูปซีล</Text>
+                                    <Image source={{ uri: photoUri }} style={styles.sealPhotoSmall} resizeMode="cover" />
+                                </View>
+                            )}
+
+                            {/* กรอกเลขมิเตอร์ */}
+                            <View style={styles.meterInputSection}>
+                                <View style={styles.meterInputLabelRow}>
+                                    <Ionicons name="create-outline" size={20} color="#6A0DAD" />
+                                    <Text style={styles.meterInputLabel}>หมายเลขมิเตอร์ *</Text>
+                                </View>
+                                <View style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 10 }}>
+                                    <TextInput
+                                        style={[styles.meterSerialInput, { flex: 1, marginBottom: 8 }]}
+                                        placeholder="กรอกหมายเลขมิเตอร์..."
+                                        placeholderTextColor="#aaa"
+                                        value={meterSerial}
+                                        onChangeText={setMeterSerial}
+                                        autoCapitalize="characters"
+                                        autoCorrect={false}
+                                        returnKeyType="done"
+                                    />
+                                    <TouchableOpacity
+                                        style={{ backgroundColor: '#6A0DAD', padding: 14, borderRadius: 12, justifyContent: 'center', alignItems: 'center', height: 53 }}
+                                        onPress={() => setIsScanningMeterBarcode(true)}
+                                    >
+                                        <Ionicons name="barcode-outline" size={24} color="#fff" />
+                                    </TouchableOpacity>
+                                </View>
+                                <Text style={styles.meterInputHint}>หมายเลขนี้จะถูกบันทึกเป็น Serial ของมิเตอร์ที่ติดตั้ง</Text>
+                            </View>
+
+                            {/* ปุ่มยืนยัน */}
+                            <View style={[styles.meterActions, { paddingBottom: 30 + insets.bottom }]}>
+                                <TouchableOpacity style={styles.meterCancelBtn} onPress={resetScan}>
+                                    <Ionicons name="close-outline" size={20} color="#666" />
+                                    <Text style={styles.meterCancelText}>ยกเลิก</Text>
+                                </TouchableOpacity>
+                                <TouchableOpacity
+                                    style={[styles.meterConfirmBtn, !meterSerial.trim() && styles.meterConfirmBtnDisabled]}
+                                    onPress={confirmInstall}
+                                    disabled={!meterSerial.trim() || isSubmitting}
+                                >
+                                    {isSubmitting ? (
+                                        <ActivityIndicator color="#fff" size="small" />
+                                    ) : (
+                                        <>
+                                            <Ionicons name="checkmark-circle-outline" size={22} color="#fff" />
+                                            <Text style={styles.meterConfirmText}>ยืนยันติดตั้ง</Text>
+                                        </>
+                                    )}
+                                </TouchableOpacity>
+                            </View>
+                        </ScrollView>
+                    </KeyboardAvoidingView>
+                )}
+            </View>
+        );
+    };
 
     return (
         <View style={styles.container}>
@@ -567,7 +594,14 @@ export default function ScanScreen() {
                 ref={cameraRef}
                 style={styles.camera}
                 facing="back"
-                onBarcodeScanned={(scanned || scanMode === 'ocr' || step !== 'scan') ? undefined : handleBarcodeScanned}
+                onBarcodeScanned={
+                    isScanningMeterBarcode
+                        ? ({ data }) => {
+                            setMeterSerial(data);
+                            setIsScanningMeterBarcode(false);
+                        }
+                        : (scanned || scanMode === 'ocr' || step !== 'scan') ? undefined : handleBarcodeScanned
+                }
                 barcodeScannerSettings={{
                     barcodeTypes: ["qr", "aztec", "codabar", "code39", "code93", "code128", "datamatrix", "ean13", "ean8", "itf14", "pdf417", "upc_a", "upc_e"],
                 }}
