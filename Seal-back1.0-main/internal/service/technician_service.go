@@ -193,7 +193,6 @@ func (s *TechnicianService) UpdateTechnician(techID uint, req struct {
 	LastName    string
 	PhoneNumber string
 	CompanyName string
-	Department  string
 }) error {
 	log.Println("🔍 [SERVICE] Checking if technician exists: ID =", techID)
 
@@ -210,7 +209,6 @@ func (s *TechnicianService) UpdateTechnician(techID uint, req struct {
 	tech.LastName = req.LastName
 	tech.PhoneNumber = req.PhoneNumber
 	tech.CompanyName = req.CompanyName
-	tech.Department = req.Department
 
 	log.Println("🛠️ [SERVICE] Updating Technician:", tech)
 
@@ -264,6 +262,59 @@ func (s *TechnicianService) GetTechnicianByID(techID uint) (*model.Technician, e
 //	}
 func (s *TechnicianService) DeleteTechnician(techID uint) error {
 	return s.repo.DeleteTechnician(techID)
+}
+
+// TransferSeals re-assigns a list of seals from a Center (or Technician) to another Technician
+func (s *TechnicianService) TransferSeals(centerID uint, targetTechID uint, sealNumbers []string) error {
+	// 1. Verify Target Technician exists
+	targetTech, err := s.repo.FindByID(targetTechID)
+	if err != nil {
+		return errors.New("ไม่พบช่างปลายทาง")
+	}
+
+	for _, sealNum := range sealNumbers {
+		seal, err := s.repo.FindSealByNumber(sealNum)
+		if err != nil {
+			return fmt.Errorf("ไม่พบซีล %s ในระบบ", sealNum)
+		}
+
+		// Verify that the current user (centerID) holds this seal
+		if seal.AssignedToTechnician == nil || *seal.AssignedToTechnician != centerID {
+			return fmt.Errorf("คุณไม่มีสิทธิ์โอนซีลหมายเลข %s (ไม่ได้อยู่ในครอบครอง)", sealNum)
+		}
+
+		// Verify seal status
+		if seal.Status != string(constants.StatusIssued) {
+			return fmt.Errorf("ซีล %s ไม่ได้อยู่ในสถานะที่สามารถโอนได้ (ต้องเป็นสถานะ 'จ่าย')", sealNum)
+		}
+
+		// Verify Same PEA Code
+		if seal.PeaCode != targetTech.PeaCode {
+			return fmt.Errorf("ซีล %s ต้นสังกัดไม่ตรงกับช่างปลายทาง", sealNum)
+		}
+
+		// Reassign to Target
+		seal.AssignedToTechnician = &targetTechID
+
+		if err := s.repo.UpdateSeal(seal); err != nil {
+			return fmt.Errorf("เกิดข้อผิดพลาดในการโอนซีล %s: %v", sealNum, err)
+		}
+
+		// Log Transfer
+		logEntry := model.Log{
+			UserID: centerID,
+			Action: fmt.Sprintf("โอนซีล %s ไปให้ช่าง %s %s", sealNum, targetTech.FirstName, targetTech.LastName),
+		}
+		_ = s.repo.CreateLog(&logEntry)
+
+		targetLog := model.Log{
+			UserID: targetTechID,
+			Action: fmt.Sprintf("ได้รับโอนซีล %s จากศูนย์งาน/ตัวแทน (ID: %d)", sealNum, centerID),
+		}
+		_ = s.repo.CreateLog(&targetLog)
+	}
+
+	return nil
 }
 
 // UpdateTechnicianPassword updates only the password field for a technician

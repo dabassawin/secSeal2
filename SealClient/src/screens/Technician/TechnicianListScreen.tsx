@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, ActivityIndicator, Image } from 'react-native';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useNavigation, useFocusEffect, useRoute } from '@react-navigation/native';
 import { colors, sizes } from '@/constants';
 import { Header } from '@/components/dashboard';
 import { technicianService } from '@/services/technicianService';
@@ -10,6 +10,7 @@ import { Technician } from '@/types';
 
 export const TechnicianListScreen: React.FC = () => {
     const navigation = useNavigation();
+    const route = useRoute<any>();
     const { user } = useAuth();
 
     const [technicians, setTechnicians] = useState<Technician[]>([]);
@@ -47,8 +48,11 @@ export const TechnicianListScreen: React.FC = () => {
     const fetchData = async () => {
         try {
             setLoading(true);
-            // ดึงเฉพาะ 4 หลักแรกของ PEA Code
-            const peaPrefix = user?.pea_code ? user.pea_code.substring(0, 4) : undefined;
+            // Allow override from route params.
+            let peaPrefix = route.params?.pea_code;
+            if (!peaPrefix && user?.pea_code) {
+                peaPrefix = user.pea_code.substring(0, 4);
+            }
             // ส่ง parameter peaPrefix และ isPrefix = true
             const data = await technicianService.getTechnicians(peaPrefix, true);
             setTechnicians(data);
@@ -80,6 +84,15 @@ export const TechnicianListScreen: React.FC = () => {
             <Header />
 
             <View style={styles.content}>
+                {route.params?.center_name && (
+                    <View style={styles.backContainer}>
+                        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+                            <Text style={styles.backBtnText}>← ย้อนกลับ</Text>
+                        </TouchableOpacity>
+                        <Text style={styles.centerTitle}>บุคลากรประจำศูนย์: {route.params.center_name}</Text>
+                    </View>
+                )}
+
                 {/* TOOLBAR */}
                 <View style={styles.toolbar}>
                     <View style={styles.searchContainer}>
@@ -227,6 +240,27 @@ const styles = StyleSheet.create({
     content: {
         flex: 1,
         padding: sizes.lg,
+    },
+    backContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        marginBottom: sizes.md,
+    },
+    backBtn: {
+        paddingVertical: 6,
+        paddingHorizontal: 12,
+        backgroundColor: '#f0f0f0',
+        borderRadius: 20,
+        marginRight: 10,
+    },
+    backBtnText: {
+        color: '#333',
+        fontWeight: 'bold',
+    },
+    centerTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: colors.primaryPurple,
     },
     toolbar: {
         flexDirection: 'row',

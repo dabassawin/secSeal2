@@ -15,9 +15,9 @@ type Technician struct {
 
 	// --- เพิ่มฟิลด์ใหม่ตามที่ต้องการ ---
 	CompanyName string `json:"company_name"` // ชื่อบริษัท
-	Department  string `json:"department"`   // ชื่อหน่วยงาน
-
 	ExpoPushToken string `json:"expo_push_token"` // ✅ เก็บ Push Token ของช่าง
+
+	IsCenter bool `gorm:"default:false" json:"is_center"` // ✅ Flag to identify Center Accounts
 
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`

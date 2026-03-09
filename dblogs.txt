@@ -1,0 +1,71 @@
+﻿peaseal_backend  | 2026/03/09 02:42:47 main.go:59: Current working directory: /app
+peaseal_backend  | 2026/03/09 02:42:47 main.go:70: Trying to load .env from: /.env
+peaseal_backend  | 2026/03/09 02:42:47 main.go:76: Failed to load from /.env: open /.env: no such file or directory
+peaseal_backend  | 2026/03/09 02:42:47 main.go:70: Trying to load .env from: /app/.env
+peaseal_backend  | 2026/03/09 02:42:47 main.go:76: Failed to load from /app/.env: open /app/.env: no such file or directory
+peaseal_backend  | 2026/03/09 02:42:47 main.go:70: Trying to load .env from: C:\Users\514917\Desktop\SECSEAL\Seal-back1.0-main\Seal-back1.0-main\.env
+peaseal_backend  | 2026/03/09 02:42:47 main.go:76: Failed to load from C:\Users\514917\Desktop\SECSEAL\Seal-back1.0-main\Seal-back1.0-main\.env: open C:\Users\514917\Desktop\SECSEAL\Seal-back1.0-main\Seal-back1.0-main\.env: no such file or directory
+peaseal_backend  | 2026/03/09 02:42:47 main.go:81: ΓÜá∩╕Å Warning: No .env file found. Using system environment variables only.
+peaseal_backend  | 2026/03/09 02:42:47 databese.go:23: ≡ƒôí Connecting to PostgreSQL: host=db port=5432 dbname=SecSeal
+peaseal_backend  | Γ£à Database connected successfully!
+peaseal_backend  | 2026/03/09 02:42:47 main.go:87: ≡ƒöº Running database migrations...
+peaseal_backend  | 2026/03/09 02:42:47 migration.go:12: ≡ƒÜÇ Starting AutoMigrate for tables...
+peaseal_backend  | 2026/03/09 02:42:47 migration.go:18: ≡ƒöä Migrating User Table...
+peaseal_backend  | 2026/03/09 02:42:48 migration.go:23: Γ£à User Table Migrated Successfully!
+peaseal_backend  | 2026/03/09 02:42:48 migration.go:25: ≡ƒöä Migrating Technician Table...
+peaseal_backend  | 2026/03/09 02:42:48 migration.go:30: Γ£à Technician Table Migrated Successfully!
+peaseal_backend  | 2026/03/09 02:42:48 migration.go:32: ≡ƒöä Migrating Seal Table...
+peaseal_backend  | 2026/03/09 02:42:48 migration.go:37: Γ£à Seal Table Migrated Successfully!
+peaseal_backend  | 2026/03/09 02:42:48 migration.go:39: ≡ƒöä Migrating Transaction Table...
+peaseal_backend  | 2026/03/09 02:42:48 migration.go:44: Γ£à Transaction Table Migrated Successfully!
+peaseal_backend  | 2026/03/09 02:42:48 migration.go:46: ≡ƒöä Migrating Log Table...
+peaseal_backend  | 2026/03/09 02:42:48 migration.go:51: Γ£à Log Table Migrated Successfully!
+peaseal_backend  | 2026/03/09 02:42:48 migration.go:53: ≡ƒöä Migrating MasPea Table...
+peaseal_backend  | 2026/03/09 02:42:48 migration.go:60: Γ£à MasPea Table Migrated Successfully!
+peaseal_backend  | 2026/03/09 02:42:48 migration.go:62: ≡ƒöä Migrating MasCom Table...
+peaseal_backend  | 2026/03/09 02:42:48 migration.go:67: Γ£à MasCom Table Migrated Successfully!
+peaseal_backend  | 2026/03/09 02:42:48 migration.go:69: Γ£à Migration successful!
+peaseal_backend  | 2026/03/09 02:42:48 main.go:95: Γ£à Migrations completed!
+peaseal_backend  | ≡ƒÜÇ Server is running on http://0.0.0.0:3000 (accessible from LAN)
+peaseal_backend  | ≡ƒîÉ Access from your network: http://172.22.1.40:3000
+peaseal_backend  | 
+peaseal_backend  |  ΓöîΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÉ 
+peaseal_backend  |  Γöé                   Fiber v2.52.6                   Γöé 
+peaseal_backend  |  Γöé               http://127.0.0.1:3000               Γöé 
+peaseal_backend  |  Γöé       (bound on host 0.0.0.0 and port 3000)       Γöé 
+peaseal_backend  |  Γöé                                                   Γöé 
+peaseal_backend  |  Γöé Handlers ........... 153  Processes ........... 1 Γöé 
+peaseal_backend  |  Γöé Prefork ....... Disabled  PID ................. 1 Γöé 
+peaseal_backend  |  ΓööΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÿ 
+peaseal_backend  | 
+peaseal_backend  | 2026/03/09 02:42:58 auth_service.go:126: Γ£à [VerifyMockJWT] α╕¬α╕│α╣Çα╕úα╣çα╕ê: &{0 1  abc abc  abc@abc user F01101 FNRM α╕üα╕ƒα╕ê.α╕Öα╕äα╕úα╕úα╕▓α╕èα╕¬α╕╡α╕íα╕▓ 0001-01-01 00:00:00 +0000 UTC 0001-01-01 00:00:00 +0000 UTC {0001-01-01 00:00:00 +0000 UTC false}}
+peaseal_backend  | 2026/03/09 02:43:02 auth_service.go:126: Γ£à [VerifyMockJWT] α╕¬α╕│α╣Çα╕úα╣çα╕ê: &{0 1  abc abc  abc@abc user F01101 FNRM α╕üα╕ƒα╕ê.α╕Öα╕äα╕úα╕úα╕▓α╕èα╕¬α╕╡α╕íα╕▓ 0001-01-01 00:00:00 +0000 UTC 0001-01-01 00:00:00 +0000 UTC {0001-01-01 00:00:00 +0000 UTC false}}
+peaseal_backend  | 2026/03/09 02:43:03 auth_service.go:126: Γ£à [VerifyMockJWT] α╕¬α╕│α╣Çα╕úα╣çα╕ê: &{0 1  abc abc  abc@abc user F01101 FNRM α╕üα╕ƒα╕ê.α╕Öα╕äα╕úα╕úα╕▓α╕èα╕¬α╕╡α╕íα╕▓ 0001-01-01 00:00:00 +0000 UTC 0001-01-01 00:00:00 +0000 UTC {0001-01-01 00:00:00 +0000 UTC false}}
+peaseal_backend  | 2026/03/09 02:43:16 auth_service.go:126: Γ£à [VerifyMockJWT] α╕¬α╕│α╣Çα╕úα╣çα╕ê: &{0 1  abc abc  abc@abc user F01101 FNRM α╕üα╕ƒα╕ê.α╕Öα╕äα╕úα╕úα╕▓α╕èα╕¬α╕╡α╕íα╕▓ 0001-01-01 00:00:00 +0000 UTC 0001-01-01 00:00:00 +0000 UTC {0001-01-01 00:00:00 +0000 UTC false}}
+peaseal_backend  | 2026/03/09 02:43:16 auth_service.go:126: Γ£à [VerifyMockJWT] α╕¬α╕│α╣Çα╕úα╣çα╕ê: &{0 1  abc abc  abc@abc user F01101 FNRM α╕üα╕ƒα╕ê.α╕Öα╕äα╕úα╕úα╕▓α╕èα╕¬α╕╡α╕íα╕▓ 0001-01-01 00:00:00 +0000 UTC 0001-01-01 00:00:00 +0000 UTC {0001-01-01 00:00:00 +0000 UTC false}}
+peaseal_backend  | 2026/03/09 02:43:18 auth_service.go:126: Γ£à [VerifyMockJWT] α╕¬α╕│α╣Çα╕úα╣çα╕ê: &{0 1  abc abc  abc@abc user F01101 FNRM α╕üα╕ƒα╕ê.α╕Öα╕äα╕úα╕úα╕▓α╕èα╕¬α╕╡α╕íα╕▓ 0001-01-01 00:00:00 +0000 UTC 0001-01-01 00:00:00 +0000 UTC {0001-01-01 00:00:00 +0000 UTC false}}
+peaseal_backend  | 2026/03/09 02:43:18 user_repo.go:36: ≡ƒöÄ [GetByUsername] username = aow
+peaseal_backend  | 2026/03/09 02:43:18 user_repo.go:45: Γ£à [GetByUsername] Found user: {ID:1 EmpID:1 Title:abc FirstName:abc LastName:abc Username:aow Email:abc@abc Role:user PeaCode:F01101 PeaShort:FNRM PeaName:α╕üα╕ƒα╕ê.α╕Öα╕äα╕úα╕úα╕▓α╕èα╕¬α╕╡α╕íα╕▓ CreatedAt:2026-03-06 03:16:24.974054 +0000 UTC UpdatedAt:2026-03-06 03:16:24.974054 +0000 UTC DeletedAt:{Time:0001-01-01 00:00:00 +0000 UTC Valid:false}}
+peaseal_backend  | 2026/03/09 02:43:39 auth_service.go:126: Γ£à [VerifyMockJWT] α╕¬α╕│α╣Çα╕úα╣çα╕ê: &{0 1  abc abc  abc@abc user F01101 FNRM α╕üα╕ƒα╕ê.α╕Öα╕äα╕úα╕úα╕▓α╕èα╕¬α╕╡α╕íα╕▓ 0001-01-01 00:00:00 +0000 UTC 0001-01-01 00:00:00 +0000 UTC {0001-01-01 00:00:00 +0000 UTC false}}
+peaseal_backend  | 2026/03/09 03:10:44 auth_middleware.go:21: ≡ƒÜ¿ Missing Authorization header
+peaseal_backend  | 2026/03/09 03:11:06 auth_service.go:126: Γ£à [VerifyMockJWT] α╕¬α╕│α╣Çα╕úα╣çα╕ê: &{0 123456  α╕üα╕ñα╕èα╕ºα╕┤α╕Ö α╕¿α╕úα╕╡α╣âα╕¬  kritchawin.build@gmail.com user F01101 FNRM α╕üα╕ƒα╕ê.α╕Öα╕äα╕úα╕úα╕▓α╕èα╕¬α╕╡α╕íα╕▓ 0001-01-01 00:00:00 +0000 UTC 0001-01-01 00:00:00 +0000 UTC {0001-01-01 00:00:00 +0000 UTC false}}
+peaseal_backend  | 2026/03/09 03:13:37 auth_service.go:126: Γ£à [VerifyMockJWT] α╕¬α╕│α╣Çα╕úα╣çα╕ê: &{0 123456  α╕üα╕ñα╕èα╕ºα╕┤α╕Ö α╕¿α╕úα╕╡α╣âα╕¬  kritchawin.build@gmail.com user F01101 FNRM α╕üα╕ƒα╕ê.α╕Öα╕äα╕úα╕úα╕▓α╕èα╕¬α╕╡α╕íα╕▓ 0001-01-01 00:00:00 +0000 UTC 0001-01-01 00:00:00 +0000 UTC {0001-01-01 00:00:00 +0000 UTC false}}
+peaseal_backend  | 2026/03/09 03:13:39 auth_service.go:126: Γ£à [VerifyMockJWT] α╕¬α╕│α╣Çα╕úα╣çα╕ê: &{0 123456  α╕üα╕ñα╕èα╕ºα╕┤α╕Ö α╕¿α╕úα╕╡α╣âα╕¬  kritchawin.build@gmail.com user F01101 FNRM α╕üα╕ƒα╕ê.α╕Öα╕äα╕úα╕úα╕▓α╕èα╕¬α╕╡α╕íα╕▓ 0001-01-01 00:00:00 +0000 UTC 0001-01-01 00:00:00 +0000 UTC {0001-01-01 00:00:00 +0000 UTC false}}
+peaseal_backend  | 2026/03/09 03:13:42 auth_service.go:126: Γ£à [VerifyMockJWT] α╕¬α╕│α╣Çα╕úα╣çα╕ê: &{0 123456  α╕üα╕ñα╕èα╕ºα╕┤α╕Ö α╕¿α╕úα╕╡α╣âα╕¬  kritchawin.build@gmail.com user F01101 FNRM α╕üα╕ƒα╕ê.α╕Öα╕äα╕úα╕úα╕▓α╕èα╕¬α╕╡α╕íα╕▓ 0001-01-01 00:00:00 +0000 UTC 0001-01-01 00:00:00 +0000 UTC {0001-01-01 00:00:00 +0000 UTC false}}
+peaseal_backend  | 2026/03/09 03:13:55 auth_service.go:126: Γ£à [VerifyMockJWT] α╕¬α╕│α╣Çα╕úα╣çα╕ê: &{0 1  abc abc  abc@abc user F01101 FNRM α╕üα╕ƒα╕ê.α╕Öα╕äα╕úα╕úα╕▓α╕èα╕¬α╕╡α╕íα╕▓ 0001-01-01 00:00:00 +0000 UTC 0001-01-01 00:00:00 +0000 UTC {0001-01-01 00:00:00 +0000 UTC false}}
+peaseal_backend  | 2026/03/09 03:13:59 auth_service.go:126: Γ£à [VerifyMockJWT] α╕¬α╕│α╣Çα╕úα╣çα╕ê: &{0 1  abc abc  abc@abc user F01101 FNRM α╕üα╕ƒα╕ê.α╕Öα╕äα╕úα╕úα╕▓α╕èα╕¬α╕╡α╕íα╕▓ 0001-01-01 00:00:00 +0000 UTC 0001-01-01 00:00:00 +0000 UTC {0001-01-01 00:00:00 +0000 UTC false}}
+peaseal_backend  | 2026/03/09 03:16:10 auth_service.go:126: Γ£à [VerifyMockJWT] α╕¬α╕│α╣Çα╕úα╣çα╕ê: &{0 1  abc abc  abc@abc user F01101 FNRM α╕üα╕ƒα╕ê.α╕Öα╕äα╕úα╕úα╕▓α╕èα╕¬α╕╡α╕íα╕▓ 0001-01-01 00:00:00 +0000 UTC 0001-01-01 00:00:00 +0000 UTC {0001-01-01 00:00:00 +0000 UTC false}}
+peaseal_backend  | 2026/03/09 03:16:11 auth_service.go:126: Γ£à [VerifyMockJWT] α╕¬α╕│α╣Çα╕úα╣çα╕ê: &{0 1  abc abc  abc@abc user F01101 FNRM α╕üα╕ƒα╕ê.α╕Öα╕äα╕úα╕úα╕▓α╕èα╕¬α╕╡α╕íα╕▓ 0001-01-01 00:00:00 +0000 UTC 0001-01-01 00:00:00 +0000 UTC {0001-01-01 00:00:00 +0000 UTC false}}
+peaseal_backend  | 2026/03/09 03:18:59 technician_controller.go:89: Γ£à Auto-generated technician_code: 123FNRM-01
+peaseal_backend  | ≡ƒöì Debug Technician Data: &{0 123FNRM-01 F01101 seetos $2a$10$Ez2hkk1siKnCwXpZ3kn42uDrXgaSE/arCJwL26S6uV0uAcJb50ZNK see tos  0123456789 test -  2026-03-09 03:18:59.686107527 +0000 UTC m=+2171.994490804 2026-03-09 03:18:59.686107897 +0000 UTC m=+2171.994491166}
+peaseal_backend  | 2026/03/09 03:19:13 auth_service.go:126: Γ£à [VerifyMockJWT] α╕¬α╕│α╣Çα╕úα╣çα╕ê: &{0 1  abc abc  abc@abc user F01101 FNRM α╕üα╕ƒα╕ê.α╕Öα╕äα╕úα╕úα╕▓α╕èα╕¬α╕╡α╕íα╕▓ 0001-01-01 00:00:00 +0000 UTC 0001-01-01 00:00:00 +0000 UTC {0001-01-01 00:00:00 +0000 UTC false}}
+peaseal_backend  | 2026/03/09 03:19:33 technician_controller.go:89: Γ£à Auto-generated technician_code: 123FNRM-02
+peaseal_backend  | ≡ƒöì Debug Technician Data: &{0 123FNRM-02 F01101 aow $2a$10$JWTnDYkwPCBCxjU/GaZ2c.3dAn09v62ym37oweZo3EQ9nFq5pzLu2 aow aow  0987654321 test -  2026-03-09 03:19:33.07816415 +0000 UTC m=+2205.389488935 2026-03-09 03:19:33.078164425 +0000 UTC m=+2205.389489194}
+peaseal_backend  | 
+peaseal_backend  | 2026/03/09 03:19:33 [31;1m/app/internal/domain/repository/technician_repository.go:20 [35;1mERROR: duplicate key value violates unique constraint "uni_technicians_email" (SQLSTATE 23505)
+peaseal_backend  | [0m[33m[16.975ms] [34;1m[rows:0][0m INSERT INTO "technicians" ("technician_code","pea_code","username","password","first_name","last_name","email","phone_number","company_name","department","expo_push_token","created_at","updated_at") VALUES ('123FNRM-02','F01101','aow','$2a$10$JWTnDYkwPCBCxjU/GaZ2c.3dAn09v62ym37oweZo3EQ9nFq5pzLu2','aow','aow','','0987654321','test','-','','2026-03-09 03:19:33.078','2026-03-09 03:19:33.078') RETURNING "id"
+peaseal_backend  | 2026/03/09 03:19:42 technician_controller.go:89: Γ£à Auto-generated technician_code: 123FNRM-02
+peaseal_backend  | ≡ƒöì Debug Technician Data: &{0 123FNRM-02 F01101 aow $2a$10$zMqhZTRcMriQl/8y7FgEteps8OYSW.Kjc/VfKWrr.bkF.Z1uQgzgK aow aow  0987654321 test -  2026-03-09 03:19:42.380977154 +0000 UTC m=+2214.694689844 2026-03-09 03:19:42.380977304 +0000 UTC m=+2214.694689980}
+peaseal_backend  | 
+peaseal_backend  | 2026/03/09 03:19:42 [31;1m/app/internal/domain/repository/technician_repository.go:20 [35;1mERROR: duplicate key value violates unique constraint "uni_technicians_email" (SQLSTATE 23505)
+peaseal_backend  | [0m[33m[2.295ms] [34;1m[rows:0][0m INSERT INTO "technicians" ("technician_code","pea_code","username","password","first_name","last_name","email","phone_number","company_name","department","expo_push_token","created_at","updated_at") VALUES ('123FNRM-02','F01101','aow','$2a$10$zMqhZTRcMriQl/8y7FgEteps8OYSW.Kjc/VfKWrr.bkF.Z1uQgzgK','aow','aow','','0987654321','test','-','','2026-03-09 03:19:42.38','2026-03-09 03:19:42.38') RETURNING "id"
