@@ -8,6 +8,7 @@ import { sealService } from '@/services/sealService';
 import { userService } from '@/services/userService';
 import { useAuth } from '@/context/AuthContext';
 import { Technician } from '@/types';
+import { SealStatus } from '../../constants/status';
 
 type EntryMode = 'scan' | 'range';
 
@@ -439,7 +440,7 @@ export const AssignSealScreen: React.FC = () => {
                         )}
 
                         <View style={styles.spacer} />
-                        <Text style={styles.infoText}>ℹ ระบบจะเช็คสถานะ "พร้อมใช้งาน" อัตโนมัติ</Text>
+                        <Text style={styles.infoText}>ℹ ระบบจะเช็คสถานะ SealStatus.READY อัตโนมัติ</Text>
                     </View>
                 </View>
 

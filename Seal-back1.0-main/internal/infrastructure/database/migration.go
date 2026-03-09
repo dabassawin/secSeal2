@@ -59,6 +59,13 @@ func CreateStoreTable(db *gorm.DB) error {
 	}
 	log.Println("✅ MasPea Table Migrated Successfully!")
 
+	log.Println("🔄 Migrating MasCom Table...")
+	if err := db.AutoMigrate(&model.MasCom{}); err != nil {
+		log.Printf("❌ Failed to migrate MasCom: %v", err)
+		return err
+	}
+	log.Println("✅ MasCom Table Migrated Successfully!")
+
 	log.Println("✅ Migration successful!")
 
 	// ✅ เปิด foreign key constraints กลับมา หลังจาก migration เสร็จสิ้น

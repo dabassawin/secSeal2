@@ -25,7 +25,7 @@ func (r *MasPeaRepository) FindAll() ([]model.MasPea, error) {
 
 func (r *MasPeaRepository) FindByCode(code string) (*model.MasPea, error) {
 	var pea model.MasPea
-	err := r.db.Where("pea_code = ?", code).First(&pea).Error
+	err := r.db.Where("code = ?", code).First(&pea).Error
 	if err != nil {
 		return nil, err
 	}

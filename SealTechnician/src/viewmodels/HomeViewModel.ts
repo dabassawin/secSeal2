@@ -3,6 +3,7 @@ import { useFocusEffect } from '@react-navigation/native';
 import { TechnicianService, Seal } from '../services/TechnicianService';
 import { AuthService } from '../services/AuthService';
 import { parseJwt } from '../utils/jwt';
+import { SealStatus } from '../constants/status';
 
 export const useHomeViewModel = () => {
     const [seals, setSeals] = useState<Seal[]>([]);
@@ -22,15 +23,15 @@ export const useHomeViewModel = () => {
 
             // Filter seals
             const active = data.filter(s =>
-                s.status === 'จ่าย' ||
-                (s.status === 'พร้อมใช้งาน' && s.return_remarks !== 'ไม่ได้ใช้งาน (คืนคลัง)')
+                s.status === SealStatus.ISSUED ||
+                (s.status === SealStatus.READY && s.return_remarks !== 'ไม่ได้ใช้งาน (คืนคลัง)')
             );
             const history = data.filter(s =>
-                s.status === 'ติดตั้งแล้ว' ||
-                s.status === 'ใช้งานแล้ว' ||
-                s.status === 'เสียหาย' ||
-                s.status === 'รอตรวจสอบคืน' ||
-                (s.status === 'พร้อมใช้งาน' && s.return_remarks === 'ไม่ได้ใช้งาน (คืนคลัง)')
+                s.status === SealStatus.INSTALLED ||
+                s.status === SealStatus.USED ||
+                s.status === SealStatus.DAMAGED ||
+                s.status === SealStatus.PENDING_RETURN ||
+                (s.status === SealStatus.READY && s.return_remarks === 'ไม่ได้ใช้งาน (คืนคลัง)')
             );
 
             setActiveSeals(active);

@@ -137,6 +137,7 @@ func main() {
 	logRepo := repository.NewLogRepository(config.DB)
 	technicianRepo := repository.NewTechnicianRepository(config.DB)
 	masPeaRepo := repository.NewMasPeaRepository(config.DB)
+	masComRepo := repository.NewMasComRepository(config.DB)
 
 	// services
 	userService := service.NewUserService(userRepo)
@@ -144,17 +145,19 @@ func main() {
 	logService := service.NewLogService(logRepo)
 	technicianService := service.NewTechnicianService(technicianRepo)
 	masPeaService := service.NewMasPeaService(masPeaRepo)
+	masComService := service.NewMasComService(masComRepo)
 
 	// report service & controller (queries v_seal_report VIEW)
 	reportService := service.NewReportService(config.DB)
 	reportController := controller.NewReportController(reportService)
 
 	// controllers
-	technicianController := controller.NewTechnicianController(technicianService, sealService)
+	technicianController := controller.NewTechnicianController(technicianService, sealService, masComService, masPeaService)
 	userController := controller.NewUserController(userService)
 	sealController := controller.NewSealController(sealService)
 	logController := controller.NewLogController(logService)
 	masPeaController := controller.NewMasPeaController(masPeaService)
+	masComController := controller.NewMasComController(masComService)
 
 	// ... (Login API code remains same)
 
@@ -162,6 +165,7 @@ func main() {
 	publicGroup := app.Group("")
 	route.SetupTechnicianRoutes(publicGroup, technicianController)
 	route.SetupMasPeaRoutes(publicGroup, masPeaController)   // Public for now, or move to secure if needed
+	route.SetupMasComRoutes(publicGroup, masComController)   // ศูนย์งาน routes
 	route.SetupPublicSealRoutes(publicGroup, sealController) // ✅ Public seal routes (scan-use)
 
 	// ✅ Login API endpoint

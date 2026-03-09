@@ -21,7 +21,8 @@ import {
     CreateUserScreen,
     ChangeWorkplaceScreen,
     ReportScreen,
-    ReturnVerificationScreen
+    ReturnVerificationScreen,
+    AddMasComScreen
 } from '../screens';
 import TechnicianHomeScreen from '../screens/TechnicianHomeScreen';
 
@@ -118,6 +119,14 @@ const StaffNavigator = () => {
                 options={{
                     title: 'เพิ่มช่างใหม่',
                     drawerItemStyle: { display: 'none' }
+                }}
+            />
+            <Drawer.Screen
+                name="AddMasCom"
+                component={AddMasComScreen}
+                options={{
+                    title: 'จัดการศูนย์งาน',
+                    drawerIcon: ({ color, size }) => <Text style={{ fontSize: size, color: color }}>🏢</Text>
                 }}
             />
             <Drawer.Screen
@@ -228,6 +237,7 @@ const RootNavigator = () => {
                         AssignSeal: 'seals/assign',
                         Report: 'report',
                         ReturnVerification: 'return-verification',
+                        AddMasCom: 'mascom/add',
                         Seals: {
                             screens: {
                                 CreateSeal: 'seals/create',

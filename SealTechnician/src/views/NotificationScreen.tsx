@@ -7,6 +7,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons';
 import { AuthService } from '../services/AuthService';
 import { API_CONFIG, getApiUrl } from '../config/api.config';
+import { SealStatus } from '../constants/status';
 
 type RootStackParamList = {
     Home: undefined;
@@ -174,7 +175,7 @@ export default function NotificationScreen() {
         let iconColor = "#6A0DAD";
         let bgColor = "#F3E5F5";
 
-        if (item.action.includes("จ่าย")) {
+        if (item.action.includes(SealStatus.ISSUED)) {
             iconName = "log-in-outline";
             iconColor = "#2196F3";
             bgColor = "#E3F2FD";

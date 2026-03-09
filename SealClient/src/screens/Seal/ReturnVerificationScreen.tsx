@@ -4,13 +4,14 @@ import { colors, sizes } from '@/constants';
 import { Header } from '@/components/dashboard';
 import { useAuth } from '@/context/AuthContext';
 import { sealService } from '@/services/sealService';
+import { SealStatus } from '../../constants/status';
 
 // ─── Status badge colors ────────────────────────────
 const REMARK_COLORS: Record<string, { bg: string; text: string; icon: string }> = {
     'ซีลเก่าที่ถูกตัดออก': { bg: '#f3e5f5', text: '#7b1fa2', icon: '✂️' },
     'ชำรุดก่อนใช้งาน': { bg: '#fff3e0', text: '#e65100', icon: '⚠️' },
     'ไม่ได้ใช้งาน (คืนคลัง)': { bg: '#e8f5e9', text: '#2e7d32', icon: '😊' },
-    'รอตรวจสอบคืน': { bg: '#e3f2fd', text: '#1565c0', icon: '🔍' },
+    [SealStatus.PENDING_RETURN]: { bg: '#e3f2fd', text: '#1565c0', icon: '🔍' },
 };
 
 interface PendingReturnItem {
@@ -275,7 +276,7 @@ export const ReturnVerificationScreen: React.FC = () => {
                         {/* List of selected seals */}
                         <ScrollView style={styles.batchListScroll}>
                             {selectedItems.map((item, idx) => {
-                                const remarkStyle = REMARK_COLORS[item.return_remarks] || REMARK_COLORS['รอตรวจสอบคืน'];
+                                const remarkStyle = REMARK_COLORS[item.return_remarks] || REMARK_COLORS[SealStatus.PENDING_RETURN];
                                 return (
                                     <View key={item.id} style={[styles.batchItem, idx % 2 === 1 && { backgroundColor: '#faf5ff' }]}>
                                         <View style={{ flex: 1 }}>
@@ -444,7 +445,7 @@ export const ReturnVerificationScreen: React.FC = () => {
                                 {/* Data Rows */}
                                 {filteredItems.map((item, idx) => {
                                     const dt = formatDateTime(item.returned_at);
-                                    const remarkStyle = REMARK_COLORS[item.return_remarks] || REMARK_COLORS['รอตรวจสอบคืน'];
+                                    const remarkStyle = REMARK_COLORS[item.return_remarks] || REMARK_COLORS[SealStatus.PENDING_RETURN];
                                     const isAccepting = acceptingId === item.id;
                                     const isSelected = selectedIds.has(item.id);
                                     return (

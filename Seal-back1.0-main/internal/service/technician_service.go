@@ -1,6 +1,8 @@
 package service
 
 import (
+	"github.com/Kev2406/PEA/internal/domain/constants"
+
 	"errors"
 	"log"
 	"time"
@@ -96,13 +98,13 @@ func (s *TechnicianService) InstallSeal(sealNumber string, techID uint, serialNu
 	}
 
 	// 🚦 **3) ตรวจสอบว่าสถานะของซีลเป็น 'จ่าย'**
-	if seal.Status != "จ่าย" {
+	if seal.Status != string(constants.StatusIssued) {
 		return errors.New("ซีลต้องอยู่ในสถานะ 'จ่าย' เท่านั้นจึงจะติดตั้งได้")
 	}
 
 	// 🛠 **4) อัปเดตสถานะเป็น 'ติดตั้งแล้ว'**
 	now := time.Now()
-	seal.Status = "ติดตั้งแล้ว"
+	seal.Status = string(constants.StatusInstalled)
 	seal.UsedBy = &techID
 	seal.UsedAt = &now
 	seal.InstalledSerial = serialNumber
@@ -127,7 +129,7 @@ func (s *TechnicianService) ReturnSealWithImage(sealNumber string, techID uint, 
 	}
 
 	// ✅ ตรวจสอบว่าซิลอยู่ในสถานะที่คืนได้ ('จ่าย', 'ติดตั้งแล้ว')
-	if seal.Status != "จ่าย" && seal.Status != "ติดตั้งแล้ว" {
+	if seal.Status != string(constants.StatusIssued) && seal.Status != string(constants.StatusInstalled) {
 		return errors.New("ซีลไม่ได้อยู่ในสถานะที่สามารถคืนได้")
 	}
 
@@ -143,7 +145,7 @@ func (s *TechnicianService) ReturnSealWithImage(sealNumber string, techID uint, 
 	now := time.Now()
 
 	// ช่างคืนซีล → รอตรวจสอบเสมอ สถานะสุดท้ายจะกำหนดตอน Admin กด AcceptReturn
-	seal.Status = "รอตรวจสอบคืน"
+	seal.Status = string(constants.StatusPendingReturn)
 
 	seal.ReturnedByTechnician = &techID
 	seal.ReturnedAt = &now
@@ -172,7 +174,7 @@ func (s *TechnicianService) CheckReturnableSeal(sealNumber string, techID uint) 
 		return nil, errors.New("ไม่พบซีลนี้ในระบบ")
 	}
 
-	if seal.Status != "จ่าย" && seal.Status != "ติดตั้งแล้ว" {
+	if seal.Status != string(constants.StatusIssued) && seal.Status != string(constants.StatusInstalled) {
 		return nil, errors.New("ซีลไม่ได้อยู่ในสถานะที่สามารถคืนได้")
 	}
 
@@ -226,6 +228,11 @@ func (s *TechnicianService) GetAllTechnicians(peaCode string, isPrefix bool) ([]
 	return s.repo.GetAllTechnicians(peaCode, isPrefix)
 }
 
+// CountByCodePrefix นับจำนวนช่างที่มี technician_code ขึ้นต้นด้วย prefix
+func (s *TechnicianService) CountByCodePrefix(prefix string) (int64, error) {
+	return s.repo.CountByCodePrefix(prefix)
+}
+
 func (s *TechnicianService) GetTechnicianByID(techID uint) (*model.Technician, error) {
 	return s.repo.FindByID(techID)
 }
@@ -271,7 +278,7 @@ func (s *TechnicianService) UploadSealImages(sealNumber string, techID uint, ima
 		return errors.New("ไม่พบซีลในระบบ")
 	}
 
-	if seal.Status != "ติดตั้งแล้ว" {
+	if seal.Status != string(constants.StatusInstalled) {
 		return errors.New("ซีลต้องอยู่ในสถานะ 'ติดตั้งแล้ว' เท่านั้นจึงจะอัปโหลดรูปได้")
 	}
 

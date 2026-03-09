@@ -4,7 +4,7 @@ import { useNavigation } from '@react-navigation/native';
 import { colors, sizes } from '@/constants';
 import { Header } from '@/components/dashboard';
 import { technicianService } from '@/services/technicianService';
-import { userService } from '@/services/userService'; // Import userService
+import { masComService } from '@/services/masComService';
 
 export const AddTechnicianScreen: React.FC = () => {
     const navigation = useNavigation();
@@ -15,11 +15,11 @@ export const AddTechnicianScreen: React.FC = () => {
     const [modalStatus, setModalStatus] = useState<'success' | 'error'>('success');
     const [modalMessage, setModalMessage] = useState('');
 
-    // MasPea Selection State
-    const [showPeaModal, setShowPeaModal] = useState(false);
-    const [masPeaList, setMasPeaList] = useState<any[]>([]);
-    const [searchPeaQuery, setSearchPeaQuery] = useState('');
-    const [selectedPeaName, setSelectedPeaName] = useState('');
+    // MasCom Selection State
+    const [showComModal, setShowComModal] = useState(false);
+    const [masComList, setMasComList] = useState<any[]>([]);
+    const [searchComQuery, setSearchComQuery] = useState('');
+    const [selectedComName, setSelectedComName] = useState('');
 
     // Form State
     const [formData, setFormData] = useState({
@@ -29,22 +29,22 @@ export const AddTechnicianScreen: React.FC = () => {
         lastName: '',
         phoneNumber: '',
         email: '',
-        technicianCode: `TECH-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
-        peaCode: '',
+        technicianCode: 'สร้างอัตโนมัติเมื่อกดบันทึก',
+        comCode: '',
     });
 
     const [errors, setErrors] = useState<Record<string, string>>({});
 
     useEffect(() => {
-        fetchMasPea();
+        fetchMasCom();
     }, []);
 
-    const fetchMasPea = async () => {
+    const fetchMasCom = async () => {
         try {
-            const data = await userService.getMasPea();
-            setMasPeaList(data);
+            const data = await masComService.getMasComs();
+            setMasComList(data);
         } catch (error) {
-            console.error('Failed to fetch MasPea:', error);
+            console.error('Failed to fetch MasCom:', error);
         }
     };
 
@@ -55,8 +55,7 @@ export const AddTechnicianScreen: React.FC = () => {
         if (!formData.firstName) newErrors.firstName = 'กรุณากรอกชื่อจริง';
         if (!formData.lastName) newErrors.lastName = 'กรุณากรอกนามสกุล';
         if (!formData.phoneNumber) newErrors.phoneNumber = 'กรุณากรอกเบอร์โทรศัพท์';
-        if (!formData.technicianCode) newErrors.technicianCode = 'กรุณากรอกรหัสช่าง';
-        if (!formData.peaCode) newErrors.peaCode = 'กรุณาเลือกสังกัดการไฟฟ้า';
+        if (!formData.comCode) newErrors.comCode = 'กรุณาเลือกศูนย์งาน';
 
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
@@ -69,15 +68,15 @@ export const AddTechnicianScreen: React.FC = () => {
             setLoading(true);
 
             const payload = {
-                technician_code: formData.technicianCode,
+                technician_code: '', // ให้ Backend สร้างรหัสใหม่
                 username: formData.username,
                 password: formData.password,
                 first_name: formData.firstName,
                 last_name: formData.lastName,
-                email: formData.email || `${formData.technicianCode}@pea.co.th`,
+                email: formData.email,
                 phone_number: formData.phoneNumber,
-                pea_code: formData.peaCode, // Send pea_code instead of company/dept
-                company_name: selectedPeaName, // Optional: send name as company_name for backwards compatibility if needed
+                com_code: formData.comCode, // ส่ง com_code แทน pea_code เพื่อให้ Backend สร้างรหัสช่างได้
+                company_name: selectedComName,
                 department: '-',
             };
 
@@ -104,28 +103,25 @@ export const AddTechnicianScreen: React.FC = () => {
     };
 
     const generateNewCode = () => {
-        setFormData({
-            ...formData,
-            technicianCode: `TECH-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`
-        });
+        // ไม่ต้องทำอะไร ปล่อยให้ Backend ทำ
     };
 
-    // Filter MasPea list
-    const filteredPeas = masPeaList.filter(item => {
-        const code = item.pea_code || item.PeaCode || item.code || '';
-        const nameTh = item.name_th || item.NameTh || '';
-        const nameEng = item.name_eng || item.NameEng || '';
-        const query = searchPeaQuery.toLowerCase();
+    // Filter MasCom list
+    const filteredComs = masComList.filter(item => {
+        const code = item.com_code || '';
+        const nameTh = item.name_th || '';
+        const nameEng = item.name_eng || '';
+        const query = searchComQuery.toLowerCase();
         return code.toLowerCase().includes(query) || nameTh.includes(query) || nameEng.toLowerCase().includes(query);
     });
 
-    const handleSelectPea = (item: any) => {
-        const code = item.pea_code || item.PeaCode || item.code || '';
-        const nameTh = item.name_th || item.NameTh || '';
+    const handleSelectCom = (item: any) => {
+        const code = item.com_code || '';
+        const nameTh = item.name_th || '';
 
-        setFormData({ ...formData, peaCode: code });
-        setSelectedPeaName(nameTh);
-        setShowPeaModal(false);
+        setFormData({ ...formData, comCode: code });
+        setSelectedComName(nameTh);
+        setShowComModal(false);
     };
 
     return (
@@ -218,33 +214,30 @@ export const AddTechnicianScreen: React.FC = () => {
 
                     <View style={styles.fieldRow}>
                         <View style={styles.fieldItem}>
-                            <Text style={styles.label}>รหัสช่าง (Technician ID) <Text style={styles.required}>*</Text></Text>
+                            <Text style={styles.label}>รหัสช่าง (Technician ID)</Text>
                             <View style={styles.inputContainer}>
                                 <TextInput
-                                    style={[styles.inputWithAction, errors.technicianCode && styles.inputError]}
+                                    style={[styles.inputWithAction, { color: '#999', backgroundColor: '#f0f0f0' }]}
                                     value={formData.technicianCode}
-                                    onChangeText={(text) => setFormData({ ...formData, technicianCode: text })}
+                                    editable={false}
                                 />
-                                <TouchableOpacity style={styles.actionBtn} onPress={generateNewCode}>
-                                    <Text style={styles.actionBtnText}>🔄</Text>
-                                </TouchableOpacity>
                             </View>
                             <Text style={styles.hint}>รหัสถูกสร้างอัตโนมัติจากระบบ</Text>
                         </View>
 
-                        {/* MasPea Selection */}
+                        {/* MasCom Selection */}
                         <View style={styles.fieldItem}>
-                            <Text style={styles.label}>สังกัดการไฟฟ้า <Text style={styles.required}>*</Text></Text>
+                            <Text style={styles.label}>ศูนย์งาน (Work Center) <Text style={styles.required}>*</Text></Text>
                             <TouchableOpacity
-                                style={[styles.input, styles.selectInput, errors.peaCode && styles.inputError]}
-                                onPress={() => setShowPeaModal(true)}
+                                style={[styles.input, styles.selectInput, errors.comCode && styles.inputError]}
+                                onPress={() => setShowComModal(true)}
                             >
-                                <Text style={formData.peaCode ? styles.inputText : styles.placeholderText}>
-                                    {formData.peaCode ? `${selectedPeaName || formData.peaCode}` : 'เลือกสังกัด...'}
+                                <Text style={formData.comCode ? styles.inputText : styles.placeholderText}>
+                                    {formData.comCode ? `${selectedComName || formData.comCode}` : 'เลือกศูนย์งาน...'}
                                 </Text>
                                 <Text>▼</Text>
                             </TouchableOpacity>
-                            {errors.peaCode && <Text style={styles.errorText}>{errors.peaCode}</Text>}
+                            {errors.comCode && <Text style={styles.errorText}>{errors.comCode}</Text>}
                         </View>
                     </View>
                 </View>
@@ -347,34 +340,34 @@ export const AddTechnicianScreen: React.FC = () => {
                 </View>
             </Modal>
 
-            {/* MasPea Selection Modal */}
+            {/* MasCom Selection Modal */}
             <Modal
                 transparent={true}
-                visible={showPeaModal}
+                visible={showComModal}
                 animationType="slide"
-                onRequestClose={() => setShowPeaModal(false)}
+                onRequestClose={() => setShowComModal(false)}
             >
                 <View style={styles.modalOverlay}>
                     <View style={[styles.modalContent, { height: '80%', width: '90%' }]}>
-                        <Text style={styles.modalTitle}>เลือกสังกัด</Text>
+                        <Text style={styles.modalTitle}>เลือกศูนย์งาน</Text>
                         <TextInput
                             style={[styles.input, { width: '100%', marginBottom: 15 }]}
                             placeholder="ค้นหาชื่อ หรือรหัส..."
-                            value={searchPeaQuery}
-                            onChangeText={setSearchPeaQuery}
+                            value={searchComQuery}
+                            onChangeText={setSearchComQuery}
                         />
 
                         <FlatList
-                            data={filteredPeas}
+                            data={filteredComs}
                             keyExtractor={(item, index) => index.toString()}
                             style={{ width: '100%' }}
                             renderItem={({ item }) => {
-                                const code = item.pea_code || item.PeaCode || item.code || '';
-                                const name = item.name_th || item.NameTh || '';
+                                const code = item.com_code || '';
+                                const name = item.name_th || '';
                                 return (
                                     <TouchableOpacity
                                         style={styles.peaItem}
-                                        onPress={() => handleSelectPea(item)}
+                                        onPress={() => handleSelectCom(item)}
                                     >
                                         <Text style={styles.peaCode}>{code}</Text>
                                         <Text style={styles.peaName}>{name}</Text>
@@ -386,7 +379,7 @@ export const AddTechnicianScreen: React.FC = () => {
 
                         <TouchableOpacity
                             style={[styles.cancelBtn, { marginTop: 15, width: '100%' }]}
-                            onPress={() => setShowPeaModal(false)}
+                            onPress={() => setShowComModal(false)}
                         >
                             <Text style={styles.cancelBtnText}>ปิด</Text>
                         </TouchableOpacity>

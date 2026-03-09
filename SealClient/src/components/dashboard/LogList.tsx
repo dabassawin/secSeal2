@@ -3,6 +3,7 @@ import React from 'react';
 import { View, Text, StyleSheet, ScrollView } from 'react-native';
 import { Log } from '@/types';
 import { colors, sizes } from '@/constants';
+import { SealStatus } from '../../constants/status';
 
 interface LogListProps {
     logs: Log[];
@@ -13,7 +14,7 @@ const LogItem: React.FC<{ log: Log }> = ({ log }) => {
     // Determine status color based on action keywords
     const getStatusColor = (action: string) => {
         if (action.includes('สร้าง') || action.includes('Created')) return colors.accentBlue;
-        if (action.includes('จ่าย') || action.includes('Assigned')) return colors.accentYellow;
+        if (action.includes(SealStatus.ISSUED) || action.includes('Assigned')) return colors.accentYellow;
         if (action.includes('ติดตั้ง') || action.includes('Used')) return colors.accentGreen;
         if (action.includes('คืน') || action.includes('Returned')) return colors.primaryPurple;
         return colors.textLight;

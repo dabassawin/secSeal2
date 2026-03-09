@@ -8,6 +8,7 @@ import { Seal } from '../services/TechnicianService';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { SealStatus } from '../constants/status';
 
 type RootStackParamList = {
     Home: undefined;
@@ -67,13 +68,13 @@ export default function HistoryScreen() {
         if (activeTab === 'pending') {
             sourceData = [...activeSeals, ...historySeals];
         } else if (activeTab === 'history') {
-            sourceData = historySeals.filter(s => s.status === 'ติดตั้งแล้ว' || s.used_at);
+            sourceData = historySeals.filter(s => s.status === SealStatus.INSTALLED || s.used_at);
         } else {
             sourceData = historySeals.filter(s =>
-                s.status === 'ใช้งานแล้ว' ||
-                s.status === 'เสียหาย' ||
-                s.status === 'รอตรวจสอบคืน' ||
-                (s.status === 'พร้อมใช้งาน' && s.return_remarks === 'ไม่ได้ใช้งาน (คืนคลัง)')
+                s.status === SealStatus.USED ||
+                s.status === SealStatus.DAMAGED ||
+                s.status === SealStatus.PENDING_RETURN ||
+                (s.status === SealStatus.READY && s.return_remarks === 'ไม่ได้ใช้งาน (คืนคลัง)')
             );
         }
 
@@ -138,20 +139,20 @@ export default function HistoryScreen() {
     };
 
     const renderLogItem = ({ item }: { item: Seal }) => {
-        const isCompleted = item.status !== 'จ่าย' && !(item.status === 'พร้อมใช้งาน' && item.return_remarks !== 'ไม่ได้ใช้งาน (คืนคลัง)');
+        const isCompleted = item.status !== SealStatus.ISSUED && !(item.status === SealStatus.READY && item.return_remarks !== 'ไม่ได้ใช้งาน (คืนคลัง)');
 
         let displayStatus = item.status;
-        if (item.status === 'จ่าย' || (item.status === 'พร้อมใช้งาน' && item.return_remarks !== 'ไม่ได้ใช้งาน (คืนคลัง)')) {
+        if (item.status === SealStatus.ISSUED || (item.status === SealStatus.READY && item.return_remarks !== 'ไม่ได้ใช้งาน (คืนคลัง)')) {
             displayStatus = 'ยังไม่ติดตั้ง';
-        } else if (item.status === 'ติดตั้งแล้ว') {
-            displayStatus = 'ติดตั้งแล้ว';
-        } else if (item.status === 'ใช้งานแล้ว') {
+        } else if (item.status === SealStatus.INSTALLED) {
+            displayStatus = SealStatus.INSTALLED;
+        } else if (item.status === SealStatus.USED) {
             displayStatus = 'คืนแล้ว';
-        } else if (item.status === 'เสียหาย') {
-            displayStatus = 'เสียหาย';
-        } else if (item.status === 'รอตรวจสอบคืน') {
-            displayStatus = 'รอตรวจสอบคืน';
-        } else if (item.status === 'พร้อมใช้งาน' && item.return_remarks === 'ไม่ได้ใช้งาน (คืนคลัง)') {
+        } else if (item.status === SealStatus.DAMAGED) {
+            displayStatus = SealStatus.DAMAGED;
+        } else if (item.status === SealStatus.PENDING_RETURN) {
+            displayStatus = SealStatus.PENDING_RETURN;
+        } else if (item.status === SealStatus.READY && item.return_remarks === 'ไม่ได้ใช้งาน (คืนคลัง)') {
             displayStatus = 'คืนคลัง';
         }
 
@@ -161,12 +162,12 @@ export default function HistoryScreen() {
         let textStyle = styles.textPending;
 
         if (isCompleted) {
-            if (item.status === 'เสียหาย' || item.status === 'รอตรวจสอบคืน') {
+            if (item.status === SealStatus.DAMAGED || item.status === SealStatus.PENDING_RETURN) {
                 iconName = "close-circle-outline";
                 iconColor = "#F44336";
                 statusStyle = styles.statusFailed;
                 textStyle = styles.textFailed;
-            } else if (item.status === 'ใช้งานแล้ว' || (item.status === 'พร้อมใช้งาน' && item.return_remarks === 'ไม่ได้ใช้งาน (คืนคลัง)')) {
+            } else if (item.status === SealStatus.USED || (item.status === SealStatus.READY && item.return_remarks === 'ไม่ได้ใช้งาน (คืนคลัง)')) {
                 iconName = "return-down-back-outline";
                 iconColor = "#FF9800";
                 statusStyle = styles.statusPending; // orange-ish

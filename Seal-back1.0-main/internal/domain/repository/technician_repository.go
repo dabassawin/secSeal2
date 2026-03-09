@@ -129,3 +129,10 @@ func (r *TechnicianRepository) GetLogsByUserID(userID uint) ([]model.Log, error)
 func (r *TechnicianRepository) DeleteLogsByUserID(userID uint) error {
 	return r.db.Where("user_id = ?", userID).Delete(&model.Log{}).Error
 }
+
+// CountByCodePrefix นับจำนวนช่างที่มี technician_code ขึ้นต้นด้วย prefix
+func (r *TechnicianRepository) CountByCodePrefix(prefix string) (int64, error) {
+	var count int64
+	err := r.db.Model(&model.Technician{}).Where("technician_code LIKE ?", prefix+"%").Count(&count).Error
+	return count, err
+}
