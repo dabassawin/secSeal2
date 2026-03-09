@@ -235,6 +235,10 @@ func (s *TechnicianService) GetTechnicianByID(techID uint) (*model.Technician, e
 	return s.repo.FindByID(techID)
 }
 
+func (s *TechnicianService) GetTechnicianByUsername(username string) (*model.Technician, error) {
+	return s.repo.FindByUsername(username)
+}
+
 // func (s *TechnicianService) UpdateTechnician(techID uint, req map[string]interface{}) error {
 //     technician, err := s.repo.FindByID(techID)
 //     if err != nil {
