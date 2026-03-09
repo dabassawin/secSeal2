@@ -11,7 +11,9 @@ func SetupUserRoutes(router fiber.Router, userController *controller.UserControl
 	api := router.Group("/api")
 	user := api.Group("/users")
 
+	user.Get("/", userController.GetAllUsersHandler)
 	user.Get("/:username", userController.GetUserHandler)
 	user.Post("/", userController.CreateUserHandler)
 	user.Put("/:username", userController.UpdateUserHandler)
+	user.Delete("/:username", userController.DeleteUserHandler)
 }

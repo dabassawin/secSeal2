@@ -33,12 +33,6 @@ const LoginScreen = () => {
                 >
                     <Text style={[styles.toggleText, isStaff && styles.activeToggleText]}>Staff</Text>
                 </TouchableOpacity>
-                <TouchableOpacity
-                    style={[styles.toggleButton, !isStaff && styles.activeToggle]}
-                    onPress={() => setIsStaff(false)}
-                >
-                    <Text style={[styles.toggleText, !isStaff && styles.activeToggleText]}>Technician</Text>
-                </TouchableOpacity>
             </View>
 
             <View style={styles.form}>

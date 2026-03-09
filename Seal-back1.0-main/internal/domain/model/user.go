@@ -17,6 +17,8 @@ type User struct {
 	Username  string         `gorm:"size:50;uniqueIndex;not null" json:"username"`
 	Email     string         `gorm:"size:100;uniqueIndex;not null" json:"email"`
 	Role      string         `gorm:"size:20;not null;default:'user'" json:"role"`
+	Password  string         `gorm:"size:255" json:"-"`                 // hashed password (never exposed)
+	IsActive  bool           `gorm:"default:true" json:"is_active"`     // สถานะใช้งาน
 	PeaCode   string         `gorm:"size:10;not null" json:"pea_code"`  // รหัสกฟฟ.
 	PeaShort  string         `gorm:"size:10;not null" json:"pea_short"` // ตัวย่อ
 	PeaName   string         `gorm:"size:255;not null" json:"pea_name"` // ชื่อกฟฟ.

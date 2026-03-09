@@ -115,8 +115,8 @@ export const HomeScreen: React.FC = () => {
                     />
                     {user?.role === 'admin' && (
                         <ActionCard
-                            title="สร้างผู้ใช้งาน"
-                            subtitle="เพิ่ม Admin/User ใหม่"
+                            title="User Management"
+                            subtitle="จัดการผู้ใช้งาน"
                             icon="👤"
                             iconColor="#2e7d32"
                             iconBgColor="#e8f5e9"

@@ -80,3 +80,35 @@ func (r *UserRepository) Update(user *model.User) error {
 	log.Println("✅ [UpdateUser] User updated successfully")
 	return nil
 }
+
+// ✅ ดึงรายชื่อผู้ใช้ทั้งหมด
+func (r *UserRepository) GetAll() ([]model.User, error) {
+	log.Println("🔎 [GetAllUsers] Fetching all users")
+
+	var users []model.User
+	if err := r.db.Order("id ASC").Find(&users).Error; err != nil {
+		log.Println("❌ [GetAllUsers] Error:", err)
+		return nil, err
+	}
+
+	log.Printf("✅ [GetAllUsers] Found %d users\n", len(users))
+	return users, nil
+}
+
+// ✅ ลบผู้ใช้ (Soft Delete)
+func (r *UserRepository) Delete(username string) error {
+	log.Printf("🗑️ [DeleteUser] Deleting user: %s\n", username)
+
+	result := r.db.Where("username = ?", username).Delete(&model.User{})
+	if result.Error != nil {
+		log.Println("❌ [DeleteUser] Error:", result.Error)
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		log.Printf("🚨 [DeleteUser] User '%s' not found\n", username)
+		return errors.New("user not found")
+	}
+
+	log.Println("✅ [DeleteUser] User deleted successfully")
+	return nil
+}
