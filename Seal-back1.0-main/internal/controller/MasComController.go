@@ -9,11 +9,15 @@ import (
 )
 
 type MasComController struct {
-	service *service.MasComService
+	service           *service.MasComService
+	technicianService *service.TechnicianService
 }
 
-func NewMasComController(service *service.MasComService) *MasComController {
-	return &MasComController{service: service}
+func NewMasComController(service *service.MasComService, technicianService *service.TechnicianService) *MasComController {
+	return &MasComController{
+		service:           service,
+		technicianService: technicianService,
+	}
 }
 
 // CreateCom สร้างศูนย์งานใหม่
@@ -29,6 +33,26 @@ func (c *MasComController) CreateCom(ctx *fiber.Ctx) error {
 
 	if err := c.service.CreateCom(&com); err != nil {
 		return ctx.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	// ✅ Auto-create a Center Account as a Technician
+	dummyTech := &model.Technician{
+		TechnicianCode: com.ComCode,
+		Username:       com.ComCode,
+		Password:       "default123", // รหัสผ่านเริ่มต้นสำหรับศูนย์งาน
+		FirstName:      com.NameTh,
+		LastName:       "(ศูนย์งาน)",
+		Email:          com.ComCode + "@dummy.pea.co.th",
+		PhoneNumber:    "-",
+		CompanyName:    com.NameTh,
+		PeaCode:        com.PeaCode,
+		IsCenter:       true,
+	}
+
+	// Ignore error if it fails (e.g., already exists), but log it
+	if err := c.technicianService.Register(dummyTech); err != nil {
+		// Just log it, don't fail the MasCom creation
+		// fmt.Println("Warning: Failed to create Center Technician account:", err)
 	}
 
 	return ctx.Status(fiber.StatusCreated).JSON(com)

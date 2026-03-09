@@ -22,7 +22,8 @@ import {
     ChangeWorkplaceScreen,
     ReportScreen,
     ReturnVerificationScreen,
-    AddMasComScreen
+    AddMasComScreen,
+    MasComListScreen
 } from '../screens';
 import TechnicianHomeScreen from '../screens/TechnicianHomeScreen';
 
@@ -62,6 +63,7 @@ const SealStackNavigator = () => {
 const TechAdminStackNavigator = () => {
     return (
         <TechAdminStack.Navigator screenOptions={{ headerShown: false, cardStyle: { flex: 1 } }}>
+            <TechAdminStack.Screen name="MasComList" component={MasComListScreen} />
             <TechAdminStack.Screen name="TechnicianList" component={TechnicianListScreen} />
             <TechAdminStack.Screen name="TechnicianDetail" component={TechnicianDetailScreen} />
         </TechAdminStack.Navigator>

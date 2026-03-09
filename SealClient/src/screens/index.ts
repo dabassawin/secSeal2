@@ -14,3 +14,4 @@ export * from './Report/ReportScreen';
 export * from './Seal/ReturnVerificationScreen';
 
 export * from './MasCom/AddMasComScreen';
+export * from './MasCom/MasComListScreen';

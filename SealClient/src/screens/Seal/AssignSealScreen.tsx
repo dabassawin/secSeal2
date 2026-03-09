@@ -365,12 +365,16 @@ export const AssignSealScreen: React.FC = () => {
                         ) : (
                             <View style={styles.selectedTechCard}>
                                 <View style={styles.techAvatar}>
-                                    <Text style={styles.techAvatarText}>{selectedTech.first_name.charAt(0)}</Text>
+                                    <Text style={styles.techAvatarText}>{selectedTech.is_center ? '🏢' : selectedTech.first_name.charAt(0)}</Text>
                                 </View>
                                 <View style={styles.techInfo}>
-                                    <Text style={styles.techName}>{selectedTech.first_name} {selectedTech.last_name}</Text>
+                                    <Text style={styles.techName}>{selectedTech.first_name} {selectedTech.is_center ? '' : selectedTech.last_name}</Text>
                                     <Text style={styles.techDetail}>รหัส: {selectedTech.technician_code} • สังกัด: {getPeaName(selectedTech.pea_code)}</Text>
-                                    <View style={styles.techBadge}><Text style={styles.techBadgeText}>Active</Text></View>
+                                    <View style={[styles.techBadge, selectedTech.is_center && { backgroundColor: '#e3f2fd' }]}>
+                                        <Text style={[styles.techBadgeText, selectedTech.is_center && { color: '#1976d2' }]}>
+                                            {selectedTech.is_center ? 'Center Account' : 'Active'}
+                                        </Text>
+                                    </View>
                                 </View>
                                 <TouchableOpacity onPress={handleClearTechnician} style={styles.removeTechBtn}>
                                     <Text style={styles.removeTechText}>✕</Text>
@@ -547,10 +551,12 @@ export const AssignSealScreen: React.FC = () => {
                                     onPress={() => handleSelectTechnician(tech)}
                                 >
                                     <View style={styles.techAvatarSmall}>
-                                        <Text style={styles.techAvatarTextSmall}>{tech.first_name.charAt(0)}</Text>
+                                        <Text style={styles.techAvatarTextSmall}>{tech.is_center ? '🏢' : tech.first_name.charAt(0)}</Text>
                                     </View>
                                     <View style={{ flex: 1 }}>
-                                        <Text style={styles.techItemName}>{tech.first_name} {tech.last_name}</Text>
+                                        <Text style={styles.techItemName}>
+                                            {tech.first_name} {tech.is_center ? '' : tech.last_name} {tech.is_center ? '(ศูนย์งาน)' : ''}
+                                        </Text>
                                         <Text style={styles.techItemSub}>รหัส: {tech.technician_code} • สังกัด: {getPeaName(tech.pea_code)}</Text>
                                     </View>
                                 </TouchableOpacity>

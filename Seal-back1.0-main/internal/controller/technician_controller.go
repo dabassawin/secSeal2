@@ -102,12 +102,16 @@ func (tc *TechnicianController) RegisterHandler(c *fiber.Ctx) error {
 
 		// ใส่ค่านี้ด้วย
 		CompanyName: req.CompanyName,
-		Department:  req.Department,
 	}
 
 	// ถ้าไม่มี username ให้ใช้ technician_code แทน
 	if tech.Username == "" && tech.TechnicianCode != "" {
 		tech.Username = tech.TechnicianCode
+	}
+
+	// ถ้าไม่มี email ให้ใช้ค่า dummy เพื่อป้องกันปัญหา unique constraint
+	if tech.Email == "" && tech.TechnicianCode != "" {
+		tech.Email = tech.TechnicianCode + "@dummy.pea.co.th"
 	}
 
 	// เรียก Service เพื่อ Register
@@ -267,6 +271,35 @@ func (tc *TechnicianController) CheckReturnableSealHandler(c *fiber.Ctx) error {
 	})
 }
 
+// TransferSealsHandler allows a Center to transfer seals to another Technician
+// POST /api/technician/seals/transfer
+func (tc *TechnicianController) TransferSealsHandler(c *fiber.Ctx) error {
+	techID, ok := c.Locals("tech_id").(uint)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Unauthorized"})
+	}
+
+	var req struct {
+		TargetTechnicianID uint     `json:"target_technician_id"`
+		SealNumbers        []string `json:"seal_numbers"`
+	}
+
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
+	}
+
+	if req.TargetTechnicianID == 0 || len(req.SealNumbers) == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "target_technician_id and seal_numbers are required"})
+	}
+
+	err := tc.technicianService.TransferSeals(techID, req.TargetTechnicianID, req.SealNumbers)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	return c.JSON(fiber.Map{"message": "โอนซีลสำเร็จ"})
+}
+
 func (tc *TechnicianController) UpdateTechnicianHandler(c *fiber.Ctx) error {
 	techIDStr := c.Params("id")
 	techID, err := strconv.Atoi(techIDStr)
@@ -280,7 +313,6 @@ func (tc *TechnicianController) UpdateTechnicianHandler(c *fiber.Ctx) error {
 		LastName    string `json:"last_name"`
 		PhoneNumber string `json:"phone_number"`
 		CompanyName string `json:"company_name"`
-		Department  string `json:"department"`
 	}
 
 	if err := c.BodyParser(&req); err != nil {
@@ -296,13 +328,11 @@ func (tc *TechnicianController) UpdateTechnicianHandler(c *fiber.Ctx) error {
 		LastName    string
 		PhoneNumber string
 		CompanyName string
-		Department  string
 	}{
 		FirstName:   req.FirstName,
 		LastName:    req.LastName,
 		PhoneNumber: req.PhoneNumber,
 		CompanyName: req.CompanyName,
-		Department:  req.Department,
 	}
 
 	err = tc.technicianService.UpdateTechnician(uint(techID), techData)
@@ -332,6 +362,11 @@ func (tc *TechnicianController) ImportTechniciansHandler(c *fiber.Ctx) error {
 		// ถ้าไม่มี username ให้ใช้ technician_code แทน
 		if t.Username == "" && t.TechnicianCode != "" {
 			t.Username = t.TechnicianCode
+		}
+
+		// ถ้าไม่มี email ให้สร้างเพื่อหลีกเลี่ยง error
+		if t.Email == "" && t.TechnicianCode != "" {
+			t.Email = t.TechnicianCode + "@dummy.pea.co.th"
 		}
 
 		if err := tc.technicianService.Register(t); err != nil {

@@ -157,7 +157,7 @@ func main() {
 	sealController := controller.NewSealController(sealService)
 	logController := controller.NewLogController(logService)
 	masPeaController := controller.NewMasPeaController(masPeaService)
-	masComController := controller.NewMasComController(masComService)
+	masComController := controller.NewMasComController(masComService, technicianService)
 
 	// ... (Login API code remains same)
 
