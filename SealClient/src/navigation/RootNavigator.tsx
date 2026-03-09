@@ -18,7 +18,7 @@ import {
     AddTechnicianScreen,
     ImportTechnicianScreen,
     AssignSealScreen,
-    CreateUserScreen,
+    UserManagementScreen,
     ChangeWorkplaceScreen,
     ReportScreen,
     ReturnVerificationScreen,
@@ -128,7 +128,7 @@ const StaffNavigator = () => {
                 component={AddMasComScreen}
                 options={{
                     title: 'จัดการศูนย์งาน',
-                    drawerIcon: ({ color, size }) => <Text style={{ fontSize: size, color: color }}>🏢</Text>
+                    drawerItemStyle: { display: 'none' }
                 }}
             />
             <Drawer.Screen
@@ -141,9 +141,9 @@ const StaffNavigator = () => {
             />
             <Drawer.Screen
                 name="CreateUser"
-                component={CreateUserScreen}
+                component={UserManagementScreen}
                 options={{
-                    title: 'สร้างผู้ใช้งาน',
+                    title: 'จัดการผู้ใช้งาน',
                     drawerItemStyle: { display: 'none' }
                 }}
             />

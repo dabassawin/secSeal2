@@ -21,6 +21,8 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/joho/godotenv"
+	"golang.org/x/crypto/bcrypt"
+	"gorm.io/gorm"
 )
 
 var secretKey = []byte("your-secret-key")
@@ -191,18 +193,26 @@ func main() {
 		// 1️⃣ Check Mock Users first
 		mockUsers := map[string]map[string]interface{}{
 			"admin": {
-				"password": "admin123",
-				"user_id":  1,
-				"role":     "admin",
-				"name":     "Administrator",
-				"email":    "admin@pea.co.th",
+				"password":  "admin123",
+				"emp_id":    1,
+				"role":      "admin",
+				"title":     "Mr.",
+				"name":      "Super Admin",
+				"email":     "admin@pea.co.th",
+				"pea_code":  "S00000",
+				"pea_short": "HQ",
+				"pea_name":  "สำนักงานใหญ่",
 			},
 			"user": {
-				"password": "user123",
-				"user_id":  2,
-				"role":     "user",
-				"name":     "Regular User",
-				"email":    "user@pea.co.th",
+				"password":  "user123",
+				"emp_id":    2,
+				"role":      "user",
+				"title":     "Mr.",
+				"name":      "Regular User",
+				"email":     "user@pea.co.th",
+				"pea_code":  "S00000",
+				"pea_short": "HQ",
+				"pea_name":  "สำนักงานใหญ่",
 			},
 		}
 
@@ -214,12 +224,17 @@ func main() {
 					lastName = nameParts[1]
 				}
 				targetUser = &model.User{
-					ID:        uint(mockData["user_id"].(int)),
+					EmpID:     uint(mockData["emp_id"].(int)),
 					Username:  loginReq.Username,
 					Email:     mockData["email"].(string),
 					Role:      mockData["role"].(string),
+					Title:     mockData["title"].(string),
 					FirstName: nameParts[0],
 					LastName:  lastName,
+					PeaCode:   mockData["pea_code"].(string),
+					PeaShort:  mockData["pea_short"].(string),
+					PeaName:   mockData["pea_name"].(string),
+					IsActive:  true,
 				}
 			}
 		}
@@ -228,8 +243,9 @@ func main() {
 		if targetUser == nil {
 			dbUser, err := userService.GetUserByUsername(loginReq.Username)
 			if err == nil && dbUser != nil {
-				// ✅ Default Password for DB Users
-				if loginReq.Password == "123456" {
+				// ✅ Validate Password using bcrypt
+				err := bcrypt.CompareHashAndPassword([]byte(dbUser.Password), []byte(loginReq.Password))
+				if err == nil {
 					targetUser = dbUser
 				} else {
 					log.Printf("❌ [LOGIN] Incorrect password for DB user %s", loginReq.Username)
@@ -254,15 +270,39 @@ func main() {
 		wg.Wait()
 		token := <-tokenChan
 
-		// ✅ บันทึก Mock User ลง Database ถ้ายังไม่มี (DB User มีอยู่แล้ว)
+		// ✅ บันทึก Mock User ลง Database (upsert: สร้างใหม่หรืออัปเดตถ้ามีอยู่แล้ว)
 		if _, exists := mockUsers[loginReq.Username]; exists {
-			existingUser, err := userService.GetUserByUsername(loginReq.Username)
-			if err != nil || existingUser == nil {
+			var existingUser model.User
+			err := config.DB.Unscoped().Where("username = ?", loginReq.Username).First(&existingUser).Error
+
+			if err != nil {
+				// User ไม่มีใน DB → สร้างใหม่
 				if createErr := userService.CreateUser(targetUser); createErr != nil {
 					log.Printf("⚠️ [LOGIN] Could not save mock user to DB: %v", createErr)
 				} else {
 					log.Printf("✅ [LOGIN] Mock User '%s' saved to database", loginReq.Username)
 				}
+			} else {
+				// User มีอยู่แล้ว → อัปเดตข้อมูลให้ตรง และยกเลิกการ soft-delete
+				existingUser.Role = targetUser.Role
+				existingUser.Title = targetUser.Title
+				existingUser.FirstName = targetUser.FirstName
+				existingUser.LastName = targetUser.LastName
+				existingUser.Email = targetUser.Email
+				existingUser.PeaCode = targetUser.PeaCode
+				existingUser.PeaShort = targetUser.PeaShort
+				existingUser.PeaName = targetUser.PeaName
+				existingUser.IsActive = true
+				
+				// Restore if it was soft-deleted
+				existingUser.DeletedAt = gorm.DeletedAt{Valid: false}
+
+				if updateErr := config.DB.Unscoped().Save(&existingUser).Error; updateErr != nil {
+					log.Printf("⚠️ [LOGIN] Could not update mock user in DB: %v", updateErr)
+				} else {
+					config.DB.Unscoped().Model(&existingUser).Update("deleted_at", nil)
+				}
+				targetUser.ID = existingUser.ID // ใช้ ID จาก DB
 			}
 		}
 

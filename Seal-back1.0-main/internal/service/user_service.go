@@ -37,3 +37,13 @@ func (s *UserService) CreateUser(user *model.User) error {
 func (s *UserService) UpdateUser(user *model.User) error {
 	return s.userRepo.Update(user)
 }
+
+// ✅ ดึงรายชื่อผู้ใช้ทั้งหมด
+func (s *UserService) GetAllUsers() ([]model.User, error) {
+	return s.userRepo.GetAll()
+}
+
+// ✅ ลบผู้ใช้ (Soft Delete)
+func (s *UserService) DeleteUser(username string) error {
+	return s.userRepo.Delete(username)
+}
