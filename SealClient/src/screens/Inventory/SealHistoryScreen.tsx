@@ -6,6 +6,7 @@ import { Header } from '@/components/dashboard';
 import { sealService } from '@/services/sealService';
 import api from '@/services/api';
 import { Seal, Log } from '@/types';
+import { SealStatus } from '../../constants/status';
 
 const ActivityItem: React.FC<{ log: Log; isLast?: boolean }> = ({ log, isLast }) => {
     // Basic mapping of actions to icons/colors
@@ -13,7 +14,7 @@ const ActivityItem: React.FC<{ log: Log; isLast?: boolean }> = ({ log, isLast })
         if (action.includes('created') || action.includes('นำเข้า')) {
             return { icon: '📦', color: '#66bb6a', label: 'นำเข้าคลังสินค้า (Import)' };
         }
-        if (action.includes('assigned') || action.includes('จ่าย')) {
+        if (action.includes('assigned') || action.includes(SealStatus.ISSUED)) {
             return { icon: '🚚', color: '#42a5f5', label: 'จ่ายให้พนักงาน (Assigned)' };
         }
         if (action.includes('used') || action.includes('ติดตั้ง')) {
@@ -68,12 +69,12 @@ export const SealHistoryScreen: React.FC = () => {
     const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
 
     const STATUS_OPTIONS = [
-        'พร้อมใช้งาน',
-        'จ่าย',
-        'ติดตั้งแล้ว',
-        'ใช้งานแล้ว',
-        'เสียหาย',
-        'สูญหาย'
+        SealStatus.READY,
+        SealStatus.ISSUED,
+        SealStatus.INSTALLED,
+        SealStatus.USED,
+        SealStatus.DAMAGED,
+        SealStatus.LOST
     ];
 
     useEffect(() => {
@@ -118,7 +119,7 @@ export const SealHistoryScreen: React.FC = () => {
         try {
             await sealService.cancelSeal(sealNumber);
             setConfirmModalVisible(false);
-            Alert.alert("สำเร็จ", "ยกเลิกซีลแล้ว สถานะกลับเป็น 'พร้อมใช้งาน'");
+            Alert.alert("สำเร็จ", "ยกเลิกซีลแล้ว สถานะกลับเป็น SealStatus.READY");
             fetchData(); // Refresh data
         } catch (error) {
             console.error("Cancel failed", error);
@@ -149,7 +150,7 @@ export const SealHistoryScreen: React.FC = () => {
     };
 
     const openEditStatusModal = () => {
-        setSelectedStatus(seal?.status || 'พร้อมใช้งาน');
+        setSelectedStatus(seal?.status || SealStatus.READY);
         setEditStatusModalVisible(true);
     };
 
@@ -202,11 +203,11 @@ export const SealHistoryScreen: React.FC = () => {
                         <TouchableOpacity
                             style={[
                                 styles.statusBadge,
-                                { backgroundColor: seal?.status === 'เสียหาย' || seal?.status === 'สูญหาย' ? '#f44336' : '#4caf50' }
+                                { backgroundColor: seal?.status === SealStatus.DAMAGED || seal?.status === SealStatus.LOST ? '#f44336' : '#4caf50' }
                             ]}
                             onPress={openEditStatusModal}
                         >
-                            <Text style={styles.statusBadgeText}>● สถานะปัจจุบัน: {seal?.status || 'พร้อมใช้งาน'} ✏️</Text>
+                            <Text style={styles.statusBadgeText}>● สถานะปัจจุบัน: {seal?.status || SealStatus.READY} ✏️</Text>
                         </TouchableOpacity>
                     </View>
 
@@ -313,11 +314,11 @@ export const SealHistoryScreen: React.FC = () => {
                             </View>
 
                             {/* CANCEL SEAL ACTION */}
-                            {['ใช้งานแล้ว', 'ติดตั้งแล้ว'].includes(seal?.status || '') && (
+                            {[SealStatus.USED, SealStatus.INSTALLED].includes(seal?.status as any) && (
                                 <View style={[styles.infoCard, { borderColor: '#ffcdd2', backgroundColor: '#ffebee' }]}>
                                     <Text style={[styles.infoCardTitle, { color: '#c62828' }]}>⚠️ ยกเลิกรายการ (Cancel)</Text>
                                     <Text style={styles.warningText}>
-                                        หากบันทึกการติดตั้งผิดพลาด สามารถกดยกเลิกเพื่อคืนสถานะเป็น "พร้อมใช้งาน" ได้
+                                        หากบันทึกการติดตั้งผิดพลาด สามารถกดยกเลิกเพื่อคืนสถานะเป็น SealStatus.READY ได้
                                     </Text>
                                     <TouchableOpacity style={styles.cancelBtn} onPress={() => setConfirmModalVisible(true)}>
                                         <Text style={styles.cancelBtnText}>🚫 ยกเลิกซีลนี้</Text>
@@ -338,7 +339,7 @@ export const SealHistoryScreen: React.FC = () => {
                             <Text style={styles.modalTitle}>ยืนยันการยกเลิก</Text>
                             <Text style={styles.modalMessage}>
                                 คุณต้องการยกเลิกซีลเบอร์ <Text style={{ fontWeight: 'bold' }}>{sealNumber}</Text> ใช่หรือไม่?{'\n'}
-                                สถานะจะถูกเปลี่ยนกลับเป็น "พร้อมใช้งาน"
+                                สถานะจะถูกเปลี่ยนกลับเป็น SealStatus.READY
                             </Text>
                             <View style={styles.modalActions}>
                                 <TouchableOpacity style={styles.modalCancelBtn} onPress={() => setConfirmModalVisible(false)}>

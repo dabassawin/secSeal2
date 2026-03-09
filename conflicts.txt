@@ -1,0 +1,2 @@
+SealClient/src/services/api.ts
+SealTechnician/src/config/api.config.ts

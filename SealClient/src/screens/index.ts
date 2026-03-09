@@ -13,3 +13,4 @@ export * from './User/ChangeWorkplaceScreen';
 export * from './Report/ReportScreen';
 export * from './Seal/ReturnVerificationScreen';
 
+export * from './MasCom/AddMasComScreen';

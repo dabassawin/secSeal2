@@ -1,3 +1,4 @@
+import { SealStatus } from '../constants/status';
 // TypeScript types and interfaces
 // Example: export interface User { id: string; name: string; }
 export interface Log {
@@ -22,10 +23,10 @@ export interface LogResponse {
 
 export interface SealReport {
     total_seals: number;
-    "พร้อมใช้งาน": number;
-    "จ่าย": number;
-    "ติดตั้งแล้ว": number;
-    "ใช้งานแล้ว": number;
+    [SealStatus.READY]: number;
+    [SealStatus.ISSUED]: number;
+    [SealStatus.INSTALLED]: number;
+    [SealStatus.USED]: number;
 }
 
 export interface Seal {
@@ -33,7 +34,7 @@ export interface Seal {
     seal_number: string;
     qr_code?: string;
     pea_code?: string; // ✅ รหัสการไฟฟ้าที่ออกซีล
-    status: 'พร้อมใช้งาน' | 'จ่าย' | 'ติดตั้งแล้ว' | 'ใช้งานแล้ว' | 'เสียหาย' | 'สูญหาย';
+    status: typeof SealStatus[keyof typeof SealStatus];
     box_number?: string;
     created_at?: string;
     updated_at?: string;

@@ -1,6 +1,7 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 
+// @ts-ignore
 if (typeof global === 'undefined') {
     (window as any).global = window;
 }

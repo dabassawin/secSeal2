@@ -28,6 +28,8 @@ SELECT
     -- ช่างที่รับ (Technician ที่ assigned)
     COALESCE(t.first_name || ' ' || t.last_name, '') AS technician_name,
     COALESCE(t.company_name, '') AS technician_company,
+    COALESCE(mc.com_code, '') AS technician_com_code,
+    COALESCE(mc.name_eng, '') AS technician_company_eng,
     -- ช่างที่ติดตั้ง (used_by → technicians)
     COALESCE(t_used.first_name || ' ' || t_used.last_name, '') AS used_by_name,
     -- ช่างที่ส่งคืน (returned_by_technician → technicians)
@@ -37,6 +39,7 @@ SELECT
 FROM seals s
 LEFT JOIN users u ON u.emp_id = s.issued_by AND u.deleted_at IS NULL
 LEFT JOIN technicians t ON t.id = s.assigned_to_technician
+LEFT JOIN mas_coms mc ON mc.name_th = t.company_name AND mc.deleted_at IS NULL
 LEFT JOIN technicians t_used ON t_used.id = s.used_by
 LEFT JOIN technicians t_ret ON t_ret.id = s.returned_by_technician
 LEFT JOIN users u_ret ON u_ret.emp_id = s.returned_by AND u_ret.deleted_at IS NULL

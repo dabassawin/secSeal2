@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { CameraView, useCameraPermissions } from 'expo-camera';
 import { TechnicianService, Seal } from '../services/TechnicianService';
+import { SealStatus } from '../constants/status';
 
 type RootStackParamList = {
     Home: undefined;
@@ -64,8 +65,8 @@ export default function ReturnSealScreen({ onLogout }: ReturnSealScreenProps) {
             const data = await TechnicianService.getAssignedSeals();
             // Filter only seals that can be returned (Assigned or active)
             const returnable = data.filter(s =>
-                s.status === 'จ่าย' ||
-                s.status === 'ติดตั้งแล้ว'
+                s.status === SealStatus.ISSUED ||
+                s.status === SealStatus.INSTALLED
             );
             setSeals(returnable);
         } catch (error) {
@@ -87,7 +88,7 @@ export default function ReturnSealScreen({ onLogout }: ReturnSealScreenProps) {
     const openReturnModal = (seal: Seal) => {
         setSelectedSeal(seal);
         // Default reason based on status
-        if (seal.status === 'ติดตั้งแล้ว') {
+        if (seal.status === SealStatus.INSTALLED) {
             setReason('ซีลเก่าที่ถูกตัดออก');
         } else {
             setReason('ชำรุดก่อนใช้งาน');
@@ -339,7 +340,7 @@ export default function ReturnSealScreen({ onLogout }: ReturnSealScreenProps) {
                         <Text style={styles.inputLabel}>เหตุผลการคืน <Text style={styles.required}>*</Text></Text>
                         <View style={styles.reasonContainer}>
                             {RETURN_REASONS.map((r, index) => {
-                                const isInstalled = selectedSeal?.status === 'ติดตั้งแล้ว';
+                                const isInstalled = selectedSeal?.status === SealStatus.INSTALLED;
                                 const isOldSealReason = r === 'ซีลเก่าที่ถูกตัดออก';
 
                                 // Disable logic

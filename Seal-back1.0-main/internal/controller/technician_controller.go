@@ -18,13 +18,17 @@ import (
 type TechnicianController struct {
 	technicianService *service.TechnicianService
 	sealService       *service.SealService
+	masComService     *service.MasComService
+	masPeaService     *service.MasPeaService
 }
 
 // NewTechnicianController สร้าง instance ของ TechnicianController
-func NewTechnicianController(technicianService *service.TechnicianService, sealService *service.SealService) *TechnicianController {
+func NewTechnicianController(technicianService *service.TechnicianService, sealService *service.SealService, masComService *service.MasComService, masPeaService *service.MasPeaService) *TechnicianController {
 	return &TechnicianController{
 		technicianService: technicianService,
 		sealService:       sealService,
+		masComService:     masComService,
+		masPeaService:     masPeaService,
 	}
 }
 
@@ -41,13 +45,48 @@ func (tc *TechnicianController) RegisterHandler(c *fiber.Ctx) error {
 		// เพิ่มฟิลด์ใหม่
 		CompanyName string `json:"company_name"`
 		Department  string `json:"department"`
-		PeaCode     string `json:"pea_code"` // ✅ เพิ่ม PeaCode
+		PeaCode     string `json:"pea_code"` // ✅ สังกัด
+		ComCode     string `json:"com_code"` // ✅ รหัสศูนย์งาน (ใช้สร้าง technician_code อัตโนมัติ)
 	}
 
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{
 			"error": "Invalid request body",
 		})
+	}
+
+	// ✅ Auto-generate technician_code ถ้าส่ง com_code มาแต่ไม่ได้ส่ง technician_code
+	if req.TechnicianCode == "" && req.ComCode != "" {
+		// 1) หา MasCom จาก com_code
+		com, err := tc.masComService.GetComByCode(req.ComCode)
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "ไม่พบศูนย์งาน: " + req.ComCode})
+		}
+
+		// 2) หา MasPea จาก pea_code ของ MasCom เพื่อเอา NameEng
+		pea, err := tc.masPeaService.GetPeaByCode(com.PeaCode)
+		if err != nil {
+			return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "ไม่พบสังกัด: " + com.PeaCode + " (DB err: " + err.Error() + ")"})
+		}
+
+		// 3) สร้าง prefix: {comCode}{NameEng}
+		prefix := req.ComCode + pea.NameEng
+
+		// 4) นับจำนวนช่างที่ขึ้นต้นด้วย prefix นี้
+		count, err := tc.technicianService.CountByCodePrefix(prefix)
+		if err != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "ไม่สามารถสร้างรหัสช่างได้"})
+		}
+
+		// 5) สร้าง technician_code: {prefix}-{ลำดับถัดไป 2 หลัก}
+		req.TechnicianCode = fmt.Sprintf("%s-%02d", prefix, count+1)
+
+		// ✅ ตั้ง pea_code จาก MasCom ถ้ายังไม่ได้ส่งมา
+		if req.PeaCode == "" {
+			req.PeaCode = com.PeaCode
+		}
+
+		log.Printf("✅ Auto-generated technician_code: %s", req.TechnicianCode)
 	}
 
 	// สร้าง Model เพื่อส่งไป Service
@@ -66,12 +105,20 @@ func (tc *TechnicianController) RegisterHandler(c *fiber.Ctx) error {
 		Department:  req.Department,
 	}
 
+	// ถ้าไม่มี username ให้ใช้ technician_code แทน
+	if tech.Username == "" && tech.TechnicianCode != "" {
+		tech.Username = tech.TechnicianCode
+	}
+
 	// เรียก Service เพื่อ Register
 	if err := tc.technicianService.Register(tech); err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
 
-	return c.JSON(fiber.Map{"message": "Technician registered successfully"})
+	return c.JSON(fiber.Map{
+		"message":         "Technician registered successfully",
+		"technician_code": tech.TechnicianCode,
+	})
 }
 
 // ✅ LoginHandler สำหรับล็อกอินช่าง

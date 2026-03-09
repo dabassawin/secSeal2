@@ -9,6 +9,7 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 import { Ionicons } from '@expo/vector-icons';
 import { AuthService } from '../services/AuthService';
 import { API_CONFIG } from '../config/api.config';
+import { SealStatus } from '../constants/status';
 
 type RootStackParamList = {
     Home: undefined;
@@ -37,13 +38,13 @@ export default function HomeScreen({ onLogout }: HomeScreenProps) {
 
     const pendingSeals = activeSeals;
     const returnedSeals = historySeals.filter(s =>
-        s.status === 'ใช้งานแล้ว' ||
-        s.status === 'รอตรวจสอบคืน' ||
-        s.status === 'เสียหาย' ||
-        (s.status === 'พร้อมใช้งาน' && s.return_remarks === 'ไม่ได้ใช้งาน (คืนคลัง)')
+        s.status === SealStatus.USED ||
+        s.status === SealStatus.PENDING_RETURN ||
+        s.status === SealStatus.DAMAGED ||
+        (s.status === SealStatus.READY && s.return_remarks === 'ไม่ได้ใช้งาน (คืนคลัง)')
     );
     const completedSeals = historySeals.filter(s =>
-        s.status === 'ติดตั้งแล้ว'
+        s.status === SealStatus.INSTALLED
     );
 
     const getTabLabel = (tab: string) => {
@@ -114,17 +115,17 @@ export default function HomeScreen({ onLogout }: HomeScreenProps) {
 
             <View style={styles.cardRight}>
                 <View style={[styles.statusBadge,
-                (item.status === 'เสียหาย' || item.status === 'รอตรวจสอบคืน') ? styles.statusFailed :
-                    (item.status === 'ติดตั้งแล้ว' || item.status === 'ใช้งานแล้ว' || (item.status === 'พร้อมใช้งาน' && item.return_remarks === 'ไม่ได้ใช้งาน (คืนคลัง)')) ? styles.statusSuccess : styles.statusPending
+                (item.status === SealStatus.DAMAGED || item.status === SealStatus.PENDING_RETURN) ? styles.statusFailed :
+                    (item.status === SealStatus.INSTALLED || item.status === SealStatus.USED || (item.status === SealStatus.READY && item.return_remarks === 'ไม่ได้ใช้งาน (คืนคลัง)')) ? styles.statusSuccess : styles.statusPending
                 ]}>
                     <Text style={[styles.statusText,
-                    (item.status === 'เสียหาย' || item.status === 'รอตรวจสอบคืน') ? styles.textFailed :
-                        (item.status === 'ติดตั้งแล้ว' || item.status === 'ใช้งานแล้ว' || (item.status === 'พร้อมใช้งาน' && item.return_remarks === 'ไม่ได้ใช้งาน (คืนคลัง)')) ? styles.textSuccess : styles.textPending
+                    (item.status === SealStatus.DAMAGED || item.status === SealStatus.PENDING_RETURN) ? styles.textFailed :
+                        (item.status === SealStatus.INSTALLED || item.status === SealStatus.USED || (item.status === SealStatus.READY && item.return_remarks === 'ไม่ได้ใช้งาน (คืนคลัง)')) ? styles.textSuccess : styles.textPending
                     ]}>
-                        {(item.status === 'เสียหาย' || item.status === 'รอตรวจสอบคืน') ? item.status :
-                            (item.status === 'ใช้งานแล้ว') ? 'คืนแล้ว' :
-                                (item.status === 'พร้อมใช้งาน' && item.return_remarks === 'ไม่ได้ใช้งาน (คืนคลัง)') ? 'คืนคลัง' :
-                                    (item.status === 'ติดตั้งแล้ว') ? 'ติดตั้งแล้ว' : 'ยังไม่ติดตั้ง'}
+                        {(item.status === SealStatus.DAMAGED || item.status === SealStatus.PENDING_RETURN) ? item.status :
+                            (item.status === SealStatus.USED) ? 'คืนแล้ว' :
+                                (item.status === SealStatus.READY && item.return_remarks === 'ไม่ได้ใช้งาน (คืนคลัง)') ? 'คืนคลัง' :
+                                    (item.status === SealStatus.INSTALLED) ? SealStatus.INSTALLED : 'ยังไม่ติดตั้ง'}
                     </Text>
                 </View>
             </View>

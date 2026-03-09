@@ -2,6 +2,7 @@ import React, { useMemo, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, ScrollView } from 'react-native';
 import { colors, sizes } from '@/constants';
 import { SealReportItem } from '@/services/reportService';
+import { SealStatus } from '../../constants/status';
 
 const OVERDUE_DAYS = 7;
 
@@ -20,17 +21,17 @@ export const AnomalyReport: React.FC<AnomalyReportProps> = ({ items, onClose }) 
         const overdueDaysMs = OVERDUE_DAYS * 24 * 60 * 60 * 1000;
 
         const overdueSeals = items.filter(item => {
-            if (item.status !== 'จ่าย') return false;
+            if (item.status !== SealStatus.ISSUED) return false;
             if (!item.issued_at) return false;
             return (now - new Date(item.issued_at).getTime()) > overdueDaysMs;
         });
 
         const damagedLostSeals = items.filter(item =>
-            item.status === 'เสียหาย' || item.status === 'สูญหาย'
+            item.status === SealStatus.DAMAGED || item.status === SealStatus.LOST
         );
 
         const pendingReturnSeals = items.filter(item =>
-            item.status === 'รอตรวจสอบคืน'
+            item.status === SealStatus.PENDING_RETURN
         );
 
         return {
@@ -44,7 +45,7 @@ export const AnomalyReport: React.FC<AnomalyReportProps> = ({ items, onClose }) 
     const tabs: { key: AnomalyTab; label: string; icon: string; count: number; color: string }[] = [
         { key: 'overdue', label: `ค้างจ่ายเกิน ${OVERDUE_DAYS} วัน`, icon: '⏰', count: overdueSeals.length, color: '#ff9800' },
         { key: 'damaged', label: 'เสียหาย / สูญหาย', icon: '💔', count: damagedLostSeals.length, color: '#f44336' },
-        { key: 'pending', label: 'รอตรวจสอบคืน', icon: '🔄', count: pendingReturnSeals.length, color: '#2196f3' },
+        { key: 'pending', label: SealStatus.PENDING_RETURN, icon: '🔄', count: pendingReturnSeals.length, color: '#2196f3' },
     ];
 
     const activeItems = activeTab === 'overdue' ? overdueSeals
@@ -121,15 +122,15 @@ export const AnomalyReport: React.FC<AnomalyReportProps> = ({ items, onClose }) 
                                 <Text style={[styles.td, styles.sealNum, { flex: 1.5 }]}>{item.seal_number}</Text>
                                 <View style={[styles.tdView, { flex: 1 }]}>
                                     <View style={[styles.statusBadge, {
-                                        backgroundColor: item.status === 'เสียหาย' ? '#ffebee'
-                                            : item.status === 'สูญหาย' ? '#fce4ec'
-                                                : item.status === 'รอตรวจสอบคืน' ? '#e3f2fd'
+                                        backgroundColor: item.status === SealStatus.DAMAGED ? '#ffebee'
+                                            : item.status === SealStatus.LOST ? '#fce4ec'
+                                                : item.status === SealStatus.PENDING_RETURN ? '#e3f2fd'
                                                     : '#fff3e0'
                                     }]}>
                                         <Text style={[styles.statusText, {
-                                            color: item.status === 'เสียหาย' ? '#c62828'
-                                                : item.status === 'สูญหาย' ? '#ad1457'
-                                                    : item.status === 'รอตรวจสอบคืน' ? '#1565c0'
+                                            color: item.status === SealStatus.DAMAGED ? '#c62828'
+                                                : item.status === SealStatus.LOST ? '#ad1457'
+                                                    : item.status === SealStatus.PENDING_RETURN ? '#1565c0'
                                                         : '#e65100'
                                         }]}>{item.status}</Text>
                                     </View>
@@ -155,9 +156,9 @@ export const getAnomalyCount = (items: SealReportItem[]): number => {
 
     let count = 0;
     items.forEach(item => {
-        if (item.status === 'จ่าย' && item.issued_at && (now - new Date(item.issued_at).getTime()) > overdueDaysMs) count++;
-        if (item.status === 'เสียหาย' || item.status === 'สูญหาย') count++;
-        if (item.status === 'รอตรวจสอบคืน') count++;
+        if (item.status === SealStatus.ISSUED && item.issued_at && (now - new Date(item.issued_at).getTime()) > overdueDaysMs) count++;
+        if (item.status === SealStatus.DAMAGED || item.status === SealStatus.LOST) count++;
+        if (item.status === SealStatus.PENDING_RETURN) count++;
     });
     return count;
 };

@@ -7,6 +7,7 @@ import { useAuth } from '@/context/AuthContext';
 import { sealService } from '@/services/sealService';
 import { SealReport } from '@/types';
 import { useNavigation } from '@react-navigation/native';
+import { SealStatus } from '../../constants/status';
 
 export const HomeScreen: React.FC = () => {
     const navigation = useNavigation();
@@ -53,17 +54,17 @@ export const HomeScreen: React.FC = () => {
                     />
                     <StatusCard
                         title="พร้อมใช้งาน (ในคลัง)"
-                        count={stats ? stats["พร้อมใช้งาน"].toLocaleString() : "-"}
+                        count={stats ? stats[SealStatus.READY].toLocaleString() : "-"}
                         color={colors.accentYellow}
                     />
                     <StatusCard
                         title="อยู่ระหว่างปฏิบัติงาน"
-                        count={stats ? stats["จ่าย"].toLocaleString() : "-"}
+                        count={stats ? stats[SealStatus.ISSUED].toLocaleString() : "-"}
                         color={colors.accentBlue}
                     />
                     <StatusCard
                         title="ติดตั้งเสร็จสิ้น (วันนี้)"
-                        count={stats ? stats["ติดตั้งแล้ว"].toLocaleString() : "-"}
+                        count={stats ? stats[SealStatus.INSTALLED].toLocaleString() : "-"}
                         color={colors.accentGreen}
                     />
                 </View>

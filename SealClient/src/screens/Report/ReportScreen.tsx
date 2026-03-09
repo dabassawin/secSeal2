@@ -8,18 +8,19 @@ import { PieChart, PieChartData } from '@/components/charts/PieChart';
 import { BarChart, BarChartData } from '@/components/charts/BarChart';
 import { KPICard } from '@/components/charts/KPICard';
 import { AnomalyReport, getAnomalyCount } from '@/components/report/AnomalyReport';
+import { SealStatus } from '../../constants/status';
 
 // ─── Status badge colors ────────────────────────────
 const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
-    'พร้อมใช้งาน': { bg: '#e8f5e9', text: '#2e7d32' },
-    'จ่าย': { bg: '#fff3e0', text: '#e65100' },
-    'ติดตั้งแล้ว': { bg: '#e3f2fd', text: '#1565c0' },
-    'ใช้งานแล้ว': { bg: '#f3e5f5', text: '#7b1fa2' },
-    'เสียหาย': { bg: '#fce4ec', text: '#c62828' },
-    'สูญหาย': { bg: '#ffebee', text: '#b71c1c' },
+    [SealStatus.READY]: { bg: '#e8f5e9', text: '#2e7d32' },
+    [SealStatus.ISSUED]: { bg: '#fff3e0', text: '#e65100' },
+    [SealStatus.INSTALLED]: { bg: '#e3f2fd', text: '#1565c0' },
+    [SealStatus.USED]: { bg: '#f3e5f5', text: '#7b1fa2' },
+    [SealStatus.DAMAGED]: { bg: '#fce4ec', text: '#c62828' },
+    [SealStatus.LOST]: { bg: '#ffebee', text: '#b71c1c' },
 };
 
-const ALL_STATUSES = ['พร้อมใช้งาน', 'จ่าย', 'ติดตั้งแล้ว', 'ใช้งานแล้ว', 'เสียหาย', 'สูญหาย'];
+const ALL_STATUSES = [SealStatus.READY, SealStatus.ISSUED, SealStatus.INSTALLED, SealStatus.USED, SealStatus.DAMAGED, SealStatus.LOST];
 
 // ─── Format date helper ─────────────────────────────
 const formatDate = (dateStr: string | null | undefined): string => {
@@ -278,12 +279,12 @@ export const ReportScreen: React.FC = () => {
         });
 
         const STATUS_CHART_COLORS: Record<string, string> = {
-            'พร้อมใช้งาน': '#4caf50',
-            'จ่าย': '#ff9800',
-            'ติดตั้งแล้ว': '#2196f3',
-            'ใช้งานแล้ว': '#9c27b0',
-            'เสียหาย': '#f44336',
-            'สูญหาย': '#b71c1c',
+            [SealStatus.READY]: '#4caf50',
+            [SealStatus.ISSUED]: '#ff9800',
+            [SealStatus.INSTALLED]: '#2196f3',
+            [SealStatus.USED]: '#9c27b0',
+            [SealStatus.DAMAGED]: '#f44336',
+            [SealStatus.LOST]: '#b71c1c',
         };
 
         const pieData: PieChartData[] = Object.entries(statusCounts).map(([label, value]) => ({
@@ -317,11 +318,11 @@ export const ReportScreen: React.FC = () => {
 
         // KPI calculations
         const total = items.length;
-        const installed = statusCounts['ติดตั้งแล้ว'] || 0;
-        const used = statusCounts['ใช้งานแล้ว'] || 0;
-        const damaged = statusCounts['เสียหาย'] || 0;
-        const lost = statusCounts['สูญหาย'] || 0;
-        const issued = statusCounts['จ่าย'] || 0;
+        const installed = statusCounts[SealStatus.INSTALLED] || 0;
+        const used = statusCounts[SealStatus.USED] || 0;
+        const damaged = statusCounts[SealStatus.DAMAGED] || 0;
+        const lost = statusCounts[SealStatus.LOST] || 0;
+        const issued = statusCounts[SealStatus.ISSUED] || 0;
         const totalIssued = installed + used + damaged + lost + issued;
         const installRate = totalIssued > 0 ? (((installed + used) / totalIssued) * 100).toFixed(1) : '0.0';
         const issueRate = total > 0 ? (((damaged + lost) / total) * 100).toFixed(1) : '0.0';

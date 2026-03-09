@@ -1,6 +1,8 @@
 package service
 
 import (
+	"github.com/Kev2406/PEA/internal/domain/constants"
+
 	"errors"
 	"fmt"
 	"log"
@@ -122,7 +124,7 @@ func (s *SealService) CreateSeal(seal *model.Seal, userID uint) error {
 	}
 
 	now := time.Now()
-	seal.Status = "พร้อมใช้งาน"
+	seal.Status = string(constants.StatusReady)
 	seal.CreatedAt = now
 	seal.UpdatedAt = now
 
@@ -152,7 +154,7 @@ func (s *SealService) GenerateAndCreateSeals(count int, userID uint) ([]model.Se
 	for i, sn := range sealNumbers {
 		seals[i] = model.Seal{
 			SealNumber: sn,
-			Status:     "พร้อมใช้งาน",
+			Status:     string(constants.StatusReady),
 			CreatedAt:  now,
 			UpdatedAt:  now,
 		}
@@ -183,7 +185,7 @@ func (s *SealService) GenerateAndCreateSealsFromNumber(startingSealNumber string
 	var newSeals []model.Seal
 
 	if status == "" {
-		status = "พร้อมใช้งาน"
+		status = string(constants.StatusReady)
 	}
 
 	for _, sn := range sealNumbers {
@@ -225,13 +227,13 @@ func (s *SealService) GenerateAndCreateSealsFromNumber(startingSealNumber string
 // Legacy Mechanics: IssueSeal, UseSeal, ReturnSeal
 // -------------------------------------------------------------------
 func (s *SealService) IssueSeal(sealNumber string, userID uint) error {
-	return s.UpdateSealStatus(sealNumber, "จ่าย", userID)
+	return s.UpdateSealStatus(sealNumber, string(constants.StatusIssued), userID)
 }
 func (s *SealService) UseSeal(sealNumber string, userID uint) error {
-	return s.UpdateSealStatus(sealNumber, "ติดตั้งแล้ว", userID)
+	return s.UpdateSealStatus(sealNumber, string(constants.StatusInstalled), userID)
 }
 func (s *SealService) ReturnSeal(sealNumber string, userID uint) error {
-	return s.UpdateSealStatus(sealNumber, "ใช้งานแล้ว", userID)
+	return s.UpdateSealStatus(sealNumber, string(constants.StatusUsed), userID)
 }
 
 func (s *SealService) UpdateSealStatus(sealNumber string, newStatus string, userID uint) error {
@@ -242,27 +244,27 @@ func (s *SealService) UpdateSealStatus(sealNumber string, newStatus string, user
 	now := time.Now()
 	logAction := ""
 	switch newStatus {
-	case "จ่าย":
-		if seal.Status != "พร้อมใช้งาน" {
+	case string(constants.StatusIssued):
+		if seal.Status != string(constants.StatusReady) {
 			return errors.New("ซิลต้องอยู่ในสถานะ 'พร้อมใช้งาน' เท่านั้นจึงจะจ่ายได้")
 		}
-		seal.Status = "จ่าย"
+		seal.Status = string(constants.StatusIssued)
 		seal.IssuedBy = &userID
 		seal.IssuedAt = &now
 		logAction = fmt.Sprintf("จ่ายซิล %s", sealNumber)
-	case "ติดตั้งแล้ว":
-		if seal.Status != "จ่าย" {
+	case string(constants.StatusInstalled):
+		if seal.Status != string(constants.StatusIssued) {
 			return errors.New("ซิลต้องอยู่ในสถานะ 'จ่าย' เท่านั้นจึงจะติดตั้งได้")
 		}
-		seal.Status = "ติดตั้งแล้ว"
+		seal.Status = string(constants.StatusInstalled)
 		seal.UsedBy = &userID
 		seal.UsedAt = &now
 		logAction = fmt.Sprintf("ติดตั้งซิล %s", sealNumber)
-	case "ใช้งานแล้ว":
-		if seal.Status != "ติดตั้งแล้ว" {
+	case string(constants.StatusUsed):
+		if seal.Status != string(constants.StatusInstalled) {
 			return errors.New("ซิลต้องอยู่ในสถานะ 'ติดตั้งแล้ว' เท่านั้นจึงจะใช้งานได้")
 		}
-		seal.Status = "ใช้งานแล้ว"
+		seal.Status = string(constants.StatusUsed)
 		seal.ReturnedBy = &userID
 		seal.ReturnedAt = &now
 		logAction = fmt.Sprintf("ซิล %s ถูกตั้งค่าว่าใช้งานแล้ว", sealNumber)
@@ -285,11 +287,11 @@ func (s *SealService) UpdateSealStatus(sealNumber string, newStatus string, user
 // New Methods: Support SerialNumber & Remarks
 // -------------------------------------------------------------------
 func (s *SealService) UseSealWithSerial(sealNumber string, userID uint, deviceSerial string) error {
-	return s.UpdateSealStatusWithExtra(sealNumber, "ติดตั้งแล้ว", userID, deviceSerial, "")
+	return s.UpdateSealStatusWithExtra(sealNumber, string(constants.StatusInstalled), userID, deviceSerial, "")
 }
 
 func (s *SealService) ReturnSealWithRemarks(sealNumber string, userID uint, remarks string) error {
-	return s.UpdateSealStatusWithExtra(sealNumber, "ใช้งานแล้ว", userID, "", remarks)
+	return s.UpdateSealStatusWithExtra(sealNumber, string(constants.StatusUsed), userID, "", remarks)
 }
 
 func (s *SealService) IssueSealWithDetails(sealNumber string, issuedTo uint, employeeCode string, remark string, issuedBy uint) error {
@@ -297,11 +299,11 @@ func (s *SealService) IssueSealWithDetails(sealNumber string, issuedTo uint, emp
 	if err != nil {
 		return errors.New("ไม่พบซิลในระบบ")
 	}
-	if seal.Status != "พร้อมใช้งาน" {
+	if seal.Status != string(constants.StatusReady) {
 		return errors.New("ซิลต้องอยู่ในสถานะ 'พร้อมใช้งาน' เท่านั้นจึงจะจ่ายได้")
 	}
 	now := time.Now()
-	seal.Status = "จ่าย"
+	seal.Status = string(constants.StatusIssued)
 	seal.IssuedTo = &issuedTo
 	seal.AssignedToTechnician = &issuedTo
 	seal.IssuedAt = &now
@@ -329,20 +331,20 @@ func (s *SealService) UpdateSealStatusWithExtra(sealNumber string, newStatus str
 	now := time.Now()
 	logAction := ""
 	switch newStatus {
-	case "ติดตั้งแล้ว":
-		if seal.Status != "จ่าย" {
+	case string(constants.StatusInstalled):
+		if seal.Status != string(constants.StatusIssued) {
 			return errors.New("ซิลต้องอยู่ในสถานะ 'จ่าย' เท่านั้นจึงจะติดตั้งได้")
 		}
-		seal.Status = "ติดตั้งแล้ว"
+		seal.Status = string(constants.StatusInstalled)
 		seal.UsedBy = &userID
 		seal.UsedAt = &now
 		seal.InstalledSerial = deviceSerial
 		logAction = fmt.Sprintf("ติดตั้งซิล %s (Serial: %s)", sealNumber, deviceSerial)
-	case "ใช้งานแล้ว":
-		if seal.Status != "ติดตั้งแล้ว" {
+	case string(constants.StatusUsed):
+		if seal.Status != string(constants.StatusInstalled) {
 			return errors.New("ซิลต้องอยู่ในสถานะ 'ติดตั้งแล้ว' เท่านั้นจึงจะใช้งานได้")
 		}
-		seal.Status = "ใช้งานแล้ว"
+		seal.Status = string(constants.StatusUsed)
 		seal.ReturnedBy = &userID
 		seal.ReturnedAt = &now
 		seal.ReturnRemarks = remarks
@@ -404,33 +406,33 @@ func (s *SealService) GetSealReport(peaCode string) (map[string]interface{}, err
 	if err := query.Session(&gorm.Session{}).Count(&total).Error; err != nil {
 		return nil, err
 	}
-	if err := query.Session(&gorm.Session{}).Where("status = ?", "พร้อมใช้งาน").Count(&ready).Error; err != nil {
+	if err := query.Session(&gorm.Session{}).Where("status = ?", string(constants.StatusReady)).Count(&ready).Error; err != nil {
 		return nil, err
 	}
-	if err := query.Session(&gorm.Session{}).Where("status = ?", "จ่าย").Count(&paid).Error; err != nil {
+	if err := query.Session(&gorm.Session{}).Where("status = ?", string(constants.StatusIssued)).Count(&paid).Error; err != nil {
 		return nil, err
 	}
-	if err := query.Session(&gorm.Session{}).Where("status = ?", "ติดตั้งแล้ว").Count(&installed).Error; err != nil {
+	if err := query.Session(&gorm.Session{}).Where("status = ?", string(constants.StatusInstalled)).Count(&installed).Error; err != nil {
 		return nil, err
 	}
-	if err := query.Session(&gorm.Session{}).Where("status = ?", "ใช้งานแล้ว").Count(&used).Error; err != nil {
+	if err := query.Session(&gorm.Session{}).Where("status = ?", string(constants.StatusUsed)).Count(&used).Error; err != nil {
 		return nil, err
 	}
-	if err := query.Session(&gorm.Session{}).Where("status = ?", "เสียหาย").Count(&damaged).Error; err != nil {
+	if err := query.Session(&gorm.Session{}).Where("status = ?", string(constants.StatusDamaged)).Count(&damaged).Error; err != nil {
 		return nil, err
 	}
-	if err := query.Session(&gorm.Session{}).Where("status = ?", "รอตรวจสอบคืน").Count(&pendingReturn).Error; err != nil {
+	if err := query.Session(&gorm.Session{}).Where("status = ?", string(constants.StatusPendingReturn)).Count(&pendingReturn).Error; err != nil {
 		return nil, err
 	}
 
 	report := map[string]interface{}{
-		"total_seals":  total,
-		"พร้อมใช้งาน":  ready,
-		"จ่าย":         paid,
-		"ติดตั้งแล้ว":  installed,
-		"ใช้งานแล้ว":   used,
-		"เสียหาย":      damaged,
-		"รอตรวจสอบคืน": pendingReturn,
+		"total_seals":                         total,
+		string(constants.StatusReady):         ready,
+		string(constants.StatusIssued):        paid,
+		string(constants.StatusInstalled):     installed,
+		string(constants.StatusUsed):          used,
+		string(constants.StatusDamaged):       damaged,
+		string(constants.StatusPendingReturn): pendingReturn,
 	}
 	return report, nil
 }
@@ -474,14 +476,14 @@ func (s *SealService) AssignSealToTechnician(sealNumber string, techID uint, iss
 		return err
 	}
 
-	if seal.Status != "พร้อมใช้งาน" && seal.Status != "จ่าย" {
+	if seal.Status != string(constants.StatusReady) && seal.Status != string(constants.StatusIssued) {
 		return errors.New("ซิลต้องอยู่ในสถานะ 'พร้อมใช้งาน' หรือ 'จ่าย' เท่านั้นจึงจะ Assign ได้")
 	}
 
 	now := time.Now()
 
-	if seal.Status == "พร้อมใช้งาน" {
-		seal.Status = "จ่าย"
+	if seal.Status == string(constants.StatusReady) {
+		seal.Status = string(constants.StatusIssued)
 		seal.IssuedAt = &now
 		seal.IssuedBy = &issuedBy
 	}
@@ -521,12 +523,12 @@ func (s *SealService) InstallSeal(sealNumber string, techID uint, serialNumber s
 	// ✅ เพิ่ม Debug Log และ Trim ช่องว่างใน status
 	log.Printf("🛠 [InstallSeal] sealNumber=%s, DB status='%s'", sealNumber, seal.Status)
 	actualStatus := strings.TrimSpace(seal.Status)
-	if actualStatus != "จ่าย" {
+	if actualStatus != string(constants.StatusIssued) {
 		return errors.New("ซิลต้องอยู่ในสถานะ 'จ่าย' เท่านั้นจึงจะติดตั้งได้")
 	}
 
 	now := time.Now()
-	seal.Status = "ติดตั้งแล้ว"
+	seal.Status = string(constants.StatusInstalled)
 	seal.UsedBy = &techID
 	seal.UsedAt = &now
 	seal.InstalledSerial = serialNumber
@@ -572,7 +574,7 @@ func (s *SealService) IssueMultipleSeals(
 		if err != nil {
 			return nil, fmt.Errorf("ไม่พบซีลในระบบ: %s", fullSealNumber)
 		}
-		if seal.Status != "พร้อมใช้งาน" {
+		if seal.Status != string(constants.StatusReady) {
 			return nil, fmt.Errorf("ซีล %s ไม่ได้อยู่ในสถานะ 'พร้อมใช้งาน'", fullSealNumber)
 		}
 		sealsToIssue = append(sealsToIssue, *seal)
@@ -581,7 +583,7 @@ func (s *SealService) IssueMultipleSeals(
 	now := time.Now()
 	err := s.db.Transaction(func(tx *gorm.DB) error {
 		for i := range sealsToIssue {
-			sealsToIssue[i].Status = "จ่าย"
+			sealsToIssue[i].Status = string(constants.StatusIssued)
 			sealsToIssue[i].IssuedTo = &issuedTo
 			sealsToIssue[i].AssignedToTechnician = &issuedTo
 			sealsToIssue[i].IssuedAt = &now
@@ -658,7 +660,7 @@ func (s *SealService) CheckSealAvailability(sealNumbers []string) ([]dto.SealChe
 			continue
 		}
 
-		if seal.Status == "พร้อมใช้งาน" {
+		if seal.Status == string(constants.StatusReady) {
 			results = append(results, dto.SealCheckResult{
 				SealNumber:  sn,
 				IsAvailable: true,
@@ -693,12 +695,12 @@ func (s *SealService) AssignSealsByTechCode(techCode string, sealNumbers []strin
 			return fmt.Errorf("ซีล %s ไม่พบในระบบ", sn)
 		}
 		// ตรวจสอบสถานะ
-		if seal.Status != "พร้อมใช้งาน" && seal.Status != "จ่าย" {
+		if seal.Status != string(constants.StatusReady) && seal.Status != string(constants.StatusIssued) {
 			return fmt.Errorf("ซีล %s ไม่ได้อยู่ในสถานะที่อนุญาตให้ assign", sn)
 		}
 		// ถ้าเป็น “พร้อมใช้งาน” -> เปลี่ยนเป็น “จ่าย”
-		if seal.Status == "พร้อมใช้งาน" {
-			seal.Status = "จ่าย"
+		if seal.Status == string(constants.StatusReady) {
+			seal.Status = string(constants.StatusIssued)
 			seal.IssuedAt = &now
 			seal.IssuedBy = &issuedBy
 		}
@@ -741,12 +743,12 @@ func (s *SealService) CancelSeal(sealNumber string, userID uint) error {
 	}
 
 	// Allow cancelling from 'Used' or 'Installed' to revert to 'Available'
-	// if seal.Status == "ติดตั้งแล้ว" || seal.Status == "ใช้งานแล้ว" {
+	// if seal.Status == string(constants.StatusInstalled) || seal.Status == string(constants.StatusUsed) {
 	// 	return errors.New("ซีลถูกใช้งานไปแล้ว ไม่สามารถคืนได้")
 	// }
 
 	now := time.Now()
-	seal.Status = "พร้อมใช้งาน"
+	seal.Status = string(constants.StatusReady)
 	seal.IssuedBy = nil
 	seal.IssuedTo = nil
 	seal.IssuedAt = nil
@@ -780,10 +782,10 @@ func (s *SealService) ScanAndUseSeal(sealNumber string, userID uint, imagePath s
 	}
 
 	// 1. Check if already installed or used
-	if seal.Status == "ติดตั้งแล้ว" {
+	if seal.Status == string(constants.StatusInstalled) {
 		return "", errors.New("ซีลนี้ถูกติดตั้งไปแล้ว")
 	}
-	if seal.Status == "ใช้งานแล้ว" {
+	if seal.Status == string(constants.StatusUsed) {
 		return "", errors.New("ซีลนี้ถูกใช้งานไปแล้ว")
 	}
 
@@ -796,12 +798,12 @@ func (s *SealService) ScanAndUseSeal(sealNumber string, userID uint, imagePath s
 	}
 
 	// 2. Only allow "จ่าย" status to be installed
-	if seal.Status != "จ่าย" {
+	if seal.Status != string(constants.StatusIssued) {
 		return "", fmt.Errorf("ซีลต้องอยู่ในสถานะ 'จ่าย' เท่านั้นจึงจะติดตั้งได้ (สถานะปัจจุบัน: %s)", seal.Status)
 	}
 
 	now := time.Now()
-	seal.Status = "ติดตั้งแล้ว"
+	seal.Status = string(constants.StatusInstalled)
 	seal.UsedAt = &now
 	// รูปซีล (image1)
 	if imagePath != "" {
@@ -911,7 +913,7 @@ func (s *SealService) GetSealStatement(peaCode string, startDate string, endDate
 	}
 
 	// Count by status
-	statuses := []string{"พร้อมใช้งาน", "จ่าย", "ติดตั้งแล้ว", "ใช้งานแล้ว", "เสียหาย", "สูญหาย"}
+	statuses := []string{string(constants.StatusReady), string(constants.StatusIssued), string(constants.StatusInstalled), string(constants.StatusUsed), string(constants.StatusDamaged), string(constants.StatusLost)}
 	summary := make(map[string]int64)
 	var total int64
 
@@ -1087,15 +1089,15 @@ func (s *SealService) AcceptReturn(sealNumber string, userID uint) error {
 	switch seal.ReturnRemarks {
 	case "ซีลเก่าที่ถูกตัดออก":
 		// ซีลเก่าที่ตัดแล้ว → ใช้งานแล้ว
-		seal.Status = "ใช้งานแล้ว"
+		seal.Status = string(constants.StatusUsed)
 		seal.AssignedToTechnician = nil
 	case "ชำรุดก่อนใช้งาน":
 		// ซีลชำรุด → เสียหาย
-		seal.Status = "เสียหาย"
+		seal.Status = string(constants.StatusDamaged)
 		seal.AssignedToTechnician = nil
 	default:
 		// "ไม่ได้ใช้งาน (คืนคลัง)" หรืออื่นๆ → กลับเป็นพร้อมใช้งาน
-		seal.Status = "พร้อมใช้งาน"
+		seal.Status = string(constants.StatusReady)
 		seal.IssuedBy = nil
 		seal.IssuedTo = nil
 		seal.IssuedAt = nil

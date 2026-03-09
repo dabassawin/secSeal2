@@ -6,6 +6,7 @@ import { Header } from '@/components/dashboard';
 import { sealService } from '@/services/sealService';
 import { userService } from '@/services/userService';
 import { useAuth } from '@/context/AuthContext';
+import { SealStatus } from '../../constants/status';
 
 type EntryMode = 'scan' | 'range';
 
@@ -46,7 +47,7 @@ export const CreateSealScreen: React.FC = () => {
     const [modalStatus, setModalStatus] = useState<'success' | 'error'>('success');
     const [modalMessage, setModalMessage] = useState('');
 
-    const CREATION_STATUSES = ['พร้อมใช้งาน', 'เสียหาย'];
+    const CREATION_STATUSES = [SealStatus.READY, SealStatus.DAMAGED];
 
     useEffect(() => {
         fetchMasPea();
@@ -168,7 +169,7 @@ export const CreateSealScreen: React.FC = () => {
             type: 'Single',
             count: 1,
             status: 'available',
-            creationStatus: 'พร้อมใช้งาน', // Default
+            creationStatus: SealStatus.READY, // Default
             createRemarks: ''
         };
 
@@ -217,7 +218,7 @@ export const CreateSealScreen: React.FC = () => {
                     type: 'Single',
                     count: 1,
                     status: 'available',
-                    creationStatus: 'พร้อมใช้งาน', // Default
+                    creationStatus: SealStatus.READY, // Default
                     createRemarks: ''
                 }));
 
@@ -454,14 +455,14 @@ export const CreateSealScreen: React.FC = () => {
                                                 key={s}
                                                 style={[
                                                     styles.inlineStatusBtn,
-                                                    item.creationStatus === s ? (s === 'พร้อมใช้งาน' ? styles.statusBtnReady : styles.statusBtnDamaged) : null
+                                                    item.creationStatus === s ? (s === SealStatus.READY ? styles.statusBtnReady : styles.statusBtnDamaged) : null
                                                 ]}
                                                 onPress={() => handleUpdateBatchStatus(item.id, s)}
                                             >
                                                 <Text style={[
                                                     styles.inlineStatusText,
                                                     item.creationStatus === s && styles.inlineStatusTextActive,
-                                                    item.creationStatus === s && s === 'เสียหาย' && { color: '#d32f2f' }
+                                                    item.creationStatus === s && s === SealStatus.DAMAGED && { color: '#d32f2f' }
                                                 ]}>{s}</Text>
                                             </TouchableOpacity>
                                         ))}

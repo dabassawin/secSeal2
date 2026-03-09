@@ -4,6 +4,7 @@ import { colors, sizes } from '@/constants';
 import { Header } from '@/components/dashboard';
 import { logService } from '@/services/logService';
 import { Log } from '@/types';
+import { SealStatus } from '../../constants/status';
 
 // Helper to group logs by date
 const groupLogsByDate = (logs: Log[]) => {
@@ -44,7 +45,7 @@ const LogRow: React.FC<{ log: Log, isLast: boolean }> = ({ log, isLast }) => {
 
     const getIcon = (action: string) => {
         if (action.includes('สร้าง') || action.includes('Created')) return '📦';
-        if (action.includes('จ่าย') || action.includes('Assigned')) return '👥';
+        if (action.includes(SealStatus.ISSUED) || action.includes('Assigned')) return '👥';
         if (action.includes('ติดตั้ง') || action.includes('Used')) return '🛠️';
         if (action.includes('คืน') || action.includes('Returned')) return '↩️';
         return '📄';

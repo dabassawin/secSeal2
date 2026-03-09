@@ -7,27 +7,28 @@ import { userService } from '@/services/userService';
 import { Seal } from '@/types';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '@/context/AuthContext';
+import { SealStatus } from '../../constants/status';
 
 const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
     let bgColor: string = colors.bgLight;
     let textColor: string = colors.textLight;
 
     switch (status) {
-        case 'พร้อมใช้งาน':
+        case SealStatus.READY:
             bgColor = '#E8F5E9';
             textColor = '#2E7D32';
             break;
-        case 'จ่าย':
-        case 'ติดตั้งแล้ว':
+        case SealStatus.ISSUED:
+        case SealStatus.INSTALLED:
             bgColor = '#E3F2FD';
             textColor = '#1976D2';
             break;
-        case 'ใช้งานแล้ว':
+        case SealStatus.USED:
             bgColor = '#F3E5F5';
             textColor = '#7B1FA2';
             break;
-        case 'เสียหาย':
-        case 'สูญหาย':
+        case SealStatus.DAMAGED:
+        case SealStatus.LOST:
             bgColor = '#FFEBEE';
             textColor = '#C62828';
             break;
@@ -56,22 +57,22 @@ export const SealInventoryScreen: React.FC = () => {
     const [masPeaList, setMasPeaList] = useState<any[]>([]);
     const statuses = [
         'สถานะทั้งหมด',
-        'พร้อมใช้งาน',
-        'จ่าย',
-        'ติดตั้งแล้ว',
-        'ใช้งานแล้ว',
-        'เสียหาย',
-        'สูญหาย'
+        SealStatus.READY,
+        SealStatus.ISSUED,
+        SealStatus.INSTALLED,
+        SealStatus.USED,
+        SealStatus.DAMAGED,
+        SealStatus.LOST
     ];
 
     const getStatusLabel = (status: string) => {
         switch (status) {
-            case 'พร้อมใช้งาน': return 'พร้อมใช้งาน (Ready)';
-            case 'จ่าย': return 'จ่าย (Issued / Assigned)';
-            case 'ติดตั้งแล้ว': return 'ติดตั้งแล้ว (Installed)';
-            case 'ใช้งานแล้ว': return 'ใช้งานแล้ว (Used / Returned)';
-            case 'เสียหาย': return 'เสียหาย (Damaged)';
-            case 'สูญหาย': return 'สูญหาย (Lost)';
+            case SealStatus.READY: return 'พร้อมใช้งาน (Ready)';
+            case SealStatus.ISSUED: return 'จ่าย (Issued / Assigned)';
+            case SealStatus.INSTALLED: return 'ติดตั้งแล้ว (Installed)';
+            case SealStatus.USED: return 'ใช้งานแล้ว (Used / Returned)';
+            case SealStatus.DAMAGED: return 'เสียหาย (Damaged)';
+            case SealStatus.LOST: return 'สูญหาย (Lost)';
             default: return status;
         }
     };
