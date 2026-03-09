@@ -68,7 +68,7 @@ export default function CompanyAssignSealScreen({ navigation }: any) {
             });
 
             if (response.ok) {
-                Alert.alert('สำเร็จ', 'จ่ายซีลให้ช่างเรียนร้อยแล้ว', [
+                Alert.alert('สำเร็จ', 'จ่ายซีลให้ช่างเรียบร้อยแล้ว', [
                     {
                         text: 'ตกลง',
                         onPress: () => {
