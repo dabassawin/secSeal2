@@ -116,7 +116,7 @@ export const AssignSealScreen: React.FC = () => {
 
     const checkSealAvailability = async (sealNum: string): Promise<{ status: 'available' | 'unavailable'; reason?: string }> => {
         try {
-            const results = await sealService.checkSeals([sealNum]);
+            const results = await sealService.checkSeals([sealNum], user?.pea_code);
             if (results.length > 0) {
                 const result = results[0];
                 return {
@@ -217,7 +217,7 @@ export const AssignSealScreen: React.FC = () => {
 
 
         try {
-            const results = await sealService.checkSeals(generatedSeals);
+            const results = await sealService.checkSeals(generatedSeals, user?.pea_code);
             const available = results.filter(r => r.is_available);
             const unavailable = results.filter(r => !r.is_available);
 

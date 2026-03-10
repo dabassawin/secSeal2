@@ -134,7 +134,10 @@ export const TechnicianListScreen: React.FC = () => {
 
                         <TouchableOpacity
                             style={styles.addBtn}
-                            onPress={() => (navigation as any).navigate('AddTechnician')}
+                            onPress={() => (navigation as any).navigate('AddTechnician', {
+                                com_code: route.params?.com_code,
+                                center_name: route.params?.center_name
+                            })}
                         >
                             <Text style={styles.addBtnText}>👤+ เพิ่มช่างใหม่</Text>
                         </TouchableOpacity>

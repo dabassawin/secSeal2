@@ -631,7 +631,7 @@ func (s *SealService) CheckMultipleSeals(sealNumbers []string) ([]string, error)
 	return unavailable, nil
 }
 
-func (s *SealService) CheckSealAvailability(sealNumbers []string) ([]dto.SealCheckResult, error) {
+func (s *SealService) CheckSealAvailability(sealNumbers []string, peaCode string) ([]dto.SealCheckResult, error) {
 	var results []dto.SealCheckResult
 
 	// 1. Find all seals that exist in the database
@@ -656,6 +656,17 @@ func (s *SealService) CheckSealAvailability(sealNumbers []string) ([]dto.SealChe
 				IsAvailable: false,
 				Status:      "Not Found",
 				Reason:      "ไม่พบในระบบ",
+			})
+			continue
+		}
+
+		// Check pea_code ownership if peaCode filter is provided
+		if peaCode != "" && seal.PeaCode != peaCode {
+			results = append(results, dto.SealCheckResult{
+				SealNumber:  sn,
+				IsAvailable: false,
+				Status:      seal.Status,
+				Reason:      fmt.Sprintf("ซีลไม่ได้อยู่ในสังกัดของคุณ (สังกัดซีล: %s)", seal.PeaCode),
 			})
 			continue
 		}

@@ -582,6 +582,7 @@ func (sc *SealController) CheckMultipleSealsHandler(c *fiber.Ctx) error {
 func (sc *SealController) CheckSealsHandler(c *fiber.Ctx) error {
 	var request struct {
 		SealNumbers []string `json:"seal_numbers"`
+		PeaCode     string   `json:"pea_code"`
 	}
 	if err := c.BodyParser(&request); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request format"})
@@ -590,7 +591,7 @@ func (sc *SealController) CheckSealsHandler(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "seal_numbers is required"})
 	}
 
-	results, err := sc.sealService.CheckSealAvailability(request.SealNumbers)
+	results, err := sc.sealService.CheckSealAvailability(request.SealNumbers, request.PeaCode)
 	if err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "Database query failed"})
 	}

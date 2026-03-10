@@ -74,9 +74,9 @@ export const sealService = {
     },
 
     // New methods for Assignment Screen
-    checkSeals: async (sealNumbers: string[]): Promise<SealCheckResult[]> => {
+    checkSeals: async (sealNumbers: string[], peaCode?: string): Promise<SealCheckResult[]> => {
         try {
-            const response = await api.post('/api/seals/check', { seal_numbers: sealNumbers });
+            const response = await api.post('/api/seals/check', { seal_numbers: sealNumbers, pea_code: peaCode });
             return response.data.results;
         } catch (error) {
             console.error('Error checking seals:', error);

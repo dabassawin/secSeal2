@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, ActivityIndicator, Modal, FlatList } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { colors, sizes } from '@/constants';
 import { Header } from '@/components/dashboard';
 import { technicianService } from '@/services/technicianService';
@@ -8,6 +8,7 @@ import { masComService } from '@/services/masComService';
 
 export const AddTechnicianScreen: React.FC = () => {
     const navigation = useNavigation();
+    const route = useRoute<any>();
     const [loading, setLoading] = useState(false);
 
     // Modal State
@@ -19,7 +20,7 @@ export const AddTechnicianScreen: React.FC = () => {
     const [showComModal, setShowComModal] = useState(false);
     const [masComList, setMasComList] = useState<any[]>([]);
     const [searchComQuery, setSearchComQuery] = useState('');
-    const [selectedComName, setSelectedComName] = useState('');
+    const [selectedComName, setSelectedComName] = useState(route.params?.center_name || '');
 
     // Form State
     const [formData, setFormData] = useState({
@@ -30,7 +31,7 @@ export const AddTechnicianScreen: React.FC = () => {
         phoneNumber: '',
         email: '',
         technicianCode: 'สร้างอัตโนมัติเมื่อกดบันทึก',
-        comCode: '',
+        comCode: route.params?.com_code || '',
     });
 
     const [errors, setErrors] = useState<Record<string, string>>({});

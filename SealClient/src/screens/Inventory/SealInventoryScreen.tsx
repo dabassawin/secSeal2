@@ -32,6 +32,10 @@ const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
             bgColor = '#FFEBEE';
             textColor = '#C62828';
             break;
+        case SealStatus.PENDING_RETURN:
+            bgColor = '#FFF3E0';
+            textColor = '#E65100';
+            break;
         default:
             bgColor = colors.bgLight;
             textColor = colors.textLight;
@@ -62,7 +66,8 @@ export const SealInventoryScreen: React.FC = () => {
         SealStatus.INSTALLED,
         SealStatus.USED,
         SealStatus.DAMAGED,
-        SealStatus.LOST
+        SealStatus.LOST,
+        SealStatus.PENDING_RETURN
     ];
 
     const getStatusLabel = (status: string) => {
@@ -71,6 +76,7 @@ export const SealInventoryScreen: React.FC = () => {
             case SealStatus.ISSUED: return 'จ่าย (Issued / Assigned)';
             case SealStatus.INSTALLED: return 'ติดตั้งแล้ว (Installed)';
             case SealStatus.USED: return 'ใช้งานแล้ว (Used / Returned)';
+            case SealStatus.PENDING_RETURN: return 'รอตรวจสอบคืน (Pending Return)';
             case SealStatus.DAMAGED: return 'เสียหาย (Damaged)';
             case SealStatus.LOST: return 'สูญหาย (Lost)';
             default: return status;
