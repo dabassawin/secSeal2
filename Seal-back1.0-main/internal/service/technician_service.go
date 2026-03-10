@@ -147,6 +147,7 @@ func (s *TechnicianService) ReturnSealWithImage(sealNumber string, techID uint, 
 	// ช่างคืนซีล → รอตรวจสอบเสมอ สถานะสุดท้ายจะกำหนดตอน Admin กด AcceptReturn
 	seal.Status = string(constants.StatusPendingReturn)
 
+	seal.ReturnedBy = nil // ✅ ล้าง Admin ที่เคยกดรับคืนในกรณี "คืนคลัง" รอบที่แล้ว
 	seal.ReturnedByTechnician = &techID
 	seal.ReturnedAt = &now
 	seal.ReturnRemarks = remarks // ✅ บันทึกเหตุผลการคืน

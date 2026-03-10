@@ -704,6 +704,14 @@ func (s *SealService) AssignSealsByTechCode(techCode string, sealNumbers []strin
 			seal.IssuedAt = &now
 			seal.IssuedBy = &issuedBy
 		}
+
+		// ✅ Clear previous return data to ensure a fresh lifecycle
+		seal.ReturnedBy = nil
+		seal.ReturnedByTechnician = nil
+		seal.ReturnedAt = nil
+		seal.ReturnRemarks = ""
+		seal.Image2 = ""
+
 		// ใส่ technician ลงในฟิลด์ AssignedToTechnician และ IssuedTo
 		seal.AssignedToTechnician = &technician.ID
 		seal.IssuedTo = &technician.ID
