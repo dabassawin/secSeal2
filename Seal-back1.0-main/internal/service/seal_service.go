@@ -1105,10 +1105,8 @@ func (s *SealService) AcceptReturn(sealNumber string, userID uint) error {
 		seal.AssignedToTechnician = nil
 	default:
 		// "ไม่ได้ใช้งาน (คืนคลัง)" หรืออื่นๆ → กลับเป็นพร้อมใช้งาน
+		// ✅ เก็บ IssuedAt ไว้เพื่อให้ฝั่ง App ยังแสดงวันที่จ่ายซีลในประวัติได้
 		seal.Status = string(constants.StatusReady)
-		seal.IssuedBy = nil
-		seal.IssuedTo = nil
-		seal.IssuedAt = nil
 		seal.AssignedToTechnician = nil
 	}
 
