@@ -877,14 +877,91 @@ func (sc *SealController) CheckSealOwnershipHandler(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusConflict).JSON(fiber.Map{"error": "ซีลนี้อยู่ในสถานะเสียหาย หรือชำรุดก่อนนำไปใช้งาน"})
 	}
 
-	// ตรวจสอบความเป็นเจ้าของ
-	if seal.AssignedToTechnician == nil || *seal.AssignedToTechnician != techID {
-		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "ซีลนี้ไม่ได้ถูกจ่ายให้กับคุณ ไม่สามารถใช้งานได้"})
+	ownershipInfo := fiber.Map{
+		"is_owner":     seal.AssignedToTechnician != nil && *seal.AssignedToTechnician == techID,
+		"tech_id":      techID,
+		"assigned_to":  seal.AssignedToTechnician,
 	}
 
 	return c.JSON(fiber.Map{
 		"message":     "ซีลนี้เป็นของคุณ สามารถใช้งานได้",
 		"seal_number": sealNumber,
 		"status":      seal.Status,
+		"seal":        seal,
+		"ownership":   ownershipInfo,
 	})
 }
+
+// -------------------------------------------------------------------
+// 23) BulkUpdateStatusHandler
+// POST /api/seals/bulk-update-status
+// Body: { "seal_numbers": [...], "status": "เสียหาย", "remark": "..." }
+// -------------------------------------------------------------------
+func (sc *SealController) BulkUpdateStatusHandler(c *fiber.Ctx) error {
+	var request struct {
+		SealNumbers []string `json:"seal_numbers"`
+		Status      string   `json:"status"`
+		Remark      string   `json:"remark"`
+	}
+	if err := c.BodyParser(&request); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
+	}
+	if len(request.SealNumbers) == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "seal_numbers is required"})
+	}
+	if request.Status == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "status is required"})
+	}
+
+	var userID uint = 0
+	if id, ok := c.Locals("user_id").(uint); ok {
+		userID = id
+	}
+
+	updated, err := sc.sealService.BulkUpdateStatus(request.SealNumbers, request.Status, request.Remark, userID)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	return c.JSON(fiber.Map{
+		"message": fmt.Sprintf("อัปเดตสถานะซีลสำเร็จ %d รายการ", updated),
+		"updated": updated,
+	})
+}
+
+// -------------------------------------------------------------------
+// 24) BulkTransferPeaCodeHandler
+// POST /api/seals/bulk-transfer
+// Body: { "seal_numbers": [...], "new_pea_code": "S2" }
+// -------------------------------------------------------------------
+func (sc *SealController) BulkTransferPeaCodeHandler(c *fiber.Ctx) error {
+	var request struct {
+		SealNumbers []string `json:"seal_numbers"`
+		NewPeaCode  string   `json:"new_pea_code"`
+	}
+	if err := c.BodyParser(&request); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
+	}
+	if len(request.SealNumbers) == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "seal_numbers is required"})
+	}
+	if request.NewPeaCode == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "new_pea_code is required"})
+	}
+
+	var userID uint = 0
+	if id, ok := c.Locals("user_id").(uint); ok {
+		userID = id
+	}
+
+	transferred, err := sc.sealService.BulkTransferPeaCode(request.SealNumbers, request.NewPeaCode, userID)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	return c.JSON(fiber.Map{
+		"message":     fmt.Sprintf("โอนย้ายซีลสำเร็จ %d รายการ ไปสังกัด %s", transferred, request.NewPeaCode),
+		"transferred": transferred,
+	})
+}
+

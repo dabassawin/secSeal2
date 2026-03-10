@@ -39,7 +39,19 @@ export interface Seal {
     created_at?: string;
     updated_at?: string;
     is_deleted?: boolean;
-    installed_serial?: string;
+    installed_serial?: string; // เลขมิเตอร์
+    employee_code?: string; // รหัสช่าง
+    create_remarks?: string; // หมายเหตุตอนสร้าง
+    issue_remark?: string; // หมายเหตุตอนจ่าย
+    return_remarks?: string; // หมายเหตุตอนคืน
+    issued_at?: string;
+    used_at?: string;
+    returned_at?: string;
+    issued_by?: number;
+    issued_to?: number;
+    used_by?: number;
+    returned_by?: number;
+    assigned_to_technician?: number;
     image1?: string;
     image2?: string;
     image3?: string; // รูปมิเตอร์

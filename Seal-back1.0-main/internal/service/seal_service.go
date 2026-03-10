@@ -1126,3 +1126,75 @@ func (s *SealService) AcceptReturn(sealNumber string, userID uint) error {
 		return s.logRepo.Create(&logEntry)
 	})
 }
+
+// -------------------------------------------------------------------
+// BulkUpdateStatus — Batch update status for multiple seals
+// -------------------------------------------------------------------
+func (s *SealService) BulkUpdateStatus(sealNumbers []string, status string, remark string, userID uint) (int, error) {
+	updated := 0
+	err := s.db.Transaction(func(tx *gorm.DB) error {
+		for _, sn := range sealNumbers {
+			seal, err := s.repo.FindByNumber(sn)
+			if err != nil {
+				return fmt.Errorf("ไม่พบซีล %s ในระบบ", sn)
+			}
+			oldStatus := seal.Status
+			seal.Status = status
+			now := time.Now()
+			seal.UpdatedAt = now
+
+			if err := s.repo.Update(seal); err != nil {
+				return fmt.Errorf("อัปเดตซีล %s ล้มเหลว", sn)
+			}
+
+			logAction := fmt.Sprintf("แอดมินเปลี่ยนสถานะซีล %s จาก '%s' เป็น '%s'", sn, oldStatus, status)
+			if remark != "" {
+				logAction += fmt.Sprintf(" (หมายเหตุ: %s)", remark)
+			}
+			logEntry := model.Log{
+				UserID: userID,
+				Action: logAction,
+			}
+			if err := s.logRepo.Create(&logEntry); err != nil {
+				return err
+			}
+			updated++
+		}
+		return nil
+	})
+	return updated, err
+}
+
+// -------------------------------------------------------------------
+// BulkTransferPeaCode — Transfer multiple seals to a new PEA Code
+// -------------------------------------------------------------------
+func (s *SealService) BulkTransferPeaCode(sealNumbers []string, newPeaCode string, userID uint) (int, error) {
+	transferred := 0
+	err := s.db.Transaction(func(tx *gorm.DB) error {
+		for _, sn := range sealNumbers {
+			seal, err := s.repo.FindByNumber(sn)
+			if err != nil {
+				return fmt.Errorf("ไม่พบซีล %s ในระบบ", sn)
+			}
+			oldPeaCode := seal.PeaCode
+			seal.PeaCode = newPeaCode
+			now := time.Now()
+			seal.UpdatedAt = now
+
+			if err := s.repo.Update(seal); err != nil {
+				return fmt.Errorf("โอนย้ายซีล %s ล้มเหลว", sn)
+			}
+
+			logEntry := model.Log{
+				UserID: userID,
+				Action: fmt.Sprintf("โอนย้ายซีล %s จากสังกัด '%s' ไปสังกัด '%s'", sn, oldPeaCode, newPeaCode),
+			}
+			if err := s.logRepo.Create(&logEntry); err != nil {
+				return err
+			}
+			transferred++
+		}
+		return nil
+	})
+	return transferred, err
+}

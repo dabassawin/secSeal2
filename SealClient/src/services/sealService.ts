@@ -117,4 +117,12 @@ export const sealService = {
     acceptReturn: async (sealNumber: string) => {
         return await api.put(`/api/seals/${sealNumber}/accept-return`);
     },
+
+    bulkUpdateStatus: async (sealNumbers: string[], status: string, remark: string) => {
+        return await api.post('/api/seals/bulk-update-status', { seal_numbers: sealNumbers, status, remark });
+    },
+
+    bulkTransferPeaCode: async (sealNumbers: string[], newPeaCode: string) => {
+        return await api.post('/api/seals/bulk-transfer', { seal_numbers: sealNumbers, new_pea_code: newPeaCode });
+    },
 };

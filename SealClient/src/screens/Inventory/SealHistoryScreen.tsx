@@ -8,48 +8,65 @@ import api from '@/services/api';
 import { Seal, Log } from '@/types';
 import { SealStatus } from '../../constants/status';
 
-const ActivityItem: React.FC<{ log: Log; isLast?: boolean }> = ({ log, isLast }) => {
-    // Basic mapping of actions to icons/colors
-    const getActionDetails = (action: string) => {
-        if (action.includes('created') || action.includes('นำเข้า')) {
-            return { icon: '📦', color: '#66bb6a', label: 'นำเข้าคลังสินค้า (Import)' };
-        }
-        if (action.includes('assigned') || action.includes(SealStatus.ISSUED)) {
-            return { icon: '🚚', color: '#42a5f5', label: 'จ่ายให้พนักงาน (Assigned)' };
-        }
-        if (action.includes('used') || action.includes('ติดตั้ง')) {
-            return { icon: '✅', color: '#ab47bc', label: 'ติดตั้งแล้ว (Installed)' };
-        }
-        return { icon: '📝', color: '#ffa726', label: 'การดำเนินงานอื่น ๆ' };
-    };
+// ── Status Color / Icon Mapping ──────────────────────────────────
+const STATUS_MAP: Record<string, { color: string; icon: string; label: string }> = {
+    [SealStatus.READY]: { color: '#2196F3', icon: '🔵', label: 'พร้อมใช้งาน (Available)' },
+    [SealStatus.ISSUED]: { color: '#FF9800', icon: '🟡', label: 'จ่ายซีลให้ช่าง (Issued)' },
+    [SealStatus.INSTALLED]: { color: '#4CAF50', icon: '✅', label: 'ติดตั้งแล้ว (Installed)' },
+    [SealStatus.USED]: { color: '#9C27B0', icon: '🟣', label: 'ใช้งานแล้ว (Used)' },
+    [SealStatus.DAMAGED]: { color: '#F44336', icon: '🔴', label: 'เสียหาย (Damaged)' },
+    [SealStatus.LOST]: { color: '#F44336', icon: '🔴', label: 'สูญหาย (Lost)' },
+    [SealStatus.PENDING_RETURN]: { color: '#FF9800', icon: '🔶', label: 'รอตรวจสอบคืน (Pending Return)' },
+};
+const getStatusInfo = (status?: string) =>
+    STATUS_MAP[status || ''] || { color: '#9E9E9E', icon: '⚪', label: status || 'ไม่ทราบสถานะ' };
 
+// ── Timeline Activity Item ───────────────────────────────────────
+const ActivityItem: React.FC<{ log: Log; isLast?: boolean }> = ({ log, isLast }) => {
+    const getActionDetails = (action: string) => {
+        if (action.includes('created') || action.includes('นำเข้า') || action.includes('สร้างข้อมูล'))
+            return { icon: '➕', color: '#66bb6a', label: 'สร้างข้อมูล (Created)' };
+        if (action.includes('ตรวจสอบ') || action.includes('พร้อมใช้งาน'))
+            return { icon: '🔵', color: '#2196F3', label: 'พร้อมใช้งาน (Available)' };
+        if (action.includes('assigned') || action.includes(SealStatus.ISSUED))
+            return { icon: '🟡', color: '#FF9800', label: 'จ่ายซีลให้ช่าง (Issued)' };
+        if (action.includes('used') || action.includes('ติดตั้ง') || action.includes(SealStatus.INSTALLED))
+            return { icon: '✅', color: '#4CAF50', label: 'ติดตั้งซีลแล้ว (Installed)' };
+        if (action.includes('return') || action.includes('คืน'))
+            return { icon: '🔶', color: '#FF9800', label: 'คืนซีล (Returned)' };
+        return { icon: '📝', color: '#9E9E9E', label: 'การดำเนินงานอื่นๆ' };
+    };
     const details = getActionDetails(log.action);
     const date = new Date(log.timestamp || log.created_at || Date.now());
+
+    // Try to extract user/name from the action text
+    const byMatch = log.action.match(/โดย[:\s]*(.+?)(?:\s*$)/);
+    const byText = byMatch ? byMatch[1] : undefined;
 
     return (
         <View style={styles.activityContainer}>
             <View style={styles.timelineColumn}>
-                <View style={[styles.timelineIconContainer, { borderColor: details.color }]}>
-                    <Text style={styles.timelineIconText}>{details.icon}</Text>
+                <View style={[styles.timelineDot, { backgroundColor: details.color }]}>
+                    <Text style={styles.timelineDotIcon}>{details.icon}</Text>
                 </View>
-                {!isLast && <View style={styles.timelineLine} />}
+                {!isLast && <View style={[styles.timelineLine, { backgroundColor: details.color + '40' }]} />}
             </View>
             <View style={styles.activityCard}>
                 <View style={styles.activityHeader}>
-                    <Text style={styles.activityTitle}>{details.label}</Text>
-                    <Text style={styles.activityTime}>
-                        {date.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: '2-digit' })} - {date.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} น.
-                    </Text>
+                    <Text style={[styles.activityTitle, { color: details.color }]}>{details.label}</Text>
                 </View>
-                <Text style={styles.activityUser}>โดย: พนักงานระบบ (System)</Text>
-                <View style={[styles.activityContent, { borderLeftColor: details.color }]}>
-                    <Text style={styles.activityDescription}>💬 "{log.action}"</Text>
+                {byText && <Text style={styles.activityUser}>โดย: {byText}</Text>}
+                <View style={styles.activityMeta}>
+                    <Text style={styles.activityTime}>
+                        {date.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })} · {date.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} น.
+                    </Text>
                 </View>
             </View>
         </View>
     );
 };
 
+// ── Main Screen ──────────────────────────────────────────────────
 export const SealHistoryScreen: React.FC = () => {
     const route = useRoute();
     const navigation = useNavigation();
@@ -60,7 +77,6 @@ export const SealHistoryScreen: React.FC = () => {
     const [logs, setLogs] = useState<Log[]>([]);
     const [loading, setLoading] = useState(true);
     const [confirmModalVisible, setConfirmModalVisible] = useState(false);
-    const [galleryModalVisible, setGalleryModalVisible] = useState(false);
     const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);
 
     // Edit Status State
@@ -69,29 +85,18 @@ export const SealHistoryScreen: React.FC = () => {
     const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
 
     const STATUS_OPTIONS = [
-        SealStatus.READY,
-        SealStatus.ISSUED,
-        SealStatus.INSTALLED,
-        SealStatus.USED,
-        SealStatus.DAMAGED,
-        SealStatus.LOST
+        SealStatus.READY, SealStatus.ISSUED, SealStatus.INSTALLED,
+        SealStatus.USED, SealStatus.DAMAGED, SealStatus.LOST, SealStatus.PENDING_RETURN
     ];
 
     useEffect(() => {
-        if (sealNumber) {
-            fetchData();
-        } else {
-            setLoading(false);
-        }
+        if (sealNumber) fetchData();
+        else setLoading(false);
     }, [sealNumber]);
 
-    // เมื่อกดปุ่ม Back ของเบราว์เซอร์ ให้ reload หน้า 1 ครั้ง
-    // เพื่อให้ React Navigation resolve URL ไปยังหน้าคลังซีลที่ถูกต้อง
     useEffect(() => {
         if (Platform.OS === 'web') {
-            const handlePopState = () => {
-                window.location.reload();
-            };
+            const handlePopState = () => window.location.reload();
             window.addEventListener('popstate', handlePopState);
             return () => window.removeEventListener('popstate', handlePopState);
         }
@@ -119,8 +124,8 @@ export const SealHistoryScreen: React.FC = () => {
         try {
             await sealService.cancelSeal(sealNumber);
             setConfirmModalVisible(false);
-            Alert.alert("สำเร็จ", "ยกเลิกซีลแล้ว สถานะกลับเป็น SealStatus.READY");
-            fetchData(); // Refresh data
+            Alert.alert("สำเร็จ", "ยกเลิกซีลแล้ว สถานะกลับเป็น พร้อมใช้งาน");
+            fetchData();
         } catch (error) {
             console.error("Cancel failed", error);
             Alert.alert("เกิดข้อผิดพลาด", "ไม่สามารถยกเลิกซีลได้");
@@ -129,21 +134,16 @@ export const SealHistoryScreen: React.FC = () => {
 
     const handleUpdateStatus = async () => {
         if (!sealNumber || !selectedStatus) return;
-        if (selectedStatus === seal?.status) {
-            setEditStatusModalVisible(false);
-            return;
-        }
-
+        if (selectedStatus === seal?.status) { setEditStatusModalVisible(false); return; }
         try {
             setIsUpdatingStatus(true);
             await sealService.updateSealStatus(sealNumber, selectedStatus);
             setEditStatusModalVisible(false);
             Alert.alert("สำเร็จ", `เปลี่ยนสถานะเป็น '${selectedStatus}' เรียบร้อยแล้ว`);
-            fetchData(); // Refresh data to get new status and logs
+            fetchData();
         } catch (error: any) {
             console.error("Update status failed", error);
-            const errorMessage = error.response?.data?.error || "ไม่สามารถเปลี่ยนสถานะซีลได้";
-            Alert.alert("เกิดข้อผิดพลาด", errorMessage);
+            Alert.alert("เกิดข้อผิดพลาด", error.response?.data?.error || "ไม่สามารถเปลี่ยนสถานะซีลได้");
         } finally {
             setIsUpdatingStatus(false);
         }
@@ -157,13 +157,15 @@ export const SealHistoryScreen: React.FC = () => {
     const getImageUrl = (imagePath: string | undefined) => {
         if (!imagePath) return '';
         let cleanPath = imagePath.replace(/\\/g, '/');
-        if (cleanPath.startsWith('/')) {
-            cleanPath = cleanPath.substring(1);
-        }
+        if (cleanPath.startsWith('/')) cleanPath = cleanPath.substring(1);
         const baseURL = api.defaults.baseURL || 'http://localhost:3000';
         return `${baseURL}/${cleanPath}`;
     };
 
+    const statusInfo = getStatusInfo(seal?.status);
+    const updatedDate = seal?.updated_at ? new Date(seal.updated_at) : null;
+
+    // ── Guard: No seal number ────────────────────────────────────
     if (!sealNumber) {
         return (
             <View style={styles.centerContainer}>
@@ -175,6 +177,7 @@ export const SealHistoryScreen: React.FC = () => {
         );
     }
 
+    // ── Guard: Loading ───────────────────────────────────────────
     if (loading) {
         return (
             <View style={styles.centerContainer}>
@@ -183,142 +186,147 @@ export const SealHistoryScreen: React.FC = () => {
         );
     }
 
+    // ── Helper: render a single image slot ───────────────────────
+    const renderImageSlot = (imagePath: string | undefined, label: string, sublabel: string) => {
+        const img = imagePath || (seal as any)?.[label.replace(/\s/g, '')];
+        if (img) {
+            const uri = getImageUrl(img);
+            return (
+                <TouchableOpacity
+                    style={styles.imageSlot}
+                    activeOpacity={0.85}
+                    onPress={() => setSelectedImageUri(uri)}
+                >
+                    <Image source={{ uri }} style={styles.imageSlotImg} resizeMode="cover" />
+                    <Text style={styles.imageSlotLabel}>{sublabel}</Text>
+                </TouchableOpacity>
+            );
+        }
+        return (
+            <View style={styles.imageSlotEmpty}>
+                <View style={styles.imageSlotEmptyInner}>
+                    <Text style={styles.imageSlotEmptyIcon}>🖼️</Text>
+                    <Text style={styles.imageSlotEmptyText}>ไม่มีรูปภาพ ({sublabel})</Text>
+                </View>
+            </View>
+        );
+    };
+
+    // ══════════════════════════════════════════════════════════════
+    // ██  RENDER
+    // ══════════════════════════════════════════════════════════════
     return (
         <View style={styles.mainContainer}>
             <Header />
 
             <ScrollView style={styles.scrollView}>
                 <View style={styles.content}>
-                    {/* Header Banner */}
+
+                    {/* ═══════ HEADER BANNER ═══════ */}
                     <View style={styles.banner}>
                         <View style={styles.bannerLeft}>
                             <View style={styles.iconBox}>
-                                <Text style={styles.iconBoxText}>🆔</Text>
+                                <Text style={styles.iconBoxText}>|||</Text>
                             </View>
                             <View style={styles.bannerInfo}>
                                 <Text style={styles.bannerLabel}>SERIAL NUMBER</Text>
                                 <Text style={styles.bannerValue}>{sealNumber}</Text>
                             </View>
                         </View>
-                        <TouchableOpacity
-                            style={[
-                                styles.statusBadge,
-                                { backgroundColor: seal?.status === SealStatus.DAMAGED || seal?.status === SealStatus.LOST ? '#f44336' : '#4caf50' }
-                            ]}
-                            onPress={openEditStatusModal}
-                        >
-                            <Text style={styles.statusBadgeText}>● สถานะปัจจุบัน: {seal?.status || SealStatus.READY} ✏️</Text>
-                        </TouchableOpacity>
-                    </View>
-
-                    {/* Metadata Grid */}
-                    <View style={styles.grid}>
-                        <View style={styles.gridItem}>
-                            <Text style={styles.gridLabel}>ประเภทซีล (Type)</Text>
-                            <Text style={styles.gridValue}>Plastic Seal (Type A)</Text>
-                        </View>
-                        <View style={styles.gridItem}>
-                            <Text style={styles.gridLabel}>ล็อตการผลิต (Batch)</Text>
-                            <Text style={styles.gridValue}>{seal?.box_number || 'B-01/2026'}</Text>
-                        </View>
-                        <View style={styles.gridItem}>
-                            <Text style={styles.gridLabel}>วันที่นำเข้า (Import Date)</Text>
-                            <Text style={styles.gridValue}>
-                                {new Date(seal?.created_at || Date.now()).toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })}
-                            </Text>
-                        </View>
-                        <View style={styles.gridItem}>
-                            <Text style={styles.gridLabel}>รหัสการไฟฟ้า (PEA Code)</Text>
-                            <Text style={[styles.gridValue, { color: colors.primaryPurple }]}>� {seal?.pea_code || (seal as any)?.PeaCode || '-'}</Text>
-                        </View>
-                    </View>
-
-                    {/* Content Body */}
-                    <View style={styles.body}>
-                        {/* Timeline Section */}
-                        <View style={styles.timelineSection}>
-                            <View style={styles.sectionHeader}>
-                                <Text style={styles.sectionTitle}>🕒 ประวัติการดำเนินการ (Activity Log)</Text>
-                            </View>
-                            {logs.length === 0 ? (
-                                <Text style={styles.emptyText}>ยังไม่มีประวัติการดำเนินการสำหรับซีลนี้</Text>
-                            ) : (
-                                logs.map((log, index) => (
-                                    <ActivityItem key={log.id} log={log} isLast={index === logs.length - 1} />
-                                ))
+                        <View style={styles.bannerRight}>
+                            <TouchableOpacity
+                                style={[styles.statusBadge, { backgroundColor: statusInfo.color }]}
+                                onPress={openEditStatusModal}
+                            >
+                                <Text style={styles.statusBadgeText}>
+                                    {statusInfo.icon} สถานะ: {seal?.status || SealStatus.READY} ({statusInfo.label.match(/\((.+)\)/)?.[1] || ''})
+                                </Text>
+                            </TouchableOpacity>
+                            {updatedDate && (
+                                <Text style={styles.bannerTimestamp}>
+                                    อัปเดตล่าสุด: {updatedDate.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })} {updatedDate.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} น.
+                                </Text>
                             )}
                         </View>
+                    </View>
 
-                        {/* Sidebar Info */}
-                        <View style={styles.sidebar}>
-                            <View style={styles.infoCard}>
-                                <Text style={styles.infoCardTitle}>รูปภาพซีล</Text>
-                                {(seal?.image1 || (seal as any)?.Image1) ? (
-                                    <TouchableOpacity onPress={() => {
-                                        setSelectedImageUri(getImageUrl(seal?.image1 || (seal as any)?.Image1));
-                                    }} activeOpacity={0.8}>
-                                        <Image
-                                            source={{ uri: getImageUrl(seal?.image1 || (seal as any)?.Image1) }}
-                                            style={styles.imagePlaceholder}
-                                            resizeMode="cover"
-                                        />
-                                        <Text style={styles.imageLabel}>📸 รูปติดตั้ง (Image 1)</Text>
-                                    </TouchableOpacity>
-                                ) : (
-                                    <View style={styles.imagePlaceholder}>
-                                        <View style={styles.innerPlaceholder}>
-                                            <Text style={styles.placeholderIcon}>🖼️</Text>
+                    {/* ═══════ BODY — 2 COLUMNS ═══════ */}
+                    <View style={styles.body}>
+
+                        {/* ──── LEFT COLUMN ──── */}
+                        <View style={styles.leftCol}>
+
+                            {/* --- Operation Info --- */}
+                            <View style={styles.sectionCard}>
+                                <Text style={styles.sectionTitle}>📋 ข้อมูลปฏิบัติงาน (Operation Info)</Text>
+                                <View style={styles.opRow}>
+                                    {/* Technician */}
+                                    <View style={styles.opSubCard}>
+                                        <View style={styles.opSubCardHeader}>
+                                            <View style={[styles.opIconCircle, { backgroundColor: '#E8EAF6' }]}>
+                                                <Text style={styles.opIconText}>👤</Text>
+                                            </View>
+                                            <Text style={styles.opSubLabel}>ช่างผู้รับผิดชอบ (Technician)</Text>
                                         </View>
+                                        <Text style={styles.opSubValue}>
+                                            {seal?.employee_code
+                                                ? `${seal.employee_code}`
+                                                : 'ยังไม่ได้มอบหมาย'}
+                                        </Text>
+                                        {seal?.employee_code && (
+                                            <Text style={styles.opSubMeta}>ID: {seal.employee_code}</Text>
+                                        )}
                                     </View>
-                                )}
-                                {(seal?.image2 || (seal as any)?.Image2) ? (
-                                    <TouchableOpacity onPress={() => {
-                                        setSelectedImageUri(getImageUrl(seal?.image2 || (seal as any)?.Image2));
-                                    }} activeOpacity={0.8} style={{ marginTop: 10 }}>
-                                        <Image
-                                            source={{ uri: getImageUrl(seal?.image2 || (seal as any)?.Image2) }}
-                                            style={styles.imagePlaceholder}
-                                            resizeMode="cover"
-                                        />
-                                        <Text style={styles.imageLabel}>📥 รูปคืนซีล (Image 2)</Text>
-                                    </TouchableOpacity>
-                                ) : null}
-                                {(seal?.image3 || (seal as any)?.Image3) ? (
-                                    <TouchableOpacity onPress={() => {
-                                        setSelectedImageUri(getImageUrl(seal?.image3 || (seal as any)?.Image3));
-                                    }} activeOpacity={0.8} style={{ marginTop: 10 }}>
-                                        <Image
-                                            source={{ uri: getImageUrl(seal?.image3 || (seal as any)?.Image3) }}
-                                            style={styles.imagePlaceholder}
-                                            resizeMode="cover"
-                                        />
-                                        <Text style={styles.imageLabel}>🔌 รูปมิเตอร์ (Image 3)</Text>
-                                    </TouchableOpacity>
-                                ) : null}
-                                <TouchableOpacity style={styles.whiteBtn} onPress={() => setGalleryModalVisible(true)}>
-                                    <Text style={styles.whiteBtnText}>ดูแกลเลอรี่ทั้งหมด</Text>
-                                </TouchableOpacity>
-                            </View>
-
-                            <View style={styles.infoCard}>
-                                <Text style={styles.infoCardTitle}>QR Code / Barcode</Text>
-                                <View style={styles.qrContainer}>
-                                    <View style={styles.qrCodeBox}>
-                                        <Text style={styles.qrTemplate}>🔳</Text>
+                                    {/* Meter No */}
+                                    <View style={styles.opSubCard}>
+                                        <View style={styles.opSubCardHeader}>
+                                            <View style={[styles.opIconCircle, { backgroundColor: '#E0F7FA' }]}>
+                                                <Text style={styles.opIconText}>🔢</Text>
+                                            </View>
+                                            <Text style={styles.opSubLabel}>หมายเลขมิเตอร์ (Meter No.)</Text>
+                                        </View>
+                                        <Text style={[styles.opSubValue, { fontFamily: Platform.OS === 'web' ? 'monospace' : undefined }]}>
+                                            {seal?.installed_serial || 'ยังไม่ได้ติดตั้ง'}
+                                        </Text>
+                                        {seal?.installed_serial && (
+                                            <Text style={styles.opSubMeta}>📍 พิกัด: -</Text>
+                                        )}
                                     </View>
-                                    <Text style={styles.qrText}>{sealNumber}</Text>
                                 </View>
-                                <TouchableOpacity style={styles.purpleBtn}>
-                                    <Text style={styles.purpleBtnText}>🖨️ พิมพ์ Label</Text>
-                                </TouchableOpacity>
                             </View>
 
-                            {/* CANCEL SEAL ACTION */}
+                            {/* --- Evidence Images (3-column grid) --- */}
+                            <View style={styles.sectionCard}>
+                                <Text style={styles.sectionTitle}>📸 รูปภาพหลักฐาน (Evidence Images)</Text>
+                                <View style={styles.imageGrid}>
+                                    {renderImageSlot(seal?.image1 || (seal as any)?.Image1, 'Image1', 'Image 1')}
+                                    {renderImageSlot(seal?.image2 || (seal as any)?.Image2, 'Image2', 'Image 2')}
+                                    {renderImageSlot(seal?.image3 || (seal as any)?.Image3, 'Image3', 'Image 3')}
+                                </View>
+                            </View>
+
+                            {/* --- Remarks --- */}
+                            <View style={styles.remarksRow}>
+                                <View style={[styles.remarkCard, { backgroundColor: '#FFFDE7', borderColor: '#FFF176' }]}>
+                                    <Text style={styles.remarkTitle}>📝 หมายเหตุตอนสร้าง/บันทึก (Create Remarks)</Text>
+                                    <Text style={styles.remarkText}>
+                                        {seal?.create_remarks || (seal as any)?.CreateRemarks || 'ไม่มีหมายเหตุ'}
+                                    </Text>
+                                </View>
+                                <View style={[styles.remarkCard, { backgroundColor: '#F5F5F5', borderColor: '#E0E0E0' }]}>
+                                    <Text style={styles.remarkTitle}>📎 หมายเหตุตอนติดตั้ง (Issue/Install Remarks)</Text>
+                                    <Text style={styles.remarkText}>
+                                        {seal?.issue_remark || (seal as any)?.IssueRemark || 'ไม่มีหมายเหตุ'}
+                                    </Text>
+                                </View>
+                            </View>
+
+                            {/* --- Cancel action (if applicable) --- */}
                             {[SealStatus.USED, SealStatus.INSTALLED].includes(seal?.status as any) && (
-                                <View style={[styles.infoCard, { borderColor: '#ffcdd2', backgroundColor: '#ffebee' }]}>
-                                    <Text style={[styles.infoCardTitle, { color: '#c62828' }]}>⚠️ ยกเลิกรายการ (Cancel)</Text>
-                                    <Text style={styles.warningText}>
-                                        หากบันทึกการติดตั้งผิดพลาด สามารถกดยกเลิกเพื่อคืนสถานะเป็น SealStatus.READY ได้
+                                <View style={styles.cancelCard}>
+                                    <Text style={styles.cancelCardTitle}>⚠️ ยกเลิกรายการ (Cancel)</Text>
+                                    <Text style={styles.cancelCardDesc}>
+                                        หากบันทึกการติดตั้งผิดพลาด สามารถกดยกเลิกเพื่อคืนสถานะเป็น "พร้อมใช้งาน" ได้
                                     </Text>
                                     <TouchableOpacity style={styles.cancelBtn} onPress={() => setConfirmModalVisible(true)}>
                                         <Text style={styles.cancelBtnText}>🚫 ยกเลิกซีลนี้</Text>
@@ -326,11 +334,35 @@ export const SealHistoryScreen: React.FC = () => {
                                 </View>
                             )}
                         </View>
+
+                        {/* ──── RIGHT COLUMN ──── */}
+                        <View style={styles.rightCol}>
+                            <View style={styles.sectionCard}>
+                                <Text style={styles.sectionTitle}>🕒 ประวัติการดำเนินการ (History Log)</Text>
+                                {logs.length === 0 ? (
+                                    <Text style={styles.emptyText}>ยังไม่มีประวัติการดำเนินการสำหรับซีลนี้</Text>
+                                ) : (
+                                    <>
+                                        {logs.map((log, index) => (
+                                            <ActivityItem key={log.id} log={log} isLast={index === logs.length - 1} />
+                                        ))}
+                                        <View style={styles.startOfRecordRow}>
+                                            <View style={[styles.timelineDot, { backgroundColor: '#BDBDBD' }]}>
+                                                <Text style={styles.timelineDotIcon}>⚪</Text>
+                                            </View>
+                                            <Text style={styles.startOfRecordText}>START OF RECORD</Text>
+                                        </View>
+                                    </>
+                                )}
+                            </View>
+                        </View>
                     </View>
                 </View>
 
-                {/* Confirmation Modal */}
-                <Modal visible={confirmModalVisible} transparent={true} animationType="fade" onRequestClose={() => setConfirmModalVisible(false)}>
+                {/* ═══════ MODALS ═══════ */}
+
+                {/* Cancel Confirmation Modal */}
+                <Modal visible={confirmModalVisible} transparent animationType="fade" onRequestClose={() => setConfirmModalVisible(false)}>
                     <View style={styles.modalOverlay}>
                         <View style={styles.modalContent}>
                             <View style={styles.modalIconContainer}>
@@ -339,7 +371,7 @@ export const SealHistoryScreen: React.FC = () => {
                             <Text style={styles.modalTitle}>ยืนยันการยกเลิก</Text>
                             <Text style={styles.modalMessage}>
                                 คุณต้องการยกเลิกซีลเบอร์ <Text style={{ fontWeight: 'bold' }}>{sealNumber}</Text> ใช่หรือไม่?{'\n'}
-                                สถานะจะถูกเปลี่ยนกลับเป็น SealStatus.READY
+                                สถานะจะถูกเปลี่ยนกลับเป็น "พร้อมใช้งาน"
                             </Text>
                             <View style={styles.modalActions}>
                                 <TouchableOpacity style={styles.modalCancelBtn} onPress={() => setConfirmModalVisible(false)}>
@@ -354,7 +386,7 @@ export const SealHistoryScreen: React.FC = () => {
                 </Modal>
 
                 {/* Edit Status Modal */}
-                <Modal visible={editStatusModalVisible} transparent={true} animationType="fade" onRequestClose={() => setEditStatusModalVisible(false)}>
+                <Modal visible={editStatusModalVisible} transparent animationType="fade" onRequestClose={() => setEditStatusModalVisible(false)}>
                     <View style={styles.modalOverlay}>
                         <View style={styles.modalContent}>
                             <View style={[styles.modalIconContainer, { backgroundColor: '#e8eaf6' }]}>
@@ -364,30 +396,23 @@ export const SealHistoryScreen: React.FC = () => {
                             <Text style={[styles.modalMessage, { marginBottom: 15 }]}>
                                 ซีลเบอร์: <Text style={{ fontWeight: 'bold' }}>{sealNumber}</Text>
                             </Text>
-
                             <View style={styles.statusOptionsContainer}>
-                                {STATUS_OPTIONS.map((status) => (
-                                    <TouchableOpacity
-                                        key={status}
-                                        style={[
-                                            styles.statusOptionBtn,
-                                            selectedStatus === status && styles.statusOptionSelected
-                                        ]}
-                                        onPress={() => setSelectedStatus(status)}
-                                    >
-                                        <Text style={[
-                                            styles.statusOptionText,
-                                            selectedStatus === status && styles.statusOptionTextSelected
-                                        ]}>
-                                            {status}
-                                        </Text>
-                                        {selectedStatus === status && (
-                                            <Text style={styles.statusCheckIcon}>✓</Text>
-                                        )}
-                                    </TouchableOpacity>
-                                ))}
+                                {STATUS_OPTIONS.map((status) => {
+                                    const info = getStatusInfo(status);
+                                    return (
+                                        <TouchableOpacity
+                                            key={status}
+                                            style={[styles.statusOptionBtn, selectedStatus === status && styles.statusOptionSelected]}
+                                            onPress={() => setSelectedStatus(status)}
+                                        >
+                                            <Text style={[styles.statusOptionText, selectedStatus === status && styles.statusOptionTextSelected]}>
+                                                {info.icon} {status}
+                                            </Text>
+                                            {selectedStatus === status && <Text style={styles.statusCheckIcon}>✓</Text>}
+                                        </TouchableOpacity>
+                                    );
+                                })}
                             </View>
-
                             <View style={[styles.modalActions, { marginTop: 20 }]}>
                                 <TouchableOpacity style={styles.modalCancelBtn} onPress={() => setEditStatusModalVisible(false)} disabled={isUpdatingStatus}>
                                     <Text style={styles.modalCancelText}>ยกเลิก</Text>
@@ -397,82 +422,24 @@ export const SealHistoryScreen: React.FC = () => {
                                     onPress={handleUpdateStatus}
                                     disabled={isUpdatingStatus}
                                 >
-                                    {isUpdatingStatus ? (
-                                        <ActivityIndicator color="white" size="small" />
-                                    ) : (
-                                        <Text style={styles.modalConfirmText}>บันทึกสถานะ</Text>
-                                    )}
+                                    {isUpdatingStatus
+                                        ? <ActivityIndicator color="white" size="small" />
+                                        : <Text style={styles.modalConfirmText}>บันทึกสถานะ</Text>}
                                 </TouchableOpacity>
                             </View>
                         </View>
                     </View>
                 </Modal>
 
-                {/* Fullscreen Single Image Modal */}
-                <Modal visible={!!selectedImageUri} transparent={true} animationType="fade" onRequestClose={() => setSelectedImageUri(null)}>
+                {/* Fullscreen Image Modal */}
+                <Modal visible={!!selectedImageUri} transparent animationType="fade" onRequestClose={() => setSelectedImageUri(null)}>
                     <View style={styles.fullScreenOverlay}>
                         <TouchableOpacity style={styles.closeOverlayBtn} onPress={() => setSelectedImageUri(null)}>
                             <Text style={styles.closeOverlayText}>✕ ปิดหน้าต่าง</Text>
                         </TouchableOpacity>
                         {selectedImageUri && (
-                            <Image
-                                source={{ uri: selectedImageUri }}
-                                style={styles.fullScreenImage}
-                                resizeMode="contain"
-                            />
+                            <Image source={{ uri: selectedImageUri }} style={styles.fullScreenImage} resizeMode="contain" />
                         )}
-                    </View>
-                </Modal>
-
-                {/* Gallery Modal - show all images */}
-                <Modal visible={galleryModalVisible} transparent={true} animationType="fade" onRequestClose={() => setGalleryModalVisible(false)}>
-                    <View style={styles.fullScreenOverlay}>
-                        <TouchableOpacity style={styles.closeOverlayBtn} onPress={() => setGalleryModalVisible(false)}>
-                            <Text style={styles.closeOverlayText}>✕ ปิดแกลเลอรี่</Text>
-                        </TouchableOpacity>
-                        <ScrollView contentContainerStyle={styles.galleryContainer}>
-                            <Text style={styles.galleryTitle}>📸 แกลเลอรี่ซีล: {sealNumber}</Text>
-                            {(seal?.image1 || (seal as any)?.Image1) ? (
-                                <View style={styles.galleryItem}>
-                                    <Text style={styles.galleryLabel}>รูปติดตั้ง (Image 1)</Text>
-                                    <Image
-                                        source={{ uri: getImageUrl(seal?.image1 || (seal as any)?.Image1) }}
-                                        style={styles.galleryImage}
-                                        resizeMode="contain"
-                                    />
-                                </View>
-                            ) : (
-                                <View style={styles.galleryItem}>
-                                    <Text style={styles.galleryLabel}>รูปติดตั้ง (Image 1)</Text>
-                                    <Text style={styles.galleryEmpty}>ไม่มีรูป</Text>
-                                </View>
-                            )}
-                            {(seal?.image2 || (seal as any)?.Image2) ? (
-                                <View style={styles.galleryItem}>
-                                    <Text style={styles.galleryLabel}>รูปคืนซีล (Image 2)</Text>
-                                    <Image
-                                        source={{ uri: getImageUrl(seal?.image2 || (seal as any)?.Image2) }}
-                                        style={styles.galleryImage}
-                                        resizeMode="contain"
-                                    />
-                                </View>
-                            ) : (
-                                <View style={styles.galleryItem}>
-                                    <Text style={styles.galleryLabel}>รูปคืนซีล (Image 2)</Text>
-                                    <Text style={styles.galleryEmpty}>ไม่มีรูป</Text>
-                                </View>
-                            )}
-                            {(seal?.image3 || (seal as any)?.Image3) ? (
-                                <View style={styles.galleryItem}>
-                                    <Text style={styles.galleryLabel}>🔌 รูปมิเตอร์ (Image 3)</Text>
-                                    <Image
-                                        source={{ uri: getImageUrl(seal?.image3 || (seal as any)?.Image3) }}
-                                        style={styles.galleryImage}
-                                        resizeMode="contain"
-                                    />
-                                </View>
-                            ) : null}
-                        </ScrollView>
                     </View>
                 </Modal>
 
@@ -481,290 +448,178 @@ export const SealHistoryScreen: React.FC = () => {
     );
 };
 
+// ══════════════════════════════════════════════════════════════════
+// ██  STYLES
+// ══════════════════════════════════════════════════════════════════
 const styles = StyleSheet.create({
-    mainContainer: {
-        flex: 1,
-        backgroundColor: '#f5f5f5',
-    },
-    scrollView: {
-        flex: 1,
-    },
+    mainContainer: { flex: 1, backgroundColor: '#F0F2F5' },
+    scrollView: { flex: 1 },
+    centerContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+    emptyText: { textAlign: 'center', color: '#999', marginTop: 20, fontSize: 14 },
+
+    // ── Content wrapper
     content: {
-        margin: sizes.lg,
-        backgroundColor: 'white',
-        borderRadius: sizes.radMd,
+        margin: 24,
+        backgroundColor: '#FFFFFF',
+        borderRadius: 16,
         overflow: 'hidden',
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.1,
-        shadowRadius: 10,
-        elevation: 5,
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.08,
+        shadowRadius: 16,
+        elevation: 8,
     },
+
+    // ── Banner ─────────────────────────────────────────────────
     banner: {
         backgroundColor: colors.primaryPurple,
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        padding: 30,
+        paddingHorizontal: 32,
+        paddingVertical: 24,
     },
-    bannerLeft: {
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
+    bannerLeft: { flexDirection: 'row', alignItems: 'center' },
     iconBox: {
-        width: 50,
-        height: 50,
-        backgroundColor: 'rgba(255,255,255,0.2)',
-        borderRadius: 8,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginRight: 15,
-    },
-    iconBoxText: {
-        fontSize: 24,
-    },
-    bannerInfo: {
-        justifyContent: 'center',
-    },
-    bannerLabel: {
-        color: 'rgba(255,255,255,0.7)',
-        fontSize: 10,
-        fontWeight: 'bold',
-    },
-    bannerValue: {
-        color: 'white',
-        fontSize: 28,
-        fontWeight: 'bold',
-    },
-    statusBadge: {
-        backgroundColor: '#4caf50',
-        paddingHorizontal: 15,
-        paddingVertical: 8,
-        borderRadius: 20,
-    },
-    statusBadgeText: {
-        color: 'white',
-        fontWeight: 'bold',
-        fontSize: 14,
-    },
-    grid: {
-        flexDirection: 'row',
-        backgroundColor: '#fafafa',
-        padding: 20,
-        borderBottomWidth: 1,
-        borderBottomColor: '#eee',
-    },
-    gridItem: {
-        flex: 1,
-    },
-    gridLabel: {
-        fontSize: 10,
-        color: '#999',
-        marginBottom: 4,
-    },
-    gridValue: {
-        fontSize: 14,
-        fontWeight: '600',
-        color: '#333',
-    },
-    body: {
-        flexDirection: 'row',
-        padding: 25,
-    },
-    timelineSection: {
-        flex: 2,
-        paddingRight: 20,
-    },
-    sidebar: {
-        flex: 1,
-    },
-    sectionHeader: {
-        marginBottom: 20,
-        flexDirection: 'row',
-        alignItems: 'center',
-    },
-    sectionTitle: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        color: '#333',
-    },
-    activityContainer: {
-        flexDirection: 'row',
-    },
-    timelineColumn: {
-        alignItems: 'center',
-        marginRight: 15,
-    },
-    timelineIconContainer: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
-        borderWidth: 2,
-        backgroundColor: 'white',
-        justifyContent: 'center',
-        alignItems: 'center',
-        zIndex: 1,
-    },
-    timelineIconText: {
-        fontSize: 16,
-    },
-    timelineLine: {
-        width: 2,
-        flex: 1,
-        backgroundColor: '#eee',
-        marginVertical: 4,
-    },
-    activityCard: {
-        flex: 1,
-        backgroundColor: 'white',
+        width: 56, height: 56,
+        backgroundColor: 'rgba(255,255,255,0.15)',
         borderRadius: 12,
-        padding: 15,
-        borderWidth: 1,
-        borderColor: '#f0f0f0',
+        justifyContent: 'center', alignItems: 'center',
+        marginRight: 18,
+    },
+    iconBoxText: { fontSize: 22, color: '#FFFFFF', fontWeight: 'bold', letterSpacing: 2 },
+    bannerInfo: {},
+    bannerLabel: { color: 'rgba(255,255,255,0.6)', fontSize: 11, fontWeight: '700', letterSpacing: 1.5 },
+    bannerValue: { color: '#FFFFFF', fontSize: 30, fontWeight: 'bold', letterSpacing: 1 },
+    bannerRight: { alignItems: 'flex-end' },
+    statusBadge: {
+        paddingHorizontal: 18, paddingVertical: 10,
+        borderRadius: 24,
+    },
+    statusBadgeText: { color: '#FFFFFF', fontWeight: 'bold', fontSize: 13 },
+    bannerTimestamp: { color: 'rgba(255,255,255,0.55)', fontSize: 11, marginTop: 6 },
+
+    // ── Body 2-col ─────────────────────────────────────────────
+    body: { flexDirection: 'row', padding: 24, gap: 24 },
+    leftCol: { flex: 2 },
+    rightCol: { flex: 1 },
+
+    // ── Section Card ───────────────────────────────────────────
+    sectionCard: {
+        backgroundColor: '#FFFFFF',
+        borderRadius: 14,
+        padding: 20,
+        borderWidth: 1, borderColor: '#EEE',
         marginBottom: 20,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 5,
+        shadowOpacity: 0.04,
+        shadowRadius: 8,
         elevation: 2,
     },
-    activityHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 8,
-    },
-    activityTitle: {
-        fontSize: 16,
-        fontWeight: 'bold',
-        color: '#333',
-    },
-    activityTime: {
-        fontSize: 12,
-        color: '#999',
-        backgroundColor: '#f5f5f5',
-        paddingHorizontal: 8,
-        paddingVertical: 2,
-        borderRadius: 4,
-    },
-    activityUser: {
-        fontSize: 13,
-        color: '#666',
-        marginBottom: 10,
-    },
-    activityContent: {
-        backgroundColor: '#fafafa',
-        padding: 10,
-        borderRadius: 6,
-        borderLeftWidth: 3,
-    },
-    activityDescription: {
-        fontSize: 14,
-        color: '#444',
-        fontStyle: 'italic',
-    },
-    infoCard: {
-        backgroundColor: 'white',
+    sectionTitle: { fontSize: 16, fontWeight: 'bold', color: '#333', marginBottom: 16 },
+
+    // ── Operation Info ─────────────────────────────────────────
+    opRow: { flexDirection: 'row', gap: 16 },
+    opSubCard: {
+        flex: 1,
+        backgroundColor: '#FAFAFA',
         borderRadius: 12,
-        padding: 15,
+        padding: 16,
+        borderWidth: 1, borderColor: '#F0F0F0',
+    },
+    opSubCardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
+    opIconCircle: {
+        width: 36, height: 36, borderRadius: 18,
+        justifyContent: 'center', alignItems: 'center', marginRight: 10,
+    },
+    opIconText: { fontSize: 18 },
+    opSubLabel: { fontSize: 11, color: '#888', fontWeight: '600' },
+    opSubValue: { fontSize: 18, fontWeight: 'bold', color: '#333', marginBottom: 4 },
+    opSubMeta: { fontSize: 11, color: '#AAA' },
+
+    // ── Image Grid ─────────────────────────────────────────────
+    imageGrid: { flexDirection: 'row', gap: 12 },
+    imageSlot: {
+        flex: 1,
+        borderRadius: 12,
+        overflow: 'hidden',
+        backgroundColor: '#F5F5F5',
+    },
+    imageSlotImg: {
+        width: '100%',
+        height: 180,
+        borderRadius: 12,
+    },
+    imageSlotLabel: { fontSize: 11, color: '#888', textAlign: 'center', paddingVertical: 6 },
+    imageSlotEmpty: {
+        flex: 1,
+        height: 180,
+        borderRadius: 12,
+        borderWidth: 2,
+        borderColor: '#DDD',
+        borderStyle: 'dashed',
+        justifyContent: 'center', alignItems: 'center',
+        backgroundColor: '#FAFAFA',
+    },
+    imageSlotEmptyInner: { alignItems: 'center' },
+    imageSlotEmptyIcon: { fontSize: 36, opacity: 0.25 },
+    imageSlotEmptyText: { fontSize: 11, color: '#BBB', marginTop: 6 },
+
+    // ── Remarks ────────────────────────────────────────────────
+    remarksRow: { flexDirection: 'row', gap: 16, marginBottom: 20 },
+    remarkCard: {
+        flex: 1,
+        borderRadius: 12,
+        padding: 16,
         borderWidth: 1,
-        borderColor: '#f0f0f0',
+    },
+    remarkTitle: { fontSize: 13, fontWeight: '700', color: '#555', marginBottom: 8 },
+    remarkText: { fontSize: 13, color: '#666', lineHeight: 20 },
+
+    // ── Cancel Card ────────────────────────────────────────────
+    cancelCard: {
+        backgroundColor: '#FFEBEE',
+        borderRadius: 12,
+        padding: 16,
+        borderWidth: 1,
+        borderColor: '#FFCDD2',
         marginBottom: 20,
     },
-    infoCardTitle: {
-        fontSize: 14,
-        fontWeight: 'bold',
-        color: '#333',
-        marginBottom: 15,
-        textAlign: 'center',
+    cancelCardTitle: { fontSize: 14, fontWeight: 'bold', color: '#C62828', marginBottom: 6 },
+    cancelCardDesc: { fontSize: 12, color: '#D32F2F', lineHeight: 18, marginBottom: 12 },
+    cancelBtn: { backgroundColor: '#C62828', paddingVertical: 12, borderRadius: 8, alignItems: 'center' },
+    cancelBtnText: { color: '#FFF', fontWeight: 'bold', fontSize: 14 },
+
+    // ── Timeline ───────────────────────────────────────────────
+    activityContainer: { flexDirection: 'row', marginBottom: 4 },
+    timelineColumn: { alignItems: 'center', marginRight: 12, width: 32 },
+    timelineDot: {
+        width: 28, height: 28, borderRadius: 14,
+        justifyContent: 'center', alignItems: 'center', zIndex: 1,
     },
-    imagePlaceholder: {
-        width: '100%',
-        height: 200,
-        backgroundColor: '#f9f9f9',
-        borderRadius: 10,
-        padding: 10,
-        marginBottom: 15,
-    },
-    innerPlaceholder: {
+    timelineDotIcon: { fontSize: 13 },
+    timelineLine: { width: 2, flex: 1, marginVertical: 2 },
+    activityCard: {
         flex: 1,
-        backgroundColor: colors.bgLight,
-        borderRadius: 8,
-        justifyContent: 'center',
-        alignItems: 'center',
-        borderStyle: 'dashed',
-        borderWidth: 1,
-        borderColor: '#ccc',
-    },
-    placeholderIcon: {
-        fontSize: 48,
-        opacity: 0.2,
-    },
-    whiteBtn: {
-        height: 40,
-        borderWidth: 1,
-        borderColor: '#ddd',
-        borderRadius: 8,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    whiteBtnText: {
-        color: '#666',
-        fontWeight: '600',
-        fontSize: 14,
-    },
-    qrContainer: {
-        alignItems: 'center',
-        marginBottom: 15,
-        padding: 15,
-        borderStyle: 'dashed',
-        borderWidth: 1,
-        borderColor: '#ddd',
+        backgroundColor: '#FAFAFA',
         borderRadius: 10,
+        padding: 12,
+        marginBottom: 8,
+        borderWidth: 1, borderColor: '#F0F0F0',
     },
-    qrCodeBox: {
-        width: 100,
-        height: 100,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginBottom: 10,
-    },
-    qrTemplate: {
-        fontSize: 80,
-    },
-    qrText: {
-        fontSize: 12,
-        color: '#666',
-        fontWeight: '600',
-    },
-    purpleBtn: {
-        height: 40,
-        backgroundColor: colors.primaryPurple,
-        borderRadius: 8,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    purpleBtnText: {
-        color: 'white',
-        fontWeight: 'bold',
-        fontSize: 14,
-    },
-    centerContainer: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    emptyText: {
-        textAlign: 'center',
-        color: '#999',
-        marginTop: 30,
-        fontSize: 14,
-    },
-    warningText: { fontSize: 12, color: '#d32f2f', textAlign: 'center', marginBottom: 15, lineHeight: 18 },
-    cancelBtn: { backgroundColor: '#c62828', paddingVertical: 12, borderRadius: 8, alignItems: 'center' },
-    cancelBtnText: { color: 'white', fontWeight: 'bold', fontSize: 14 },
+    activityHeader: { marginBottom: 4 },
+    activityTitle: { fontSize: 13, fontWeight: 'bold' },
+    activityUser: { fontSize: 12, color: '#666', marginBottom: 2 },
+    activityMeta: { flexDirection: 'row', alignItems: 'center' },
+    activityTime: { fontSize: 11, color: '#AAA' },
+
+    startOfRecordRow: { flexDirection: 'row', alignItems: 'center', marginTop: 4 },
+    startOfRecordText: { fontSize: 11, color: '#CCC', fontWeight: '600', letterSpacing: 1, marginLeft: 12 },
+
+    // ── Modals ─────────────────────────────────────────────────
     modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
-    modalContent: { width: 300, backgroundColor: 'white', borderRadius: 16, padding: 25, alignItems: 'center', elevation: 10 },
+    modalContent: { width: 340, backgroundColor: '#FFF', borderRadius: 16, padding: 25, alignItems: 'center', elevation: 10 },
     modalIconContainer: { width: 60, height: 60, backgroundColor: '#ffebee', borderRadius: 30, justifyContent: 'center', alignItems: 'center', marginBottom: 15 },
     modalIcon: { fontSize: 30 },
     modalTitle: { fontSize: 18, fontWeight: 'bold', color: '#333', marginBottom: 10 },
@@ -773,22 +628,21 @@ const styles = StyleSheet.create({
     modalCancelBtn: { flex: 1, padding: 12, borderRadius: 8, borderWidth: 1, borderColor: '#ddd', marginRight: 10, alignItems: 'center' },
     modalCancelText: { color: '#666', fontWeight: 'bold' },
     modalConfirmBtn: { flex: 1, padding: 12, borderRadius: 8, backgroundColor: '#d32f2f', alignItems: 'center', justifyContent: 'center' },
-    modalConfirmText: { color: 'white', fontWeight: 'bold' },
+    modalConfirmText: { color: '#FFF', fontWeight: 'bold' },
     statusOptionsContainer: { width: '100%' },
-    statusOptionBtn: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 15, borderRadius: 8, borderWidth: 1, borderColor: '#eee', marginBottom: 10 },
+    statusOptionBtn: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 14, borderRadius: 8, borderWidth: 1, borderColor: '#eee', marginBottom: 8 },
     statusOptionSelected: { borderColor: colors.primaryPurple, backgroundColor: '#f3e5f5' },
-    statusOptionText: { fontSize: 16, color: '#333' },
+    statusOptionText: { fontSize: 15, color: '#333' },
     statusOptionTextSelected: { color: colors.primaryPurple, fontWeight: 'bold' },
     statusCheckIcon: { color: colors.primaryPurple, fontWeight: 'bold', fontSize: 16 },
-    fullScreenOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.9)', justifyContent: 'center', alignItems: 'center' },
+
+    // ── Fullscreen Image ───────────────────────────────────────
+    fullScreenOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.92)', justifyContent: 'center', alignItems: 'center' },
     fullScreenImage: { width: '100%', height: '80%' },
-    closeOverlayBtn: { position: 'absolute', top: 40, right: 20, padding: 10, zIndex: 10, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 20 },
-    closeOverlayText: { color: 'white', fontSize: 16, fontWeight: 'bold' },
-    imageLabel: { fontSize: 12, color: '#999', textAlign: 'center', marginTop: 4, marginBottom: 4 },
-    galleryContainer: { alignItems: 'center', paddingVertical: 80, paddingHorizontal: 20 },
-    galleryTitle: { color: 'white', fontSize: 22, fontWeight: 'bold', marginBottom: 30 },
-    galleryItem: { marginBottom: 30, alignItems: 'center', width: '100%' },
-    galleryLabel: { color: '#ccc', fontSize: 14, fontWeight: 'bold', marginBottom: 10 },
-    galleryImage: { width: '100%', height: 350, borderRadius: 10 },
-    galleryEmpty: { color: '#666', fontSize: 14, fontStyle: 'italic' as any }
+    closeOverlayBtn: { position: 'absolute', top: 40, right: 20, padding: 12, zIndex: 10, backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 24 },
+    closeOverlayText: { color: '#FFF', fontSize: 15, fontWeight: 'bold' },
+
+    // ── Misc ───────────────────────────────────────────────────
+    purpleBtn: { height: 42, backgroundColor: colors.primaryPurple, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
+    purpleBtnText: { color: '#FFF', fontWeight: 'bold', fontSize: 14 },
 });
