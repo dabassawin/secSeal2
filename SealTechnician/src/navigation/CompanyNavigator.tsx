@@ -103,7 +103,7 @@ export default function CompanyNavigator({ onLogout }: CompanyNavigatorProps) {
                 name="CompanyTabs"
                 options={{ headerShown: false }}
             >
-                {(props) => <CompanyBottomTabNavigator {...props} onLogout={onLogout} />}
+                {props => <CompanyBottomTabNavigator {...props} onLogout={onLogout} />}
             </Stack.Screen>
             <Stack.Screen
                 name="CompanyTechnicianList"

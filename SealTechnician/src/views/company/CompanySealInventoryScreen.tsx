@@ -1,15 +1,21 @@
-import React, { useState, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, TextInput, ActivityIndicator, RefreshControl } from 'react-native';
+import React, { useState, useCallback, useEffect } from 'react';
+import { View, Text, StyleSheet, FlatList, TextInput, ActivityIndicator, RefreshControl, TouchableOpacity } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
 import { useHomeViewModel } from '../../viewmodels/HomeViewModel';
 import { Seal } from '../../services/TechnicianService';
 
 export default function CompanySealInventoryScreen() {
     const insets = useSafeAreaInsets();
+    const navigation = useNavigation<any>();
     const { activeSeals, isLoading, fetchSeals } = useHomeViewModel();
     const [searchText, setSearchText] = useState('');
+
+    useEffect(() => {
+        fetchSeals();
+    }, []);
 
     const onRefresh = useCallback(() => {
         fetchSeals();
@@ -19,20 +25,31 @@ export default function CompanySealInventoryScreen() {
         seal => seal.seal_number.toLowerCase().includes(searchText.toLowerCase())
     );
 
-    const renderItem = ({ item }: { item: Seal }) => (
-        <View style={styles.card}>
-            <View style={styles.iconContainer}>
-                <Ionicons name="cube-outline" size={24} color="#6A0DAD" />
-            </View>
-            <View style={styles.cardContent}>
-                <Text style={styles.sealNumber}>{item.seal_number}</Text>
-                <View style={styles.metaRow}>
-                    <Ionicons name="time-outline" size={14} color="#757575" style={{ marginRight: 4 }} />
-                    <Text style={styles.metaText}>สถานะ: พร้อมจ่าย</Text>
+    const renderItem = ({ item }: { item: Seal }) => {
+        return (
+            <View style={styles.card}>
+                <View style={styles.iconContainer}>
+                    <Ionicons
+                        name="cube-outline"
+                        size={24}
+                        color="#6A0DAD"
+                    />
+                </View>
+                <View style={styles.cardContent}>
+                    <Text style={styles.sealNumber}>{item.seal_number}</Text>
+                    <View style={styles.metaRow}>
+                        <Ionicons
+                            name="time-outline"
+                            size={14}
+                            color="#757575"
+                            style={{ marginRight: 4 }}
+                        />
+                        <Text style={styles.metaText}>สถานะ: พร้อมจ่าย</Text>
+                    </View>
                 </View>
             </View>
-        </View>
-    );
+        );
+    };
 
     return (
         <View style={styles.container}>
@@ -42,7 +59,9 @@ export default function CompanySealInventoryScreen() {
             <View style={[styles.header, { paddingTop: insets.top + 20 }]}>
                 <SafeAreaView edges={[]} style={styles.headerContent}>
                     <Text style={styles.headerTitle}>คลังซีลบริษัท</Text>
-                    <Text style={styles.headerSubtitle}>รายการซีลทั้งหมดที่พร้อมจ่ายให้ช่าง ({activeSeals.length} รายการ)</Text>
+                    <Text style={styles.headerSubtitle}>
+                        รายการซีลทั้งหมดในคลัง ({activeSeals.length} รายการ)
+                    </Text>
                 </SafeAreaView>
             </View>
 
@@ -58,6 +77,11 @@ export default function CompanySealInventoryScreen() {
                         onChangeText={setSearchText}
                         autoCapitalize="characters"
                     />
+                    {searchText !== '' && (
+                        <TouchableOpacity onPress={() => setSearchText('')}>
+                            <Ionicons name="close-circle" size={20} color="#9E9E9E" />
+                        </TouchableOpacity>
+                    )}
                 </View>
 
                 {isLoading && !activeSeals.length ? (
@@ -116,6 +140,7 @@ const styles = StyleSheet.create({
     headerSubtitle: {
         color: '#E0B0FF',
         fontSize: 14,
+        textAlign: 'center',
     },
     body: {
         flex: 1,
@@ -152,7 +177,6 @@ const styles = StyleSheet.create({
     },
     listContainer: {
         padding: 20,
-        paddingBottom: 100, // Account for Bottom Tabs
     },
     card: {
         backgroundColor: '#fff',
@@ -166,6 +190,8 @@ const styles = StyleSheet.create({
         shadowOffset: { width: 0, height: 1 },
         shadowOpacity: 0.1,
         shadowRadius: 2,
+        borderWidth: 2,
+        borderColor: 'transparent',
     },
     iconContainer: {
         width: 50,
@@ -184,7 +210,7 @@ const styles = StyleSheet.create({
         fontSize: 18,
         fontWeight: 'bold',
         color: '#333',
-        marginBottom: 6,
+        marginBottom: 4,
     },
     metaRow: {
         flexDirection: 'row',
@@ -203,5 +229,10 @@ const styles = StyleSheet.create({
         color: '#9E9E9E',
         fontSize: 16,
         marginTop: 16,
+    },
+    assignButtonText: {
+        color: '#fff',
+        fontSize: 18,
+        fontWeight: 'bold',
     },
 });
