@@ -4,10 +4,12 @@ import { StyleSheet, View, ActivityIndicator } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
 import LoginScreen from './src/views/LoginScreen';
 import AppNavigator from './src/navigation/AppNavigator';
+import CompanyNavigator from './src/navigation/CompanyNavigator';
 import { AuthService } from './src/services/AuthService';
 
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isCenter, setIsCenter] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -18,6 +20,8 @@ export default function App() {
     try {
       const token = await AuthService.getToken();
       if (token) {
+        const centerStatus = await AuthService.getIsCenter();
+        setIsCenter(centerStatus);
         setIsAuthenticated(true);
       }
     } catch (error) {
@@ -27,7 +31,9 @@ export default function App() {
     }
   };
 
-  const handleLoginSuccess = () => {
+  const handleLoginSuccess = async () => {
+    const centerStatus = await AuthService.getIsCenter();
+    setIsCenter(centerStatus);
     setIsAuthenticated(true);
   };
 
@@ -42,7 +48,11 @@ export default function App() {
   return (
     <NavigationContainer>
       {isAuthenticated ? (
-        <AppNavigator onLogout={() => setIsAuthenticated(false)} />
+        isCenter ? (
+          <CompanyNavigator onLogout={() => setIsAuthenticated(false)} />
+        ) : (
+          <AppNavigator onLogout={() => setIsAuthenticated(false)} />
+        )
       ) : (
         <LoginScreen onLoginSuccess={handleLoginSuccess} />
       )}

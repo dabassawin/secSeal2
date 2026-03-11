@@ -20,6 +20,7 @@ export const AuthService = {
 
             if (data.token) {
                 await SecureStore.setItemAsync('userToken', data.token);
+                await SecureStore.setItemAsync('isCenter', data.is_center ? 'true' : 'false');
             }
 
             return data;
@@ -31,10 +32,16 @@ export const AuthService = {
 
     async logout(): Promise<void> {
         await SecureStore.deleteItemAsync('userToken');
+        await SecureStore.deleteItemAsync('isCenter');
     },
 
     async getToken(): Promise<string | null> {
         return await SecureStore.getItemAsync('userToken');
+    },
+
+    async getIsCenter(): Promise<boolean> {
+        const isCenter = await SecureStore.getItemAsync('isCenter');
+        return isCenter === 'true';
     },
 
     async updateDeviceToken(token: string): Promise<void> {

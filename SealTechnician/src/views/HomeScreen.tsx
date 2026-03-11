@@ -67,6 +67,10 @@ export default function HomeScreen({ onLogout }: HomeScreenProps) {
     };
 
     useEffect(() => {
+        fetchSeals();
+    }, []);
+
+    useEffect(() => {
         if (error === 'Invalid token' || error?.toLowerCase().includes('token')) {
             handleLogout();
         } else if (error) {

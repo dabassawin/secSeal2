@@ -147,6 +147,7 @@ func (s *TechnicianService) ReturnSealWithImage(sealNumber string, techID uint, 
 	// ช่างคืนซีล → รอตรวจสอบเสมอ สถานะสุดท้ายจะกำหนดตอน Admin กด AcceptReturn
 	seal.Status = string(constants.StatusPendingReturn)
 
+	seal.ReturnedBy = nil // ✅ ล้าง Admin ที่เคยกดรับคืนในกรณี "คืนคลัง" รอบที่แล้ว
 	seal.ReturnedByTechnician = &techID
 	seal.ReturnedAt = &now
 	seal.ReturnRemarks = remarks // ✅ บันทึกเหตุผลการคืน
@@ -233,6 +234,10 @@ func (s *TechnicianService) CountByCodePrefix(prefix string) (int64, error) {
 
 func (s *TechnicianService) GetTechnicianByID(techID uint) (*model.Technician, error) {
 	return s.repo.FindByID(techID)
+}
+
+func (s *TechnicianService) GetTechnicianByUsername(username string) (*model.Technician, error) {
+	return s.repo.FindByUsername(username)
 }
 
 // func (s *TechnicianService) UpdateTechnician(techID uint, req map[string]interface{}) error {
