@@ -38,7 +38,7 @@ SELECT
     COALESCE(u_ret.first_name || ' ' || u_ret.last_name, '') AS returned_by_name
 FROM seals s
 LEFT JOIN users u ON u.emp_id = s.issued_by AND u.deleted_at IS NULL
-LEFT JOIN technicians t ON t.id = s.assigned_to_technician
+LEFT JOIN technicians t ON t.id = s.issued_to
 LEFT JOIN mas_coms mc ON mc.name_th = t.company_name AND mc.deleted_at IS NULL
 LEFT JOIN technicians t_used ON t_used.id = s.used_by
 LEFT JOIN technicians t_ret ON t_ret.id = s.returned_by_technician

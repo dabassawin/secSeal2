@@ -10,7 +10,7 @@ export const useHomeViewModel = () => {
     const [activeSeals, setActiveSeals] = useState<Seal[]>([]);
     const [historySeals, setHistorySeals] = useState<Seal[]>([]);
 
-    const [userInfo, setUserInfo] = useState<{ username: string, role: string, first_name?: string, last_name?: string } | null>(null);
+    const [userInfo, setUserInfo] = useState<{ username: string, role: string, first_name?: string, last_name?: string, is_center?: boolean, pea_code?: string } | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -51,7 +51,9 @@ export const useHomeViewModel = () => {
                 username: data.username || 'Technician',
                 role: 'technician',
                 first_name: data.first_name,
-                last_name: data.last_name
+                last_name: data.last_name,
+                is_center: data.is_center,
+                pea_code: data.pea_code
             });
         } catch (error) {
             console.log('Failed to fetch full profile, falling back to JWT:', error);

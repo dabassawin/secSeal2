@@ -189,5 +189,59 @@ export const TechnicianService = {
             // console.error('Check Returnable Seal Error:', error);
             throw error;
         }
+    },
+
+    async getTechniciansByPeaCode(peaCode: string): Promise<any[]> {
+        try {
+            const token = await SecureStore.getItemAsync('userToken');
+            if (!token) throw new Error('No token found');
+
+            const response = await fetch(`${getApiUrl(API_CONFIG.endpoints.TECHNICIANS_LIST)}?pea_code=${peaCode}`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                },
+            });
+
+            if (!response.ok) {
+                const data = await response.json().catch(() => ({}));
+                throw new Error(data.error || data.message || 'Failed to fetch technicians');
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error('Get Technicians Error:', error);
+            throw error;
+        }
+    },
+
+    async transferSeals(targetTechnicianId: number, sealNumbers: string[]): Promise<any> {
+        try {
+            const token = await SecureStore.getItemAsync('userToken');
+            if (!token) throw new Error('No token found');
+
+            const response = await fetch(getApiUrl(API_CONFIG.endpoints.TECHNICIAN_TRANSFER_SEAL), {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    target_technician_id: targetTechnicianId,
+                    seal_numbers: sealNumbers,
+                }),
+            });
+
+            if (!response.ok) {
+                const data = await response.json().catch(() => ({}));
+                throw new Error(data.error || data.message || 'Failed to transfer seals');
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error('Transfer Seals Error:', error);
+            throw error;
+        }
     }
 };

@@ -17,6 +17,7 @@ type RootStackParamList = {
     History: undefined;
     Notification: undefined;
     ReturnSeal: undefined;
+    TransferSeal: undefined;
 };
 
 
@@ -153,6 +154,11 @@ export default function HomeScreen({ onLogout }: HomeScreenProps) {
                                 <Text style={styles.idText}>ID: {userInfo?.username}</Text>
                             </View>
                         </View>
+                        {userInfo?.is_center && (
+                            <TouchableOpacity style={[styles.notifButton, { marginRight: 10, backgroundColor: 'rgba(255,255,255,0.3)' }]} onPress={() => navigation.navigate('TransferSeal')}>
+                                <Ionicons name="swap-horizontal-outline" size={24} color="#fff" />
+                            </TouchableOpacity>
+                        )}
                         <TouchableOpacity style={styles.notifButton} onPress={handleLogout}>
                             <Ionicons name="log-out-outline" size={24} color="#fff" />
                         </TouchableOpacity>

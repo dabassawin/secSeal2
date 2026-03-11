@@ -950,8 +950,8 @@ func (s *SealService) GetSealStatement(peaCode string, startDate string, endDate
 		if seal.IssuedBy != nil {
 			userIDSet[*seal.IssuedBy] = true
 		}
-		if seal.AssignedToTechnician != nil {
-			techIDSet[*seal.AssignedToTechnician] = true
+		if seal.IssuedTo != nil {
+			techIDSet[*seal.IssuedTo] = true
 		}
 	}
 
@@ -1000,8 +1000,8 @@ func (s *SealService) GetSealStatement(peaCode string, startDate string, endDate
 				item.IssuedByName = name
 			}
 		}
-		if seal.AssignedToTechnician != nil {
-			if name, ok := techNameMap[*seal.AssignedToTechnician]; ok {
+		if seal.IssuedTo != nil {
+			if name, ok := techNameMap[*seal.IssuedTo]; ok {
 				item.TechName = name
 			}
 		}

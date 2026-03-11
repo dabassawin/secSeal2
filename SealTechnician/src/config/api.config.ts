@@ -28,6 +28,8 @@ export const API_CONFIG = {
     TECHNICIAN_NOTIFICATIONS: '/technician/notifications',
     TECHNICIAN_ME: '/technician/me',
     TECHNICIAN_AVATAR: '/technician/avatar',
+    TECHNICIANS_LIST: '/technician/list',
+    TECHNICIAN_TRANSFER_SEAL: '/technician/seals/transfer',
     SCAN_SEAL: '/scan-seal',
     CHECK_SCAN_SEAL: '/scan-seal/check',
   },

@@ -289,7 +289,12 @@ export default function ScanScreen() {
         try {
             const photo = await cameraRef.current.takePictureAsync();
             if (photo) {
-                setPhotoUri(photo.uri);
+                const manipulatedImage = await ImageManipulator.manipulateAsync(
+                    photo.uri,
+                    [{ resize: { width: 1024 } }],
+                    { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
+                );
+                setPhotoUri(manipulatedImage.uri);
             }
         } catch (error) {
             Alert.alert("ข้อผิดพลาด", "ไม่สามารถถ่ายรูปได้", [
@@ -307,7 +312,12 @@ export default function ScanScreen() {
         try {
             const photo = await cameraRef.current.takePictureAsync();
             if (photo) {
-                setMeterPhotoUri(photo.uri);
+                const manipulatedImage = await ImageManipulator.manipulateAsync(
+                    photo.uri,
+                    [{ resize: { width: 1024 } }],
+                    { compress: 0.7, format: ImageManipulator.SaveFormat.JPEG }
+                );
+                setMeterPhotoUri(manipulatedImage.uri);
             }
         } catch (error) {
             Alert.alert("ข้อผิดพลาด", "ไม่สามารถถ่ายรูปได้");

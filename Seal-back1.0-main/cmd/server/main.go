@@ -97,7 +97,9 @@ func main() {
 		log.Println("✅ Migrations completed!")
 	}()
 
-	app := fiber.New()
+	app := fiber.New(fiber.Config{
+		BodyLimit: 50 * 1024 * 1024, // 50 MB limit for image uploads
+	})
 
 	// ✅ เสิร์ฟไฟล์อัปโหลด
 	app.Static("/uploads", "./uploads")
