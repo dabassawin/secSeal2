@@ -141,7 +141,17 @@ func (tc *TechnicianController) LoginHandler(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": err.Error()})
 	}
 
-	return c.JSON(fiber.Map{"token": token})
+	// Fetch Technician to get is_center flag
+	tech, err := tc.technicianService.GetTechnicianByUsername(req.Username)
+	isCenter := false
+	if err == nil && tech != nil {
+		isCenter = tech.IsCenter
+	}
+
+	return c.JSON(fiber.Map{
+		"token":     token,
+		"is_center": isCenter,
+	})
 }
 
 // ✅ Technician ดูรายการซีลที่ได้รับมอบหมาย (เฉพาะของตัวเองเท่านั้น)

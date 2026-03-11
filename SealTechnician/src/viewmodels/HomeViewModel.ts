@@ -70,17 +70,14 @@ export const useHomeViewModel = () => {
         }
     };
 
-    useFocusEffect(
-        useCallback(() => {
-            loadUserInfo();
-            fetchSeals();
-        }, [])
-    );
-
-    const refresh = () => {
+    const refresh = useCallback(() => {
         fetchSeals();
         loadUserInfo();
-    };
+    }, []);
+
+    // Remove useFocusEffect from here to prevent loops when multiple hooks are used
+    // or when combined with other effects. 
+    // useEffect(() => { fetchSeals(); loadUserInfo(); }, []); // Instead of useFocusEffect
 
     return {
         seals,

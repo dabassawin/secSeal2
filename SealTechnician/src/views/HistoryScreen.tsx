@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useMemo } from 'react';
+import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { View, Text, StyleSheet, SectionList, RefreshControl, TouchableOpacity, TextInput, Dimensions, Platform } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -58,6 +58,10 @@ export default function HistoryScreen() {
 
     const [filterDate, setFilterDate] = useState<Date | null>(null);
     const [showDatePicker, setShowDatePicker] = useState(false);
+
+    useEffect(() => {
+        fetchSeals();
+    }, []);
 
     const onRefresh = useCallback(() => {
         fetchSeals();
