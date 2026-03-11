@@ -5,7 +5,6 @@ import ScanScreen from '../views/ScanScreen';
 import HistoryScreen from '../views/HistoryScreen';
 import NotificationScreen from '../views/NotificationScreen';
 import ReturnSealScreen from '../views/ReturnSealScreen';
-import TransferSealScreen from '../views/TransferSealScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -43,11 +42,6 @@ export default function AppNavigator({ onLogout }: AppNavigatorProps) {
             >
                 {(props) => <ReturnSealScreen {...props} onLogout={onLogout} />}
             </Stack.Screen>
-            <Stack.Screen
-                name="TransferSeal"
-                component={TransferSealScreen}
-                options={{ headerShown: false }}
-            />
         </Stack.Navigator>
     );
 }
