@@ -37,6 +37,7 @@ function CompanyBottomTabNavigator({ onLogout }: CompanyNavigatorProps) {
                 headerShown: false,
                 tabBarActiveTintColor: '#6A0DAD',
                 tabBarInactiveTintColor: '#BDBDBD',
+                tabBarHideOnKeyboard: true,
                 tabBarStyle: {
                     backgroundColor: '#fff',
                     borderTopWidth: 0,

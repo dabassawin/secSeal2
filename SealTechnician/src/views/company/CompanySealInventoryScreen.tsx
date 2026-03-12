@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, FlatList, TextInput, ActivityIndicator, Refresh
 import { StatusBar } from 'expo-status-bar';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useHomeViewModel } from '../../viewmodels/HomeViewModel';
 import { Seal } from '../../services/TechnicianService';
 
@@ -13,9 +13,11 @@ export default function CompanySealInventoryScreen() {
     const { activeSeals, isLoading, fetchSeals } = useHomeViewModel();
     const [searchText, setSearchText] = useState('');
 
-    useEffect(() => {
-        fetchSeals();
-    }, []);
+    useFocusEffect(
+        useCallback(() => {
+            fetchSeals();
+        }, [])
+    );
 
     const onRefresh = useCallback(() => {
         fetchSeals();

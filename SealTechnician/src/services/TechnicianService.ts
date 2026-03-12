@@ -295,5 +295,28 @@ export const TechnicianService = {
             console.error('Get Notifications Error:', error);
             throw error;
         }
+    },
+
+    async clearNotifications(): Promise<void> {
+        try {
+            const token = await SecureStore.getItemAsync('userToken');
+            if (!token) throw new Error('No token found');
+
+            const response = await fetch(getApiUrl(API_CONFIG.endpoints.TECHNICIAN_NOTIFICATIONS), {
+                method: 'DELETE',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                },
+            });
+
+            if (!response.ok) {
+                const data = await response.json().catch(() => ({}));
+                throw new Error(data.error || data.message || 'Failed to clear notifications');
+            }
+        } catch (error) {
+            console.error('Clear Notifications Error:', error);
+            throw error;
+        }
     }
 };

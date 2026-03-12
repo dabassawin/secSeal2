@@ -7,6 +7,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { AuthService } from '../../services/AuthService';
 import { useHomeViewModel } from '../../viewmodels/HomeViewModel';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { TechnicianService } from '../../services/TechnicianService';
+import { Alert } from 'react-native';
 
 type Props = {
     navigation: NativeStackNavigationProp<any>;
@@ -54,6 +56,29 @@ export default function CompanyHomeScreen({ navigation, onLogout }: Props) {
     };
 
     const clearDateFilter = () => setFilterDate(null);
+
+    const handleClearHistory = async () => {
+        Alert.alert(
+            "ยืนยันการล้างประวัติ",
+            "คุณต้องการล้างประวัติการรับและจ่ายซีลทั้งหมดใช่หรือไม่? (การกระทำนี้ไม่สามารถย้อนกลับได้)",
+            [
+                { text: "ยกเลิก", style: "cancel" },
+                { 
+                    text: "ล้างประวัติ", 
+                    style: "destructive",
+                    onPress: async () => {
+                        try {
+                            await TechnicianService.clearNotifications();
+                            fetchSeals(); // Refresh the list
+                            Alert.alert("สำเร็จ", "ล้างประวัติเรียบร้อยแล้ว");
+                        } catch (error: any) {
+                            Alert.alert("ผิดพลาด", error.message || "ไม่สามารถล้างประวัติได้");
+                        }
+                    }
+                }
+            ]
+        );
+    };
 
     // Helper to group by date
     const groupByDate = (logs: any[]) => {
@@ -260,6 +285,10 @@ export default function CompanyHomeScreen({ navigation, onLogout }: Props) {
                                 <Ionicons name="download-outline" size={20} color="#6A0DAD" />
                                 <Text style={styles.sectionTitle}>ประวัติการรับซีล</Text>
                             </View>
+                            <TouchableOpacity onPress={handleClearHistory} style={styles.clearHistoryButton}>
+                                <Ionicons name="trash-outline" size={14} color="#FF5252" />
+                                <Text style={styles.clearHistoryText}>ล้างประวัติ</Text>
+                            </TouchableOpacity>
                         </View>
                         {renderSectionContent(groupedReceipts, "ไม่มีรายการรับซีล", "#4CAF50", "arrow-down-circle")}
                     </View>
@@ -270,6 +299,10 @@ export default function CompanyHomeScreen({ navigation, onLogout }: Props) {
                                 <Ionicons name="send-outline" size={20} color="#6A0DAD" />
                                 <Text style={styles.sectionTitle}>ประวัติการจ่ายซีล</Text>
                             </View>
+                            <TouchableOpacity onPress={handleClearHistory} style={styles.clearHistoryButton}>
+                                <Ionicons name="trash-outline" size={14} color="#FF5252" />
+                                <Text style={styles.clearHistoryText}>ล้างประวัติ</Text>
+                            </TouchableOpacity>
                         </View>
                         {renderSectionContent(groupedDistributions, "ไม่มีรายการจ่ายซีล", "#6A0DAD", "arrow-up-circle")}
                     </View>
@@ -578,5 +611,19 @@ const styles = StyleSheet.create({
         fontSize: 11,
         color: '#9E9E9E',
         marginTop: 2,
+    },
+    clearHistoryButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 4,
+        paddingHorizontal: 8,
+        borderRadius: 8,
+        backgroundColor: '#FFEAEA',
+    },
+    clearHistoryText: {
+        fontSize: 12,
+        color: '#FF5252',
+        fontWeight: 'bold',
+        marginLeft: 4,
     },
 });
