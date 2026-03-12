@@ -71,14 +71,20 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
                 <TouchableOpacity style={styles.button} onPress={handleLogin} disabled={isLoading}>
                     <Text style={styles.buttonText}>{isLoading ? 'LOGGING IN...' : 'LOGIN'}</Text>
                 </TouchableOpacity>
+
                 {error && <Text style={styles.errorText}>{error}</Text>}
+
+                {/* Integrated Footer */}
+                {!isKeyboardVisible && (
+                    <View style={styles.integratedFooter}>
+                        <View style={styles.footerSeparator} />
+                        <Text style={styles.integratedFooterText}>© 2024 PEA Seal Security</Text>
+                        <Text style={styles.versionText}>v1.0.0</Text>
+                    </View>
+                )}
             </View>
 
-            {!isKeyboardVisible && (
-                <View style={styles.footer}>
-                    <Text style={styles.footerText}>© 2024 PEA Seal Security</Text>
-                </View>
-            )}
+
         </KeyboardAvoidingView>
     );
 }
@@ -193,14 +199,27 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
         letterSpacing: 1,
     },
-    footer: {
-        backgroundColor: '#ffffff',
+    integratedFooter: {
+        marginTop: 'auto',
         alignItems: 'center',
-        paddingBottom: 20,
+        paddingBottom: 10,
     },
-    footerText: {
-        color: '#aaa',
+    footerSeparator: {
+        width: 40,
+        height: 4,
+        backgroundColor: '#f0f0f0',
+        borderRadius: 2,
+        marginBottom: 15,
+    },
+    integratedFooterText: {
+        color: '#888',
         fontSize: 12,
+        fontWeight: '500',
+    },
+    versionText: {
+        color: '#bbb',
+        fontSize: 10,
+        marginTop: 4,
     },
     errorText: {
         color: 'red',
