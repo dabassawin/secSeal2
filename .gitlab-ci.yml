@@ -1,0 +1,124 @@
+# ============================================================
+# GitLab CI/CD Pipeline — PEAsecSeal
+# ============================================================
+# Stages:
+#   build  → ตรวจว่า compile / build สำเร็จ
+#   test   → ตรวจ code quality (vet, lint, jest)
+#   docker → สร้าง Docker image + push to GitLab Container Registry
+# ============================================================
+
+stages:
+  - build
+  - test
+  - docker
+
+# --------------- Global variables ---------------
+variables:
+  # Docker-in-Docker
+  DOCKER_TLS_CERTDIR: "/certs"
+  # Go
+  GOPATH: "$CI_PROJECT_DIR/.go"
+  # Registry (GitLab Container Registry — built-in)
+  BACKEND_IMAGE: "$CI_REGISTRY_IMAGE/backend"
+  FRONTEND_IMAGE: "$CI_REGISTRY_IMAGE/frontend"
+
+# --------------- Cache templates ---------------
+.go-cache: &go-cache
+  cache:
+    key: go-mod-${CI_COMMIT_REF_SLUG}
+    paths:
+      - Seal-back1.0-main/vendor/
+
+.node-cache-client: &node-cache-client
+  cache:
+    key: npm-client-${CI_COMMIT_REF_SLUG}
+    paths:
+      - SealClient/node_modules/
+
+# ============================================================
+#  BUILD STAGE
+# ============================================================
+
+build-backend:
+  stage: build
+  image: golang:1.21-alpine
+  <<: *go-cache
+  script:
+    - cd Seal-back1.0-main
+    - go mod download
+    - go build -o server ./cmd/server
+  artifacts:
+    paths:
+      - Seal-back1.0-main/server
+    expire_in: 1 hour
+
+build-frontend:
+  stage: build
+  image: node:20-alpine
+  <<: *node-cache-client
+  script:
+    - cd SealClient
+    - npm ci
+    - npx vite build
+  artifacts:
+    paths:
+      - SealClient/dist/
+    expire_in: 1 hour
+
+# ============================================================
+#  TEST STAGE
+# ============================================================
+
+test-backend:
+  stage: test
+  image: golang:1.21-alpine
+  <<: *go-cache
+  script:
+    - cd Seal-back1.0-main
+    - go mod download
+    - go vet ./...
+    # เมื่อมี unit tests ให้เพิ่มบรรทัดนี้:
+    # - go test ./... -v
+
+test-frontend:
+  stage: test
+  image: node:20-alpine
+  <<: *node-cache-client
+  script:
+    - cd SealClient
+    - npm ci
+    - npm run lint
+    - npm test -- --passWithNoTests
+  allow_failure: false
+
+# ============================================================
+#  DOCKER STAGE — เฉพาะ branch main
+# ============================================================
+
+docker-backend:
+  stage: docker
+  image: docker:24
+  services:
+    - docker:24-dind
+  rules:
+    - if: $CI_COMMIT_BRANCH == "deploy"
+  before_script:
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
+  script:
+    - docker build -t "$BACKEND_IMAGE:$CI_COMMIT_SHORT_SHA" -t "$BACKEND_IMAGE:latest" ./Seal-back1.0-main
+    - docker push "$BACKEND_IMAGE:$CI_COMMIT_SHORT_SHA"
+    - docker push "$BACKEND_IMAGE:latest"
+
+docker-frontend:
+  stage: docker
+  image: docker:24
+  services:
+    - docker:24-dind
+  rules:
+    - if: $CI_COMMIT_BRANCH == "deploy"
+  before_script:
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" "$CI_REGISTRY"
+  script:
+    - docker build -t "$FRONTEND_IMAGE:$CI_COMMIT_SHORT_SHA" -t "$FRONTEND_IMAGE:latest" ./SealClient
+    - docker push "$FRONTEND_IMAGE:$CI_COMMIT_SHORT_SHA"
+    - docker push "$FRONTEND_IMAGE:latest"
