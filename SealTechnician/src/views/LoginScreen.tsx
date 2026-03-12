@@ -1,11 +1,22 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, Image } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, Image, Keyboard } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 
 import { useLoginViewModel } from '../viewmodels/useLoginViewModel';
 
 export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => void }) {
     const { username, setUsername, password, setPassword, isLoading, error, login } = useLoginViewModel(onLoginSuccess);
+    const [isKeyboardVisible, setKeyboardVisible] = React.useState(false);
+
+    React.useEffect(() => {
+        const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', () => setKeyboardVisible(true));
+        const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => setKeyboardVisible(false));
+
+        return () => {
+            keyboardDidShowListener.remove();
+            keyboardDidHideListener.remove();
+        };
+    }, []);
 
     const handleLogin = () => {
         login();
@@ -63,9 +74,11 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
                 {error && <Text style={styles.errorText}>{error}</Text>}
             </View>
 
-            <View style={styles.footer}>
-                <Text style={styles.footerText}>© 2024 PEA Seal Security</Text>
-            </View>
+            {!isKeyboardVisible && (
+                <View style={styles.footer}>
+                    <Text style={styles.footerText}>© 2024 PEA Seal Security</Text>
+                </View>
+            )}
         </KeyboardAvoidingView>
     );
 }
@@ -73,7 +86,7 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#4c669f', // Fallback color
+        backgroundColor: '#6A0DAD', // Purple theme
         justifyContent: 'center',
     },
     header: {
@@ -103,7 +116,7 @@ const styles = StyleSheet.create({
     logoText: {
         fontSize: 50,
         fontWeight: 'bold',
-        color: '#4c669f',
+        color: '#6A0DAD',
     },
     title: {
         fontSize: 32,
@@ -156,16 +169,16 @@ const styles = StyleSheet.create({
         marginBottom: 30,
     },
     forgotPasswordText: {
-        color: '#4c669f',
+        color: '#6A0DAD',
         fontSize: 14,
         fontWeight: '600',
     },
     button: {
-        backgroundColor: '#4c669f',
+        backgroundColor: '#6A0DAD',
         borderRadius: 12,
         paddingVertical: 18,
         alignItems: 'center',
-        shadowColor: "#4c669f",
+        shadowColor: "#6A0DAD",
         shadowOffset: {
             width: 0,
             height: 4,
