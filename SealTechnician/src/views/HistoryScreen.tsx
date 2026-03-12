@@ -1,6 +1,6 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
 import { View, Text, StyleSheet, SectionList, RefreshControl, TouchableOpacity, TextInput, Dimensions, Platform } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
 import { useHomeViewModel } from '../viewmodels/HomeViewModel';
@@ -51,7 +51,10 @@ const formatGroupDate = (dateString?: string) => {
 
 export default function HistoryScreen() {
     const navigation = useNavigation<NavigationProp>();
-    const { historySeals, activeSeals, isLoading, fetchSeals } = useHomeViewModel();
+    const route = useRoute<any>();
+    const { technicianId, technicianName } = route.params || {};
+    
+    const { historySeals, activeSeals, isLoading, fetchSeals } = useHomeViewModel(technicianId);
     const insets = useSafeAreaInsets();
     const [searchText, setSearchText] = useState('');
     const [activeTab, setActiveTab] = useState<'pending' | 'history' | 'returned'>('pending');
@@ -61,11 +64,11 @@ export default function HistoryScreen() {
 
     useEffect(() => {
         fetchSeals();
-    }, []);
+    }, [technicianId]);
 
     const onRefresh = useCallback(() => {
         fetchSeals();
-    }, []);
+    }, [fetchSeals]);
 
     const groupedData = useMemo(() => {
         let sourceData: Seal[] = [];
@@ -127,13 +130,11 @@ export default function HistoryScreen() {
     const onChangeDate = (event: any, selectedDate?: Date) => {
         setShowDatePicker(Platform.OS === 'ios');
 
-        // Android dismisses the picker when canceled, we don't want to set the date in that case
         if (event.type === 'set' && selectedDate) {
             setFilterDate(selectedDate);
         } else if (event.type === 'dismissed') {
             // Do nothing on Android when dismissed
         } else if (Platform.OS === 'ios' && selectedDate) {
-            // iOS doesn't give a type, we rely on selectedDate
             setFilterDate(selectedDate);
         }
     };
@@ -239,15 +240,27 @@ export default function HistoryScreen() {
             <StatusBar style="light" />
 
             {/* Header Section */}
-            <View style={[styles.header, { paddingTop: insets.top + 20 }]}>
+            <View style={[styles.header, { paddingTop: insets.top + (technicianId ? 10 : 20) }]}>
                 <SafeAreaView edges={[]} style={styles.headerContent}>
-                    <Text style={styles.headerTitle}>ประวัติ Seal</Text>
-                    <Text style={styles.headerSubtitle}>รายการซีลทั้งหมดที่ถูกบันทึกในระบบ</Text>
+                    {technicianId && (
+                        <TouchableOpacity 
+                            style={styles.backButton} 
+                            onPress={() => navigation.goBack()}
+                        >
+                            <Ionicons name="arrow-back" size={24} color="#fff" />
+                        </TouchableOpacity>
+                    )}
+                    <Text style={styles.headerTitle}>
+                        {technicianName ? `ประวัติซีล  - ${technicianName}` : 'ประวัติซีล   '}
+                    </Text>
+                    <Text style={styles.headerSubtitle}>
+                        {technicianName ? `รายการซีลทั้งหมดของ ${technicianName}` : 'รายการซีลทั้งหมดที่ถูกบันทึกในระบบ'}
+                    </Text>
                 </SafeAreaView>
             </View>
 
             {/* Content Section */}
-            <View style={[styles.body, { paddingBottom: 80 + insets.bottom }]}>
+            <View style={[styles.body, { paddingBottom: (technicianId ? 20 : 80) + insets.bottom }]}>
                 {/* Tabs */}
                 <View style={styles.tabContainer}>
                     <TouchableOpacity
@@ -344,47 +357,51 @@ export default function HistoryScreen() {
                 />
             </View>
 
-            {/* Custom Footer */}
-            <View style={[styles.footerContainer, { paddingBottom: insets.bottom, height: 70 + insets.bottom }]}>
-                {/* Home Tab */}
-                <TouchableOpacity style={styles.footerItem} onPress={() => navigation.navigate('Home')}>
-                    <Ionicons name="home-outline" size={24} color="#BDBDBD" />
-                    <Text style={styles.footerText}>หน้าหลัก</Text>
-                </TouchableOpacity>
+            {/* Custom Footer - Only show for technician view */}
+            {!technicianId && (
+                <View style={[styles.footerContainer, { paddingBottom: insets.bottom, height: 70 + insets.bottom }]}>
+                    {/* Home Tab */}
+                    <TouchableOpacity style={styles.footerItem} onPress={() => navigation.navigate('Home')}>
+                        <Ionicons name="home-outline" size={24} color="#BDBDBD" />
+                        <Text style={styles.footerText}>หน้าหลัก</Text>
+                    </TouchableOpacity>
 
-                {/* History Tab (Active) */}
-                <TouchableOpacity style={styles.footerItem}>
-                    <Ionicons name="time" size={24} color="#6A0DAD" />
-                    <Text style={[styles.footerText, styles.activeFooterText]}>ประวัติ</Text>
-                </TouchableOpacity>
+                    {/* History Tab (Active) */}
+                    <TouchableOpacity style={styles.footerItem}>
+                        <Ionicons name="time" size={24} color="#6A0DAD" />
+                        <Text style={[styles.footerText, styles.activeFooterText]}>ประวัติ</Text>
+                    </TouchableOpacity>
 
-                {/* Space for Floating Button */}
-                <View style={styles.footerSpace} />
+                    {/* Space for Floating Button */}
+                    <View style={styles.footerSpace} />
 
-                {/* Return Tab */}
-                <TouchableOpacity style={styles.footerItem} onPress={() => navigation.navigate('ReturnSeal')}>
-                    <Ionicons name="arrow-undo-outline" size={24} color="#BDBDBD" />
-                    <Text style={styles.footerText}>คืนซีล</Text>
-                </TouchableOpacity>
+                    {/* Return Tab */}
+                    <TouchableOpacity style={styles.footerItem} onPress={() => navigation.navigate('ReturnSeal')}>
+                        <Ionicons name="arrow-undo-outline" size={24} color="#BDBDBD" />
+                        <Text style={styles.footerText}>คืนซีล</Text>
+                    </TouchableOpacity>
 
-                {/* Notification Tab */}
-                <TouchableOpacity style={styles.footerItem} onPress={() => navigation.navigate('Notification')}>
-                    <Ionicons name="notifications-outline" size={24} color="#BDBDBD" />
-                    <Text style={styles.footerText}>แจ้งเตือน</Text>
-                </TouchableOpacity>
-            </View>
-
-            {/* Floating Scan Button */}
-            <TouchableOpacity
-                style={[styles.scanButton, { bottom: 25 + insets.bottom }]}
-                onPress={() => navigation.navigate('Scan')}
-                activeOpacity={0.9}
-            >
-                <View style={styles.scanIconContainer}>
-                    <Ionicons name="qr-code-outline" size={28} color="#fff" />
-                    <Text style={styles.scanButtonText}>สแกนเริ่มงาน</Text>
+                    {/* Notification Tab */}
+                    <TouchableOpacity style={styles.footerItem} onPress={() => navigation.navigate('Notification')}>
+                        <Ionicons name="notifications-outline" size={24} color="#BDBDBD" />
+                        <Text style={styles.footerText}>แจ้งเตือน</Text>
+                    </TouchableOpacity>
                 </View>
-            </TouchableOpacity>
+            )}
+
+            {/* Floating Scan Button - Only show for technician view */}
+            {!technicianId && (
+                <TouchableOpacity
+                    style={[styles.scanButton, { bottom: 25 + insets.bottom }]}
+                    onPress={() => navigation.navigate('Scan')}
+                    activeOpacity={0.9}
+                >
+                    <View style={styles.scanIconContainer}>
+                        <Ionicons name="qr-code-outline" size={28} color="#fff" />
+                        <Text style={styles.scanButtonText}>สแกนเริ่มงาน</Text>
+                    </View>
+                </TouchableOpacity>
+            )}
         </View>
     );
 }
@@ -408,6 +425,15 @@ const styles = StyleSheet.create({
     headerContent: {
         paddingHorizontal: 20,
         alignItems: 'center',
+        flexDirection: 'row',
+        flexWrap: 'wrap',
+        justifyContent: 'center',
+    },
+    backButton: {
+        position: 'absolute',
+        left: 20,
+        top: Platform.OS === 'ios' ? 0 : 5,
+        zIndex: 10,
     },
     headerTitle: {
         color: '#fff',

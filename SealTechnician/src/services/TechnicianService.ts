@@ -218,6 +218,31 @@ export const TechnicianService = {
         }
     },
 
+    async getSealsByTechnicianId(techId: number): Promise<Seal[]> {
+        try {
+            const token = await SecureStore.getItemAsync('userToken');
+            if (!token) throw new Error('No token found');
+
+            const response = await fetch(`${getApiUrl('/technician')}/seals/center-list?technician_id=${techId}`, {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                },
+            });
+
+            if (!response.ok) {
+                const data = await response.json().catch(() => ({}));
+                throw new Error(data.error || data.message || 'Failed to fetch technician seals');
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error('Get Technician Seals Error:', error);
+            throw error;
+        }
+    },
+
     async transferSeals(targetTechnicianId: number, sealNumbers: string[]): Promise<any> {
         try {
             const token = await SecureStore.getItemAsync('userToken');

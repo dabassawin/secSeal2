@@ -5,7 +5,7 @@ import { AuthService } from '../services/AuthService';
 import { parseJwt } from '../utils/jwt';
 import { SealStatus } from '../constants/status';
 
-export const useHomeViewModel = () => {
+export const useHomeViewModel = (specificTechId?: number) => {
     const [seals, setSeals] = useState<Seal[]>([]);
     const [activeSeals, setActiveSeals] = useState<Seal[]>([]);
     const [historySeals, setHistorySeals] = useState<Seal[]>([]);
@@ -20,10 +20,19 @@ export const useHomeViewModel = () => {
         setError(null);
         try {
             // Fetch seals and notifications in parallel
-            const [sealsData, notificationsData] = await Promise.all([
-                TechnicianService.getAssignedSeals(),
-                TechnicianService.getNotifications().catch(() => []) // Fallback to empty array if fails
-            ]);
+            let sealsData: Seal[] = [];
+            let notificationsData: any[] = [];
+
+            if (specificTechId) {
+                sealsData = await TechnicianService.getSealsByTechnicianId(specificTechId);
+            } else {
+                const [sData, nData] = await Promise.all([
+                    TechnicianService.getAssignedSeals(),
+                    TechnicianService.getNotifications().catch(() => []) // Fallback to empty array if fails
+                ]);
+                sealsData = sData;
+                notificationsData = nData;
+            }
 
             setSeals(sealsData);
             setNotifications(notificationsData);

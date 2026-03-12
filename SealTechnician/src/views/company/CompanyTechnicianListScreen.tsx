@@ -21,7 +21,16 @@ export default function CompanyTechnicianListScreen({ navigation }: any) {
                 }
             });
             const data = await response.json();
-            setTechnicians(data);
+            console.log('Fetched Technicians:', data);
+            
+            // Filter out company itself if it appears in the technician list
+            // We use both name and code to be safe, or check for is_center flag if available
+            const filteredData = data.filter((tech: any) => 
+                tech.technician_code !== '87654321' && 
+                tech.is_center !== true &&
+                !tech.first_name?.includes('บริษัท')
+            );
+            setTechnicians(filteredData);
         } catch (error) {
             console.error('Error fetching technicians:', error);
         } finally {
@@ -34,7 +43,13 @@ export default function CompanyTechnicianListScreen({ navigation }: any) {
     }, []);
 
     const renderItem = ({ item }: { item: any }) => (
-        <View style={styles.card}>
+        <TouchableOpacity 
+            style={styles.card}
+            onPress={() => navigation.navigate('History', { 
+                technicianId: item.id,
+                technicianName: `${item.first_name || ''} ${item.last_name || ''}`.trim() || item.username
+            })}
+        >
             <View style={styles.iconContainer}>
                 <Ionicons name="person" size={24} color="#6A0DAD" />
             </View>
@@ -53,7 +68,8 @@ export default function CompanyTechnicianListScreen({ navigation }: any) {
                     </View>
                 )}
             </View>
-        </View>
+            <Ionicons name="chevron-forward" size={20} color="#BDBDBD" />
+        </TouchableOpacity>
     );
 
     return (

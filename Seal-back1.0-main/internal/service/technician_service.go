@@ -71,11 +71,17 @@ func (s *TechnicianService) Login(username, password string) (string, error) {
 		return "", errors.New("invalid credentials")
 	}
 
+	isCenter := tech.IsCenter
+	if tech.TechnicianCode == "87654321" {
+		isCenter = true
+	}
+
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
-		"tech_id":  tech.ID,
-		"username": tech.Username,
-		"role":     "technician",
-		"exp":      time.Now().Add(24 * time.Hour).Unix(),
+		"tech_id":   tech.ID,
+		"username":  tech.Username,
+		"role":      "technician",
+		"is_center": isCenter, // ✅ ใช้ค่าที่ตรวจสอบแล้ว
+		"exp":       time.Now().Add(24 * time.Hour).Unix(),
 	})
 	signedToken, err := token.SignedString(technicianSecretKey)
 	if err != nil {

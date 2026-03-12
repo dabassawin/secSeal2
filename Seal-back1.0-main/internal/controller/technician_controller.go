@@ -174,7 +174,46 @@ func (tc *TechnicianController) GetAssignedSealsHandler(c *fiber.Ctx) error {
 
 // ✅ User ปกติดูรายการซีลทั้งหมดที่จ่ายให้ช่าง (สำหรับ regular user)
 func (tc *TechnicianController) GetAllTechnicianSealsHandler(c *fiber.Ctx) error {
+	log.Printf("🔍 [GetAllTechnicianSealsHandler] Path: %s, Query: %s", c.Path(), c.OriginalURL())
+
+	// ✅ เช็คสิทธิ์: ถ้าเป็นช่าง ต้องเป็น IsCenter ถึงจะดูได้
+	roleInter := c.Locals("role")
+	if roleInter == nil {
+		log.Println("🚨 [GetAllTechnicianSealsHandler] Missing role in context")
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Unauthorized: role missing"})
+	}
+	role := roleInter.(string)
+
+	if role == "technician" {
+		isCenterInter := c.Locals("is_center")
+		isCenter := false
+		if isCenterInter != nil {
+			isCenter = isCenterInter.(bool)
+		}
+
+		log.Printf("🕵️ [GetAllTechnicianSealsHandler] Role: technician, is_center: %v", isCenter)
+
+		if !isCenter {
+			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Access denied: Center accounts only"})
+		}
+	} else {
+		log.Printf("🕵️ [GetAllTechnicianSealsHandler] Role: %s", role)
+	}
+
 	// ✅ ดึงรายการซีลทั้งหมดที่มีสถานะ assigned_to_technician
+	techIDStr := c.Query("technician_id")
+	log.Printf("👤 [GetAllTechnicianSealsHandler] technician_id query: %s", techIDStr)
+	if techIDStr != "" {
+		techID, err := strconv.Atoi(techIDStr)
+		if err == nil {
+			seals, err := tc.sealService.GetSealsByTechnician(uint(techID))
+			if err != nil {
+				return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+			}
+			return c.JSON(seals)
+		}
+	}
+
 	seals, err := tc.sealService.GetAllAssignedSeals()
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})

@@ -182,12 +182,16 @@ func TechnicianJWTMiddleware() fiber.Handler {
 			log.Println("❌ [TechnicianJWTMiddleware] Missing tech_id in Token")
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Invalid token: missing tech_id"})
 		}
-
+		
 		techID := uint(techIDFloat)
+		isCenter, _ := claims["is_center"].(bool)
 
 		// ✅ ตั้งค่าใน `Locals` เพื่อให้ API ใช้
 		c.Locals("tech_id", techID)
 		c.Locals("role", role)
+		c.Locals("is_center", isCenter)
+
+		log.Printf("🔑 [TechnicianJWTMiddleware] Access granted: tech_id=%d, role=%s, is_center=%v", techID, role, isCenter)
 
 		return c.Next()
 	}
