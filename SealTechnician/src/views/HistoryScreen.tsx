@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useMemo, useEffect } from 'react';
-import { View, Text, StyleSheet, SectionList, RefreshControl, TouchableOpacity, TextInput, Dimensions, Platform } from 'react-native';
+import { View, Text, StyleSheet, SectionList, RefreshControl, TouchableOpacity, TextInput, Dimensions, Platform, Keyboard } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
@@ -61,9 +61,18 @@ export default function HistoryScreen() {
 
     const [filterDate, setFilterDate] = useState<Date | null>(null);
     const [showDatePicker, setShowDatePicker] = useState(false);
+    const [isKeyboardVisible, setKeyboardVisible] = useState(false);
 
     useEffect(() => {
         fetchSeals();
+
+        const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', () => setKeyboardVisible(true));
+        const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => setKeyboardVisible(false));
+
+        return () => {
+            keyboardDidShowListener.remove();
+            keyboardDidHideListener.remove();
+        };
     }, [technicianId]);
 
     const onRefresh = useCallback(() => {
@@ -358,7 +367,7 @@ export default function HistoryScreen() {
             </View>
 
             {/* Custom Footer - Only show for technician view */}
-            {!technicianId && (
+            {!technicianId && !isKeyboardVisible && (
                 <View style={[styles.footerContainer, { paddingBottom: insets.bottom, height: 70 + insets.bottom }]}>
                     {/* Home Tab */}
                     <TouchableOpacity style={styles.footerItem} onPress={() => navigation.navigate('Home')}>
@@ -390,7 +399,7 @@ export default function HistoryScreen() {
             )}
 
             {/* Floating Scan Button - Only show for technician view */}
-            {!technicianId && (
+            {!technicianId && !isKeyboardVisible && (
                 <TouchableOpacity
                     style={[styles.scanButton, { bottom: 25 + insets.bottom }]}
                     onPress={() => navigation.navigate('Scan')}

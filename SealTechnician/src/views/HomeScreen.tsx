@@ -1,5 +1,5 @@
 import React, { useCallback, useState, useEffect } from 'react';
-import { View, Text, StyleSheet, FlatList, RefreshControl, TouchableOpacity, TextInput, Image, Dimensions, Alert, Modal } from 'react-native';
+import { View, Text, StyleSheet, FlatList, RefreshControl, TouchableOpacity, TextInput, Image, Dimensions, Alert, Modal, Keyboard } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
@@ -35,6 +35,7 @@ export default function HomeScreen({ onLogout }: HomeScreenProps) {
     const [activeTab, setActiveTab] = useState<'pending' | 'history' | 'returned'>('pending');
     const [dropdownVisible, setDropdownVisible] = useState(false);
     const [searchText, setSearchText] = useState('');
+    const [isKeyboardVisible, setKeyboardVisible] = useState(false);
 
     const pendingSeals = activeSeals;
     const returnedSeals = historySeals.filter(s =>
@@ -68,6 +69,14 @@ export default function HomeScreen({ onLogout }: HomeScreenProps) {
 
     useEffect(() => {
         fetchSeals();
+
+        const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', () => setKeyboardVisible(true));
+        const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => setKeyboardVisible(false));
+
+        return () => {
+            keyboardDidShowListener.remove();
+            keyboardDidHideListener.remove();
+        };
     }, []);
 
     useEffect(() => {
@@ -247,46 +256,50 @@ export default function HomeScreen({ onLogout }: HomeScreenProps) {
             </View>
 
             {/* Custom Footer */}
-            <View style={[styles.footerContainer, { paddingBottom: insets.bottom, height: 70 + insets.bottom }]}>
-                {/* Home Tab */}
-                <TouchableOpacity style={styles.footerItem}>
-                    <Ionicons name="home" size={24} color="#6A0DAD" />
-                    <Text style={[styles.footerText, styles.activeFooterText]}>หน้าหลัก</Text>
-                </TouchableOpacity>
+            {!isKeyboardVisible && (
+                <View style={[styles.footerContainer, { paddingBottom: insets.bottom, height: 70 + insets.bottom }]}>
+                    {/* Home Tab */}
+                    <TouchableOpacity style={styles.footerItem}>
+                        <Ionicons name="home" size={24} color="#6A0DAD" />
+                        <Text style={[styles.footerText, styles.activeFooterText]}>หน้าหลัก</Text>
+                    </TouchableOpacity>
 
-                {/* History Tab */}
-                <TouchableOpacity style={styles.footerItem} onPress={() => navigation.navigate('History')}>
-                    <Ionicons name="time-outline" size={24} color="#BDBDBD" />
-                    <Text style={styles.footerText}>ประวัติ</Text>
-                </TouchableOpacity>
+                    {/* History Tab */}
+                    <TouchableOpacity style={styles.footerItem} onPress={() => navigation.navigate('History')}>
+                        <Ionicons name="time-outline" size={24} color="#BDBDBD" />
+                        <Text style={styles.footerText}>ประวัติ</Text>
+                    </TouchableOpacity>
 
-                {/* Space for Floating Button */}
-                <View style={styles.footerSpace} />
+                    {/* Space for Floating Button */}
+                    <View style={styles.footerSpace} />
 
-                {/* Return Tab */}
-                <TouchableOpacity style={styles.footerItem} onPress={() => navigation.navigate('ReturnSeal')}>
-                    <Ionicons name="arrow-undo-outline" size={24} color="#BDBDBD" />
-                    <Text style={styles.footerText}>คืนซีล</Text>
-                </TouchableOpacity>
+                    {/* Return Tab */}
+                    <TouchableOpacity style={styles.footerItem} onPress={() => navigation.navigate('ReturnSeal')}>
+                        <Ionicons name="arrow-undo-outline" size={24} color="#BDBDBD" />
+                        <Text style={styles.footerText}>คืนซีล</Text>
+                    </TouchableOpacity>
 
-                {/* Notification Tab */}
-                <TouchableOpacity style={styles.footerItem} onPress={() => navigation.navigate('Notification')}>
-                    <Ionicons name="notifications-outline" size={24} color="#BDBDBD" />
-                    <Text style={styles.footerText}>แจ้งเตือน</Text>
-                </TouchableOpacity>
-            </View>
+                    {/* Notification Tab */}
+                    <TouchableOpacity style={styles.footerItem} onPress={() => navigation.navigate('Notification')}>
+                        <Ionicons name="notifications-outline" size={24} color="#BDBDBD" />
+                        <Text style={styles.footerText}>แจ้งเตือน</Text>
+                    </TouchableOpacity>
+                </View>
+            )}
 
             {/* Floating Scan Button */}
-            <TouchableOpacity
-                style={[styles.scanButton, { bottom: 25 + insets.bottom }]}
-                onPress={() => navigation.navigate('Scan')}
-                activeOpacity={0.9}
-            >
-                <View style={styles.scanIconContainer}>
-                    <Ionicons name="qr-code-outline" size={28} color="#fff" />
-                    <Text style={styles.scanButtonText}>สแกนเริ่มงาน</Text>
-                </View>
-            </TouchableOpacity>
+            {!isKeyboardVisible && (
+                <TouchableOpacity
+                    style={[styles.scanButton, { bottom: 25 + insets.bottom }]}
+                    onPress={() => navigation.navigate('Scan')}
+                    activeOpacity={0.9}
+                >
+                    <View style={styles.scanIconContainer}>
+                        <Ionicons name="qr-code-outline" size={28} color="#fff" />
+                        <Text style={styles.scanButtonText}>สแกนเริ่มงาน</Text>
+                    </View>
+                </TouchableOpacity>
+            )}
         </View>
     );
 }

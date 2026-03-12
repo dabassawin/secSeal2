@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, FlatList, ActivityIndicator, Alert, Image, Modal, TextInput, KeyboardAvoidingView, Platform } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, FlatList, ActivityIndicator, Alert, Image, Modal, TextInput, KeyboardAvoidingView, Platform, Keyboard } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { StatusBar } from 'expo-status-bar';
@@ -46,6 +46,7 @@ export default function ReturnSealScreen({ onLogout }: ReturnSealScreenProps) {
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     const [manualInput, setManualInput] = useState('');
+    const [isKeyboardVisible, setKeyboardVisible] = useState(false);
 
     const RETURN_REASONS = [
         'ชำรุดก่อนใช้งาน',
@@ -82,6 +83,14 @@ export default function ReturnSealScreen({ onLogout }: ReturnSealScreenProps) {
             fetchSeals();
             // Also sync state with global in case it changed externally
             setScannedSeals(globalScannedSeals);
+
+            const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', () => setKeyboardVisible(true));
+            const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => setKeyboardVisible(false));
+
+            return () => {
+                keyboardDidShowListener.remove();
+                keyboardDidHideListener.remove();
+            };
         }, [])
     );
 
@@ -403,41 +412,45 @@ export default function ReturnSealScreen({ onLogout }: ReturnSealScreenProps) {
             </Modal>
 
             {/* Custom Footer */}
-            <View style={[styles.footerContainer, { paddingBottom: insets.bottom, height: 70 + insets.bottom }]}>
-                <TouchableOpacity style={styles.footerItem} onPress={() => navigation.navigate('Home')}>
-                    <Ionicons name="home-outline" size={24} color="#BDBDBD" />
-                    <Text style={styles.footerText}>หน้าหลัก</Text>
-                </TouchableOpacity>
+            {!isKeyboardVisible && (
+                <View style={[styles.footerContainer, { paddingBottom: insets.bottom, height: 70 + insets.bottom }]}>
+                    <TouchableOpacity style={styles.footerItem} onPress={() => navigation.navigate('Home')}>
+                        <Ionicons name="home-outline" size={24} color="#BDBDBD" />
+                        <Text style={styles.footerText}>หน้าหลัก</Text>
+                    </TouchableOpacity>
 
-                <TouchableOpacity style={styles.footerItem} onPress={() => navigation.navigate('History')}>
-                    <Ionicons name="time-outline" size={24} color="#BDBDBD" />
-                    <Text style={styles.footerText}>ประวัติ</Text>
-                </TouchableOpacity>
+                    <TouchableOpacity style={styles.footerItem} onPress={() => navigation.navigate('History')}>
+                        <Ionicons name="time-outline" size={24} color="#BDBDBD" />
+                        <Text style={styles.footerText}>ประวัติ</Text>
+                    </TouchableOpacity>
 
-                <View style={styles.footerSpace} />
+                    <View style={styles.footerSpace} />
 
-                <TouchableOpacity style={styles.footerItem}>
-                    <Ionicons name="arrow-undo" size={24} color="#6A0DAD" />
-                    <Text style={[styles.footerText, styles.activeFooterText]}>คืนซีล</Text>
-                </TouchableOpacity>
+                    <TouchableOpacity style={styles.footerItem}>
+                        <Ionicons name="arrow-undo" size={24} color="#6A0DAD" />
+                        <Text style={[styles.footerText, styles.activeFooterText]}>คืนซีล</Text>
+                    </TouchableOpacity>
 
-                <TouchableOpacity style={styles.footerItem} onPress={() => navigation.navigate('Notification')}>
-                    <Ionicons name="notifications-outline" size={24} color="#BDBDBD" />
-                    <Text style={styles.footerText}>แจ้งเตือน</Text>
-                </TouchableOpacity>
-            </View>
+                    <TouchableOpacity style={styles.footerItem} onPress={() => navigation.navigate('Notification')}>
+                        <Ionicons name="notifications-outline" size={24} color="#BDBDBD" />
+                        <Text style={styles.footerText}>แจ้งเตือน</Text>
+                    </TouchableOpacity>
+                </View>
+            )}
 
             {/* Floating Scan Button */}
-            <TouchableOpacity
-                style={[styles.scanButton, { bottom: 25 + insets.bottom }]}
-                onPress={() => navigation.navigate('Scan')}
-                activeOpacity={0.9}
-            >
-                <View style={styles.scanIconContainer}>
-                    <Ionicons name="qr-code-outline" size={28} color="#fff" />
-                    <Text style={styles.scanButtonText}>สแกนเริ่มงาน</Text>
-                </View>
-            </TouchableOpacity>
+            {!isKeyboardVisible && (
+                <TouchableOpacity
+                    style={[styles.scanButton, { bottom: 25 + insets.bottom }]}
+                    onPress={() => navigation.navigate('Scan')}
+                    activeOpacity={0.9}
+                >
+                    <View style={styles.scanIconContainer}>
+                        <Ionicons name="qr-code-outline" size={28} color="#fff" />
+                        <Text style={styles.scanButtonText}>สแกนเริ่มงาน</Text>
+                    </View>
+                </TouchableOpacity>
+            )}
         </View>
     );
 }

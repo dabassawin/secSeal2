@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Alert, TouchableOpacity, KeyboardAvoidingView, ScrollView, Platform, ActivityIndicator, Modal, FlatList, TextInput } from 'react-native';
+import { View, Text, StyleSheet, Alert, TouchableOpacity, KeyboardAvoidingView, ScrollView, Platform, ActivityIndicator, Modal, FlatList, TextInput, RefreshControl } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
+import { useFocusEffect } from '@react-navigation/native';
 import RNPickerSelect from 'react-native-picker-select';
 import { useHomeViewModel } from '../../viewmodels/HomeViewModel';
 import { getApiUrl } from '../../config/api.config';
@@ -26,8 +27,17 @@ export default function CompanyAssignSealScreen({ navigation, route }: any) {
     const [tempSelectedSeals, setTempSelectedSeals] = useState<string[]>([]);
 
     useEffect(() => {
-        fetchSeals();
         fetchTechnicians();
+    }, []);
+
+    useFocusEffect(
+        React.useCallback(() => {
+            fetchSeals();
+        }, [])
+    );
+
+    const onRefresh = React.useCallback(async () => {
+        await Promise.all([fetchSeals(), fetchTechnicians()]);
     }, []);
 
     useEffect(() => {
@@ -158,7 +168,7 @@ export default function CompanyAssignSealScreen({ navigation, route }: any) {
                         onPress: () => {
                             setSelectedSealNumbers([]);
                             setTargetTechnicianId('');
-                            navigation.navigate('InventoryTab');
+                            fetchSeals(); // Refresh local list to remove assigned seals
                         }
                     }
                 ]);
@@ -189,7 +199,13 @@ export default function CompanyAssignSealScreen({ navigation, route }: any) {
                 </SafeAreaView>
             </View>
 
-            <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+            <ScrollView 
+                contentContainerStyle={styles.scrollContent} 
+                showsVerticalScrollIndicator={false}
+                refreshControl={
+                    <RefreshControl refreshing={loading} onRefresh={onRefresh} colors={['#6A0DAD']} />
+                }
+            >
                 <View style={styles.formCard}>
                     {/* Technician Selection */}
                     <View style={styles.sectionContainer}>
