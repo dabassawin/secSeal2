@@ -1,22 +1,11 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, Image, Keyboard } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, KeyboardAvoidingView, Platform, Image } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 
 import { useLoginViewModel } from '../viewmodels/useLoginViewModel';
 
 export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => void }) {
     const { username, setUsername, password, setPassword, isLoading, error, login } = useLoginViewModel(onLoginSuccess);
-    const [isKeyboardVisible, setKeyboardVisible] = React.useState(false);
-
-    React.useEffect(() => {
-        const keyboardDidShowListener = Keyboard.addListener('keyboardDidShow', () => setKeyboardVisible(true));
-        const keyboardDidHideListener = Keyboard.addListener('keyboardDidHide', () => setKeyboardVisible(false));
-
-        return () => {
-            keyboardDidShowListener.remove();
-            keyboardDidHideListener.remove();
-        };
-    }, []);
 
     const handleLogin = () => {
         login();
@@ -73,18 +62,7 @@ export default function LoginScreen({ onLoginSuccess }: { onLoginSuccess: () => 
                 </TouchableOpacity>
 
                 {error && <Text style={styles.errorText}>{error}</Text>}
-
-                {/* Integrated Footer */}
-                {!isKeyboardVisible && (
-                    <View style={styles.integratedFooter}>
-                        <View style={styles.footerSeparator} />
-                        <Text style={styles.integratedFooterText}>© 2024 PEA Seal Security</Text>
-                        <Text style={styles.versionText}>v1.0.0</Text>
-                    </View>
-                )}
             </View>
-
-
         </KeyboardAvoidingView>
     );
 }
@@ -198,28 +176,6 @@ const styles = StyleSheet.create({
         fontSize: 18,
         fontWeight: 'bold',
         letterSpacing: 1,
-    },
-    integratedFooter: {
-        marginTop: 'auto',
-        alignItems: 'center',
-        paddingBottom: 10,
-    },
-    footerSeparator: {
-        width: 40,
-        height: 4,
-        backgroundColor: '#f0f0f0',
-        borderRadius: 2,
-        marginBottom: 15,
-    },
-    integratedFooterText: {
-        color: '#888',
-        fontSize: 12,
-        fontWeight: '500',
-    },
-    versionText: {
-        color: '#bbb',
-        fontSize: 10,
-        marginTop: 4,
     },
     errorText: {
         color: 'red',
