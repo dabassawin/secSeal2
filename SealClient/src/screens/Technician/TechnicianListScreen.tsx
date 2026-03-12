@@ -1,10 +1,14 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput, ActivityIndicator, Image } from 'react-native';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import {
+    View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput,
+    ActivityIndicator, Modal, FlatList, Platform
+} from 'react-native';
 import { useNavigation, useFocusEffect, useRoute } from '@react-navigation/native';
 import { colors, sizes } from '@/constants';
 import { Header } from '@/components/dashboard';
 import { technicianService } from '@/services/technicianService';
 import { userService } from '@/services/userService';
+import { masComService } from '@/services/masComService';
 import { useAuth } from '@/context/AuthContext';
 import { Technician } from '@/types';
 
@@ -21,11 +25,46 @@ export const TechnicianListScreen: React.FC = () => {
 
     const [masPeaList, setMasPeaList] = useState<any[]>([]);
 
+    // ──────────── Edit Modal State ────────────
+    const [editModalVisible, setEditModalVisible] = useState(false);
+    const [editTarget, setEditTarget] = useState<Technician | null>(null);
+    const [saving, setSaving] = useState(false);
+    const [showPassword, setShowPassword] = useState(false);
+
+    // Form data
+    const emptyForm = {
+        firstName: '',
+        lastName: '',
+        phoneNumber: '',
+        email: '',
+        username: '',
+        password: '',
+        comCode: '',
+    };
+    const [formData, setFormData] = useState(emptyForm);
+    const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+
+    // MasCom selection for edit modal
+    const [showComModal, setShowComModal] = useState(false);
+    const [masComList, setMasComList] = useState<any[]>([]);
+    const [searchComQuery, setSearchComQuery] = useState('');
+    const [selectedComName, setSelectedComName] = useState('');
+
+    // Status Modal
+    const [statusModalVisible, setStatusModalVisible] = useState(false);
+    const [statusModalType, setStatusModalType] = useState<'success' | 'error'>('success');
+    const [statusModalMessage, setStatusModalMessage] = useState('');
+
+    // Delete Confirm
+    const [deleteModalVisible, setDeleteModalVisible] = useState(false);
+    const [deleteTarget, setDeleteTarget] = useState<Technician | null>(null);
+
     useFocusEffect(
         React.useCallback(() => {
             if (user?.pea_code) {
                 fetchData();
                 fetchMasPea();
+                fetchMasCom();
             }
         }, [user?.pea_code])
     );
@@ -39,6 +78,15 @@ export const TechnicianListScreen: React.FC = () => {
         }
     };
 
+    const fetchMasCom = async () => {
+        try {
+            const data = await masComService.getMasComs();
+            setMasComList(data);
+        } catch (error) {
+            console.error('Failed to fetch MasCom:', error);
+        }
+    };
+
     const getPeaName = (code?: string) => {
         if (!code) return '';
         const pea = masPeaList.find(p => p.pea_code === code || p.PeaCode === code || p.code === code);
@@ -48,12 +96,10 @@ export const TechnicianListScreen: React.FC = () => {
     const fetchData = async () => {
         try {
             setLoading(true);
-            // Allow override from route params.
             let peaPrefix = route.params?.pea_code;
             if (!peaPrefix && user?.pea_code) {
                 peaPrefix = user.pea_code.substring(0, 4);
             }
-            // ส่ง parameter peaPrefix และ isPrefix = true
             const data = await technicianService.getTechnicians(peaPrefix, true);
             setTechnicians(data);
         } catch (error) {
@@ -77,7 +123,108 @@ export const TechnicianListScreen: React.FC = () => {
         });
     }, [technicians, searchQuery, companyFilter, deptFilter, masPeaList]);
 
+    // ──────────── Edit Modal Handlers ────────────
+    const openEditModal = (tech: Technician) => {
+        setEditTarget(tech);
+        setFormData({
+            firstName: tech.first_name || '',
+            lastName: tech.last_name || '',
+            phoneNumber: tech.phone_number || '',
+            email: tech.email || '',
+            username: tech.username || '',
+            password: '',
+            comCode: tech.pea_code || '',
+        });
+        // Find company name from masCom or masPea
+        const comMatch = masComList.find(c => c.com_code === tech.pea_code);
+        const peaMatch = masPeaList.find(p => (p.pea_code || p.PeaCode) === tech.pea_code);
+        setSelectedComName(
+            comMatch ? (comMatch.name_th || '') :
+            peaMatch ? (peaMatch.name_th || peaMatch.NameTh || '') :
+            tech.company_name || ''
+        );
+        setFormErrors({});
+        setShowPassword(false);
+        setEditModalVisible(true);
+    };
 
+    const validateForm = () => {
+        const errs: Record<string, string> = {};
+        if (!formData.firstName.trim()) errs.firstName = 'กรุณากรอกชื่อจริง';
+        if (!formData.lastName.trim()) errs.lastName = 'กรุณากรอกนามสกุล';
+        if (!formData.phoneNumber.trim()) errs.phoneNumber = 'กรุณากรอกเบอร์โทรศัพท์';
+        setFormErrors(errs);
+        return Object.keys(errs).length === 0;
+    };
+
+    const handleSaveEdit = async () => {
+        if (!validateForm() || !editTarget) return;
+        try {
+            setSaving(true);
+            const payload: any = {
+                first_name: formData.firstName.trim(),
+                last_name: formData.lastName.trim(),
+                phone_number: formData.phoneNumber.trim(),
+                email: formData.email.trim(),
+                pea_code: formData.comCode,
+                company_name: selectedComName,
+            };
+            if (formData.password.trim()) {
+                payload.password = formData.password;
+            }
+            await technicianService.updateTechnician(editTarget.id, payload);
+            showStatusModal('success', 'แก้ไขข้อมูลช่างเทคนิคเรียบร้อยแล้ว');
+            setEditModalVisible(false);
+            fetchData();
+        } catch (error: any) {
+            showStatusModal('error', error?.response?.data?.error || 'เกิดข้อผิดพลาด กรุณาลองใหม่');
+        } finally {
+            setSaving(false);
+        }
+    };
+
+    const showStatusModal = (type: 'success' | 'error', msg: string) => {
+        setStatusModalType(type);
+        setStatusModalMessage(msg);
+        setStatusModalVisible(true);
+    };
+
+    // ──────────── Delete Handlers ────────────
+    const confirmDelete = (tech: Technician) => {
+        setDeleteTarget(tech);
+        setDeleteModalVisible(true);
+    };
+
+    const handleDelete = async () => {
+        if (!deleteTarget) return;
+        try {
+            await technicianService.deleteTechnician(deleteTarget.id);
+            setDeleteModalVisible(false);
+            setDeleteTarget(null);
+            showStatusModal('success', 'ลบช่างเทคนิคเรียบร้อยแล้ว');
+            fetchData();
+        } catch (error: any) {
+            setDeleteModalVisible(false);
+            showStatusModal('error', error?.response?.data?.error || 'ไม่สามารถลบช่างเทคนิคได้');
+        }
+    };
+
+    // ──────────── MasCom picker helpers ────────────
+    const filteredComs = masComList.filter(item => {
+        const code = item.com_code || '';
+        const nameTh = item.name_th || '';
+        const nameEng = item.name_eng || '';
+        const query = searchComQuery.toLowerCase();
+        return code.toLowerCase().includes(query) || nameTh.includes(query) || nameEng.toLowerCase().includes(query);
+    });
+
+    const handleSelectCom = (item: any) => {
+        const code = item.com_code || '';
+        const nameTh = item.name_th || '';
+        setFormData(prev => ({ ...prev, comCode: code }));
+        setSelectedComName(nameTh);
+        setShowComModal(false);
+    };
 
     return (
         <View style={styles.mainContainer}>
@@ -204,15 +351,26 @@ export const TechnicianListScreen: React.FC = () => {
                                         </View>
                                     </View>
 
-                                    <TouchableOpacity
-                                        style={styles.actionIcon}
-                                        onPress={() => (navigation as any).navigate('TechnicianDetail', { id: tech.id, technician: tech })}
-                                    >
-                                        <Text style={{ fontSize: 16 }}>👁️</Text>
-                                    </TouchableOpacity>
-                                    <TouchableOpacity style={[styles.actionIcon, { marginLeft: 10 }]}>
-                                        <Text style={{ fontSize: 16 }}>📝</Text>
-                                    </TouchableOpacity>
+                                    <View style={[styles.cell, { flex: 1.2, flexDirection: 'row', justifyContent: 'center' }]}>
+                                        <TouchableOpacity
+                                            style={styles.actionIcon}
+                                            onPress={() => (navigation as any).navigate('TechnicianDetail', { id: tech.id, technician: tech })}
+                                        >
+                                            <Text style={{ fontSize: 16 }}>👁️</Text>
+                                        </TouchableOpacity>
+                                        <TouchableOpacity
+                                            style={[styles.actionIcon, { marginLeft: 6 }]}
+                                            onPress={(e) => { e.stopPropagation?.(); openEditModal(tech); }}
+                                        >
+                                            <Text style={{ fontSize: 16 }}>📝</Text>
+                                        </TouchableOpacity>
+                                        <TouchableOpacity
+                                            style={[styles.actionIcon, { marginLeft: 6 }]}
+                                            onPress={(e) => { e.stopPropagation?.(); confirmDelete(tech); }}
+                                        >
+                                            <Text style={{ fontSize: 16 }}>🗑️</Text>
+                                        </TouchableOpacity>
+                                    </View>
                                 </TouchableOpacity>
                             ))
                         )}
@@ -231,6 +389,238 @@ export const TechnicianListScreen: React.FC = () => {
                     </View>
                 </View>
             </View>
+
+            {/* ═══════════════════════════════════════════════ */}
+            {/* EDIT TECHNICIAN MODAL                          */}
+            {/* ═══════════════════════════════════════════════ */}
+            <Modal visible={editModalVisible} animationType="fade" transparent onRequestClose={() => setEditModalVisible(false)}>
+                <View style={styles.modalOverlay}>
+                    <View style={styles.formModalContent}>
+                        {/* Header */}
+                        <View style={styles.formModalHeader}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                <Text style={{ fontSize: 20, marginRight: 8 }}>🔧</Text>
+                                <Text style={styles.formModalTitle}>แก้ไขข้อมูลช่างเทคนิค</Text>
+                            </View>
+                            <TouchableOpacity onPress={() => setEditModalVisible(false)}>
+                                <Text style={{ fontSize: 22, color: 'rgba(255,255,255,0.8)' }}>✕</Text>
+                            </TouchableOpacity>
+                        </View>
+
+                        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ overflow: 'visible' }}>
+                            {/* Technician Code (read-only) */}
+                            <View style={[styles.formRow, { zIndex: 50 }]}>
+                                <View style={styles.formField}>
+                                    <Text style={styles.formLabel}>รหัสช่าง (Technician ID)</Text>
+                                    <TextInput
+                                        style={[styles.formInput, styles.formInputDisabled]}
+                                        value={editTarget?.technician_code || ''}
+                                        editable={false}
+                                    />
+                                </View>
+                                <View style={styles.formField}>
+                                    <Text style={styles.formLabel}>ชื่อผู้ใช้ (Username)</Text>
+                                    <TextInput
+                                        style={[styles.formInput, styles.formInputDisabled]}
+                                        value={formData.username}
+                                        editable={false}
+                                    />
+                                </View>
+                            </View>
+
+                            {/* Row 1: FirstName + LastName */}
+                            <View style={styles.formRow}>
+                                <View style={styles.formField}>
+                                    <Text style={styles.formLabel}>ชื่อจริง <Text style={styles.required}>*</Text></Text>
+                                    <TextInput
+                                        style={[styles.formInput, formErrors.firstName && styles.formInputError]}
+                                        placeholder="เช่น สมชาย"
+                                        placeholderTextColor="#bbb"
+                                        value={formData.firstName}
+                                        onChangeText={t => setFormData(p => ({ ...p, firstName: t }))}
+                                    />
+                                    {formErrors.firstName && <Text style={styles.formError}>{formErrors.firstName}</Text>}
+                                </View>
+                                <View style={styles.formField}>
+                                    <Text style={styles.formLabel}>นามสกุล <Text style={styles.required}>*</Text></Text>
+                                    <TextInput
+                                        style={[styles.formInput, formErrors.lastName && styles.formInputError]}
+                                        placeholder="เช่น ใจดี"
+                                        placeholderTextColor="#bbb"
+                                        value={formData.lastName}
+                                        onChangeText={t => setFormData(p => ({ ...p, lastName: t }))}
+                                    />
+                                    {formErrors.lastName && <Text style={styles.formError}>{formErrors.lastName}</Text>}
+                                </View>
+                            </View>
+
+                            {/* Row 2: Phone + Email */}
+                            <View style={styles.formRow}>
+                                <View style={styles.formField}>
+                                    <Text style={styles.formLabel}>เบอร์โทรศัพท์ <Text style={styles.required}>*</Text></Text>
+                                    <TextInput
+                                        style={[styles.formInput, formErrors.phoneNumber && styles.formInputError]}
+                                        placeholder="08x-xxx-xxxx"
+                                        placeholderTextColor="#bbb"
+                                        value={formData.phoneNumber}
+                                        onChangeText={t => setFormData(p => ({ ...p, phoneNumber: t }))}
+                                        keyboardType="phone-pad"
+                                    />
+                                    {formErrors.phoneNumber && <Text style={styles.formError}>{formErrors.phoneNumber}</Text>}
+                                </View>
+                                <View style={styles.formField}>
+                                    <Text style={styles.formLabel}>อีเมล (ถ้ามี)</Text>
+                                    <TextInput
+                                        style={styles.formInput}
+                                        placeholder="example@email.com"
+                                        placeholderTextColor="#bbb"
+                                        value={formData.email}
+                                        onChangeText={t => setFormData(p => ({ ...p, email: t }))}
+                                        keyboardType="email-address"
+                                    />
+                                </View>
+                            </View>
+
+                            {/* Row 3: Work Center */}
+                            <View style={[styles.formRow, { zIndex: 30 }]}>
+                                <View style={styles.formField}>
+                                    <Text style={styles.formLabel}>ศูนย์งาน (Work Center)</Text>
+                                    <TouchableOpacity
+                                        style={[styles.formInput, styles.formDropdownBtn]}
+                                        onPress={() => { setSearchComQuery(''); setShowComModal(true); }}
+                                    >
+                                        <Text style={{ color: formData.comCode ? '#333' : '#bbb', flex: 1 }} numberOfLines={1}>
+                                            {formData.comCode ? `${formData.comCode} - ${selectedComName}` : '-- เลือกศูนย์งาน --'}
+                                        </Text>
+                                        <Text>▼</Text>
+                                    </TouchableOpacity>
+                                </View>
+                                <View style={styles.formField} />
+                            </View>
+
+                            {/* Row 4: Password */}
+                            <View style={[styles.formRow, { zIndex: 10 }]}>
+                                <View style={[styles.formField, { flex: 1 }]}>
+                                    <Text style={styles.formLabel}>
+                                        รหัสผ่าน (Password)
+                                        <Text style={{ fontWeight: 'normal', color: '#999', fontSize: 12 }}> (ปล่อยว่างไว้หากไม่ต้องการเปลี่ยนรหัส)</Text>
+                                    </Text>
+                                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                        <TextInput
+                                            style={[styles.formInput, { flex: 1 }]}
+                                            placeholder="กำหนดรหัสผ่านใหม่..."
+                                            placeholderTextColor="#bbb"
+                                            value={formData.password}
+                                            onChangeText={t => setFormData(p => ({ ...p, password: t }))}
+                                            secureTextEntry={!showPassword}
+                                        />
+                                        <TouchableOpacity style={styles.eyeBtn} onPress={() => setShowPassword(!showPassword)}>
+                                            <Text style={{ fontSize: 18 }}>{showPassword ? '👁️' : '🙈'}</Text>
+                                        </TouchableOpacity>
+                                    </View>
+                                </View>
+                            </View>
+                        </ScrollView>
+
+                        {/* Footer buttons */}
+                        <View style={styles.formModalFooter}>
+                            <TouchableOpacity style={styles.cancelBtn} onPress={() => setEditModalVisible(false)}>
+                                <Text style={styles.cancelBtnText}>ยกเลิก</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity style={styles.saveBtn} onPress={handleSaveEdit} disabled={saving}>
+                                {saving ? (
+                                    <ActivityIndicator color="white" />
+                                ) : (
+                                    <>
+                                        <Text style={{ color: 'white', fontSize: 16, marginRight: 6 }}>💾</Text>
+                                        <Text style={styles.saveBtnText}>บันทึกข้อมูล</Text>
+                                    </>
+                                )}
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
+
+            {/* ═══════ MASCOM SELECTION MODAL ═══════ */}
+            <Modal visible={showComModal} animationType="slide" transparent onRequestClose={() => setShowComModal(false)}>
+                <View style={styles.modalOverlay}>
+                    <View style={styles.peaModalContent}>
+                        <View style={styles.peaModalHeader}>
+                            <Text style={styles.peaModalTitle}>เลือกศูนย์งาน</Text>
+                            <TouchableOpacity onPress={() => setShowComModal(false)}>
+                                <Text style={{ fontSize: 22, color: '#999' }}>✕</Text>
+                            </TouchableOpacity>
+                        </View>
+                        <TextInput
+                            style={styles.peaSearchInput}
+                            placeholder="ค้นหา (รหัส, ชื่อ)..."
+                            value={searchComQuery}
+                            onChangeText={setSearchComQuery}
+                        />
+                        <ScrollView style={{ flex: 1 }}>
+                            {filteredComs.map((item, idx) => {
+                                const code = item.com_code || '';
+                                const nameTh = item.name_th || '';
+                                return (
+                                    <TouchableOpacity key={item.id || idx} style={styles.peaItem} onPress={() => handleSelectCom(item)}>
+                                        <Text style={styles.peaItemCode}>{code}</Text>
+                                        <Text style={styles.peaItemName}>{nameTh}</Text>
+                                    </TouchableOpacity>
+                                );
+                            })}
+                        </ScrollView>
+                    </View>
+                </View>
+            </Modal>
+
+            {/* ═══════ STATUS MODAL ═══════ */}
+            <Modal visible={statusModalVisible} animationType="fade" transparent onRequestClose={() => setStatusModalVisible(false)}>
+                <View style={styles.modalOverlay}>
+                    <View style={styles.statusModalContent}>
+                        <View style={[styles.statusIconCircle, { backgroundColor: statusModalType === 'success' ? '#E8F5E9' : '#FFEBEE' }]}>
+                            <Text style={{ fontSize: 36 }}>{statusModalType === 'success' ? '✅' : '❌'}</Text>
+                        </View>
+                        <Text style={styles.statusTitle}>{statusModalType === 'success' ? 'สำเร็จ' : 'เกิดข้อผิดพลาด'}</Text>
+                        <Text style={styles.statusMessage}>{statusModalMessage}</Text>
+                        <TouchableOpacity
+                            style={[styles.statusBtn, { backgroundColor: statusModalType === 'success' ? colors.primaryPurple : '#F44336' }]}
+                            onPress={() => setStatusModalVisible(false)}
+                        >
+                            <Text style={styles.statusBtnText}>ตกลง</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
+
+            {/* ═══════ DELETE CONFIRM MODAL ═══════ */}
+            <Modal visible={deleteModalVisible} animationType="fade" transparent onRequestClose={() => setDeleteModalVisible(false)}>
+                <View style={styles.modalOverlay}>
+                    <View style={styles.statusModalContent}>
+                        <View style={[styles.statusIconCircle, { backgroundColor: '#FFEBEE' }]}>
+                            <Text style={{ fontSize: 36 }}>⚠️</Text>
+                        </View>
+                        <Text style={styles.statusTitle}>ยืนยันการลบ</Text>
+                        <Text style={styles.statusMessage}>
+                            คุณต้องการลบช่าง "{deleteTarget ? `${deleteTarget.first_name} ${deleteTarget.last_name}` : ''}" ใช่หรือไม่?{'\n'}การดำเนินการนี้ไม่สามารถย้อนกลับได้
+                        </Text>
+                        <View style={{ flexDirection: 'row', width: '100%', gap: 10 }}>
+                            <TouchableOpacity
+                                style={[styles.statusBtn, { flex: 1, backgroundColor: '#E0E0E0' }]}
+                                onPress={() => setDeleteModalVisible(false)}
+                            >
+                                <Text style={[styles.statusBtnText, { color: '#333' }]}>ยกเลิก</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[styles.statusBtn, { flex: 1, backgroundColor: '#F44336' }]}
+                                onPress={handleDelete}
+                            >
+                                <Text style={styles.statusBtnText}>ลบช่าง</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                </View>
+            </Modal>
         </View >
     );
 };
@@ -443,7 +833,12 @@ const styles = StyleSheet.create({
         fontWeight: '600',
     },
     actionIcon: {
-        padding: 5,
+        width: 34,
+        height: 34,
+        borderRadius: 8,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: '#F5F5F5',
     },
     emptyContainer: {
         padding: 50,
@@ -481,5 +876,233 @@ const styles = StyleSheet.create({
     activePageBtn: {
         backgroundColor: colors.primaryPurple,
         borderColor: colors.primaryPurple,
+    },
+
+    // ──── Modal Shared ────
+    modalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.5)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+
+    // ──── Form Modal ────
+    formModalContent: {
+        width: '90%',
+        maxWidth: 680,
+        maxHeight: '90%',
+        backgroundColor: 'white',
+        borderRadius: 16,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.25,
+        shadowRadius: 20,
+        elevation: 10,
+    },
+    formModalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        paddingHorizontal: 24,
+        paddingVertical: 18,
+        backgroundColor: colors.primaryPurple,
+        borderTopLeftRadius: 16,
+        borderTopRightRadius: 16,
+    },
+    formModalTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: 'white',
+    },
+
+    formRow: {
+        flexDirection: 'row',
+        paddingHorizontal: 24,
+        marginTop: 18,
+        gap: 16,
+    },
+    formField: {
+        flex: 1,
+        position: 'relative' as any,
+    },
+    formLabel: {
+        fontSize: 13,
+        fontWeight: 'bold',
+        color: '#333',
+        marginBottom: 6,
+    },
+    required: {
+        color: '#F44336',
+    },
+    formInput: {
+        height: 44,
+        borderWidth: 1,
+        borderColor: '#e0e0e0',
+        borderRadius: 8,
+        paddingHorizontal: 14,
+        fontSize: 14,
+        backgroundColor: '#fafafa',
+        color: '#333',
+    },
+    formInputError: {
+        borderColor: '#F44336',
+    },
+    formInputDisabled: {
+        backgroundColor: '#f0f0f0',
+        color: '#999',
+    },
+    formDropdownBtn: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+    },
+    formError: {
+        color: '#F44336',
+        fontSize: 11,
+        marginTop: 3,
+    },
+    eyeBtn: {
+        marginLeft: -40,
+        padding: 8,
+    },
+
+    // Modal Footer
+    formModalFooter: {
+        flexDirection: 'row',
+        justifyContent: 'flex-end',
+        gap: 12,
+        paddingHorizontal: 24,
+        paddingVertical: 18,
+        borderTopWidth: 1,
+        borderTopColor: '#f0f0f0',
+    },
+    cancelBtn: {
+        height: 44,
+        paddingHorizontal: 24,
+        borderRadius: 8,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: '#F5F5F5',
+    },
+    cancelBtnText: {
+        color: '#666',
+        fontWeight: 'bold',
+        fontSize: 14,
+    },
+    saveBtn: {
+        height: 44,
+        paddingHorizontal: 24,
+        borderRadius: 8,
+        flexDirection: 'row',
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: colors.primaryPurple,
+    },
+    saveBtnText: {
+        color: 'white',
+        fontWeight: 'bold',
+        fontSize: 14,
+    },
+
+    // ──── PEA/Com Modal ────
+    peaModalContent: {
+        width: '80%',
+        maxWidth: 600,
+        height: '70%',
+        backgroundColor: 'white',
+        borderRadius: 12,
+        padding: 20,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.25,
+        shadowRadius: 15,
+        elevation: 10,
+    },
+    peaModalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        marginBottom: 12,
+    },
+    peaModalTitle: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: colors.primaryPurple,
+    },
+    peaSearchInput: {
+        height: 44,
+        borderWidth: 1,
+        borderColor: '#e0e0e0',
+        borderRadius: 8,
+        paddingHorizontal: 14,
+        fontSize: 14,
+        backgroundColor: '#fafafa',
+        marginBottom: 10,
+    },
+    peaItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 12,
+        paddingHorizontal: 10,
+        borderBottomWidth: 1,
+        borderBottomColor: '#f0f0f0',
+    },
+    peaItemCode: {
+        fontSize: 13,
+        fontWeight: 'bold',
+        color: colors.primaryPurple,
+        width: 80,
+    },
+    peaItemName: {
+        fontSize: 13,
+        color: '#333',
+        flex: 1,
+    },
+
+    // ──── Status Modal ────
+    statusModalContent: {
+        width: 360,
+        backgroundColor: 'white',
+        borderRadius: 20,
+        padding: 30,
+        alignItems: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.25,
+        shadowRadius: 15,
+        elevation: 10,
+    },
+    statusIconCircle: {
+        width: 80,
+        height: 80,
+        borderRadius: 40,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 16,
+    },
+    statusTitle: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        color: '#333',
+        marginBottom: 8,
+    },
+    statusMessage: {
+        fontSize: 14,
+        color: '#666',
+        textAlign: 'center',
+        marginBottom: 20,
+        lineHeight: 20,
+    },
+    statusBtn: {
+        width: '100%',
+        height: 46,
+        borderRadius: 10,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    statusBtnText: {
+        color: 'white',
+        fontSize: 15,
+        fontWeight: 'bold',
     },
 });
