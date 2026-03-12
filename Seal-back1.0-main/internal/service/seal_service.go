@@ -439,11 +439,14 @@ func (s *SealService) GetSealReport(peaCode string) (map[string]interface{}, err
 
 func (s *SealService) GetSealsByTechnician(techID uint) ([]model.Seal, error) {
 	var seals []model.Seal
-	// ✅ รวมทั้งซีลที่ยังถือ (assigned_to_technician) และซีลที่คืนแล้ว (returned_by_technician)
-	// เพื่อให้ช่างยังเห็นประวัติซีลหลัง Admin ยืนยันรับคืน
+	// ✅ รวมทั้งซีลที่ยังถือ (assigned_to_technician) 
+	// ✅ ซีลที่คืนแล้ว (returned_by_technician)
+	// ✅ ซีลที่ได้รับโอน (issued_to)
+	// ✅ ซีลที่โอนไปแล้ว (issued_by)
+	// เพื่อให้ช่างและบริษัทเห็นประวัติทั้งหมด
 	if err := s.db.Where(
-		"assigned_to_technician = ? OR returned_by_technician = ?",
-		techID, techID,
+		"assigned_to_technician = ? OR returned_by_technician = ? OR issued_to = ? OR issued_by = ?",
+		techID, techID, techID, techID,
 	).Find(&seals).Error; err != nil {
 		return nil, err
 	}

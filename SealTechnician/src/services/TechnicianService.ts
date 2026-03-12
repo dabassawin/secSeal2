@@ -14,6 +14,8 @@ export interface Seal {
     used_at?: string;
     returned_at?: string;
     return_remarks?: string;
+    employee_code?: string;
+    issue_remark?: string;
     created_at?: string;
     updated_at?: string;
 }
@@ -241,6 +243,31 @@ export const TechnicianService = {
             return await response.json();
         } catch (error) {
             console.error('Transfer Seals Error:', error);
+            throw error;
+        }
+    },
+
+    async getNotifications(): Promise<any[]> {
+        try {
+            const token = await SecureStore.getItemAsync('userToken');
+            if (!token) throw new Error('No token found');
+
+            const response = await fetch(getApiUrl(API_CONFIG.endpoints.TECHNICIAN_NOTIFICATIONS), {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                },
+            });
+
+            if (!response.ok) {
+                const data = await response.json().catch(() => ({}));
+                throw new Error(data.error || data.message || 'Failed to fetch notifications');
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error('Get Notifications Error:', error);
             throw error;
         }
     }

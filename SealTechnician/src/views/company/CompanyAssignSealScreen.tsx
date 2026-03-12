@@ -407,10 +407,16 @@ export default function CompanyAssignSealScreen({ navigation, route }: any) {
                         </View>
 
                         <FlatList
-                            data={technicians.filter(t =>
-                                (t.first_name + ' ' + t.last_name).toLowerCase().includes(techModalSearchText.toLowerCase()) ||
-                                t.technician_code.toLowerCase().includes(techModalSearchText.toLowerCase())
-                            )}
+                            data={technicians.filter(t => {
+                                const fullName = (t.first_name + ' ' + t.last_name).toLowerCase();
+                                const search = techModalSearchText.toLowerCase();
+                                const isCompany = t.technician_code === '87654321';
+                                
+                                return !isCompany && (
+                                    fullName.includes(search) ||
+                                    t.technician_code.toLowerCase().includes(search)
+                                );
+                            })}
                             keyExtractor={item => item.id.toString()}
                             renderItem={({ item }) => {
                                 const isSelected = targetTechnicianId === item.id.toString();

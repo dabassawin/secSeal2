@@ -9,6 +9,7 @@ export const useHomeViewModel = () => {
     const [seals, setSeals] = useState<Seal[]>([]);
     const [activeSeals, setActiveSeals] = useState<Seal[]>([]);
     const [historySeals, setHistorySeals] = useState<Seal[]>([]);
+    const [notifications, setNotifications] = useState<any[]>([]);
 
     const [userInfo, setUserInfo] = useState<{ username: string, role: string, first_name?: string, last_name?: string, is_center?: boolean, pea_code?: string } | null>(null);
     const [isLoading, setIsLoading] = useState(false);
@@ -18,15 +19,21 @@ export const useHomeViewModel = () => {
         setIsLoading(true);
         setError(null);
         try {
-            const data = await TechnicianService.getAssignedSeals();
-            setSeals(data);
+            // Fetch seals and notifications in parallel
+            const [sealsData, notificationsData] = await Promise.all([
+                TechnicianService.getAssignedSeals(),
+                TechnicianService.getNotifications().catch(() => []) // Fallback to empty array if fails
+            ]);
+
+            setSeals(sealsData);
+            setNotifications(notificationsData);
 
             // Filter seals
-            const active = data.filter(s =>
+            const active = sealsData.filter(s =>
                 s.status === SealStatus.ISSUED ||
                 (s.status === SealStatus.READY && s.return_remarks !== 'ไม่ได้ใช้งาน (คืนคลัง)')
             );
-            const history = data.filter(s =>
+            const history = sealsData.filter(s =>
                 s.status === SealStatus.INSTALLED ||
                 s.status === SealStatus.USED ||
                 s.status === SealStatus.DAMAGED ||
@@ -83,6 +90,7 @@ export const useHomeViewModel = () => {
         seals,
         activeSeals,
         historySeals,
+        notifications,
         userInfo,
         isLoading,
         error,

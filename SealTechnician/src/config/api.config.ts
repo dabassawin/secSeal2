@@ -5,7 +5,7 @@
 import Constants from 'expo-constants';
 
 // IP address of your machine on the local network
-const SERVER_IP = '192.168.1.36';
+const SERVER_IP = '192.168.1.25';
 const SERVER_PORT = '3000';
 
 // Base URL is derived from SERVER_IP so you only update one place
