@@ -96,12 +96,19 @@ export const TechnicianListScreen: React.FC = () => {
     const fetchData = async () => {
         try {
             setLoading(true);
-            let peaPrefix = route.params?.pea_code;
-            if (!peaPrefix && user?.pea_code) {
-                peaPrefix = user.pea_code.substring(0, 4);
+            const comCode = route.params?.com_code;
+            if (comCode) {
+                // เข้ามาจากหน้าศูนย์งาน → ส่ง com_code ไปกรองที่ backend
+                const data = await technicianService.getTechnicians(undefined, false, comCode);
+                setTechnicians(data);
+            } else {
+                let peaPrefix = route.params?.pea_code;
+                if (!peaPrefix && user?.pea_code) {
+                    peaPrefix = user.pea_code.substring(0, 4);
+                }
+                const data = await technicianService.getTechnicians(peaPrefix, true);
+                setTechnicians(data);
             }
-            const data = await technicianService.getTechnicians(peaPrefix, true);
-            setTechnicians(data);
         } catch (error) {
             console.error('Error fetching technicians:', error);
         } finally {

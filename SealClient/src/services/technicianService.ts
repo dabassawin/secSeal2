@@ -2,7 +2,7 @@ import api from './api';
 import { Technician } from '@/types';
 
 export const technicianService = {
-    getTechnicians: async (peaCode?: string, isPrefix?: boolean): Promise<Technician[]> => {
+    getTechnicians: async (peaCode?: string, isPrefix?: boolean, comCode?: string): Promise<Technician[]> => {
         try {
             let url = '/api/technician/list';
             const params = new URLSearchParams();
@@ -11,6 +11,9 @@ export const technicianService = {
             }
             if (isPrefix) {
                 params.append('is_prefix', 'true');
+            }
+            if (comCode) {
+                params.append('com_code', comCode);
             }
 
             if (params.toString()) {

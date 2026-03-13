@@ -229,8 +229,8 @@ func (s *TechnicianService) UpdateTechnician(techID uint, req struct {
 	return nil
 }
 
-func (s *TechnicianService) GetAllTechnicians(peaCode string, isPrefix bool) ([]model.Technician, error) {
-	return s.repo.GetAllTechnicians(peaCode, isPrefix)
+func (s *TechnicianService) GetAllTechnicians(peaCode string, isPrefix bool, comCode string) ([]model.Technician, error) {
+	return s.repo.GetAllTechnicians(peaCode, isPrefix, comCode)
 }
 
 // CountByCodePrefix นับจำนวนช่างที่มี technician_code ขึ้นต้นด้วย prefix
@@ -302,6 +302,12 @@ func (s *TechnicianService) TransferSeals(centerID uint, targetTechID uint, seal
 		// Verify Same PEA Code
 		if seal.PeaCode != targetTech.PeaCode {
 			return fmt.Errorf("ซีล %s ต้นสังกัดไม่ตรงกับช่างปลายทาง", sealNum)
+		}
+
+		// Verify Same Com Code (Work Center)
+		centerTech, err := s.repo.FindByID(centerID)
+		if err == nil && centerTech.ComCode != "" && targetTech.ComCode != "" && centerTech.ComCode != targetTech.ComCode {
+			return fmt.Errorf("ช่างปลายทางไม่ได้อยู่ในศูนย์งานเดียวกัน")
 		}
 
 		// Reassign to Target

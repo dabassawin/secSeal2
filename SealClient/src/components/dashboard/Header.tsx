@@ -29,7 +29,7 @@ export const Header: React.FC = () => {
                 <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                     <Text style={styles.userName}>{user?.username || 'User'}</Text>
                     {user?.pea_name ? (
-                        <Text style={styles.userPea}> (ทำงานที่: {user.pea_name})</Text>
+                        <Text style={styles.userPea}> ( {user.pea_name})</Text>
                     ) : null}
                 </View>
             </View>

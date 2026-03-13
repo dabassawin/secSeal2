@@ -15,7 +15,7 @@ export default function CompanyAssignSealScreen({ navigation, route }: any) {
     const [targetTechnicianId, setTargetTechnicianId] = useState('');
     const [loading, setLoading] = useState(false);
     const [technicians, setTechnicians] = useState<any[]>([]);
-    const { activeSeals, fetchSeals } = useHomeViewModel();
+    const { activeSeals, fetchSeals, userInfo } = useHomeViewModel();
     const insets = useSafeAreaInsets();
     const processedParamsRef = React.useRef<string>('');
 
@@ -27,8 +27,12 @@ export default function CompanyAssignSealScreen({ navigation, route }: any) {
     const [tempSelectedSeals, setTempSelectedSeals] = useState<string[]>([]);
 
     useEffect(() => {
-        fetchTechnicians();
-    }, []);
+        if (userInfo?.is_center && userInfo?.com_code) {
+            fetchTechnicians();
+        } else if (userInfo && !userInfo.is_center) {
+            fetchTechnicians(); // Fallback if regular tech somehow reaches here (unlikely)
+        }
+    }, [userInfo?.com_code, userInfo?.is_center]);
 
     useFocusEffect(
         React.useCallback(() => {
@@ -51,7 +55,13 @@ export default function CompanyAssignSealScreen({ navigation, route }: any) {
     const fetchTechnicians = async () => {
         try {
             const token = await AuthService.getToken();
-            const response = await fetch(getApiUrl('/technician/list'), {
+            // Get com_code from userInfo if available
+            let url = getApiUrl('/technician/list');
+            if (userInfo?.is_center && userInfo?.com_code) {
+                url += `?com_code=${userInfo.com_code}`;
+            }
+            
+            const response = await fetch(url, {
                 headers: { 'Authorization': `Bearer ${token}` }
             });
             if (response.ok) {
@@ -427,8 +437,11 @@ export default function CompanyAssignSealScreen({ navigation, route }: any) {
                                 const fullName = (t.first_name + ' ' + t.last_name).toLowerCase();
                                 const search = techModalSearchText.toLowerCase();
                                 const isCompany = t.technician_code === '87654321';
+                                const isSameCenter = !userInfo?.is_center || (userInfo?.com_code && t.com_code === userInfo.com_code);
+                                // Also hide other center accounts from being selected as targets
+                                const isTargetCenterAccount = t.is_center;
                                 
-                                return !isCompany && (
+                                return !isCompany && !isTargetCenterAccount && isSameCenter && (
                                     fullName.includes(search) ||
                                     t.technician_code.toLowerCase().includes(search)
                                 );

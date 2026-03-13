@@ -4,7 +4,7 @@
 The SealTechnician app was showing: **"ERROR Login Error: [TypeError: Network request failed]"**
 
 ## Root Cause
-The mobile app was hardcoded to connect to IP address `192.168.1.11:3000`, but the actual backend server was running on `192.168.1.36:3000`.
+The mobile app was hardcoded to connect to IP address `192.168.1.11:3000`, but the actual backend server was running on `192.168.1.30:3000`.
 
 This IP mismatch caused all network requests to fail because the device couldn't reach the server at the incorrect address.
 
@@ -13,16 +13,16 @@ Updated the hardcoded API URLs in the following files:
 
 ### Files Modified
 1. **SealTechnician/src/services/AuthService.ts**
-   - Changed: `http://192.168.1.11:3000/api` → `http://192.168.1.36:3000/api`
+   - Changed: `http://192.168.1.11:3000/api` → `http://192.168.1.30:3000/api`
 
 2. **SealTechnician/src/services/TechnicianService.ts**
-   - Changed: `http://192.168.1.11:3000/api` → `http://192.168.1.36:3000/api`
+   - Changed: `http://192.168.1.11:3000/api` → `http://192.168.1.30:3000/api`
 
 3. **SealTechnician/src/views/ScanScreen.tsx**
-   - Changed: `http://192.168.1.11:3000/api/scan-seal` → `http://192.168.1.36:3000/api/scan-seal`
+   - Changed: `http://192.168.1.11:3000/api/scan-seal` → `http://192.168.1.30:3000/api/scan-seal`
 
 4. **SealClient/src/services/api.ts**
-   - Updated to use the correct server IP: `http://192.168.1.36:3000`
+   - Updated to use the correct server IP: `http://192.168.1.30:3000`
 
 ## How to Find Your Server IP
 
@@ -47,12 +47,12 @@ To test if the login endpoint is now reachable:
 **PowerShell:**
 ```powershell
 $body = @{username="tech1"; password="tech123"} | ConvertTo-Json
-Invoke-WebRequest -Uri "http://192.168.1.36:3000/api/technician/login" -Method POST -Headers @{"Content-Type"="application/json"} -Body $body
+Invoke-WebRequest -Uri "http://192.168.1.30:3000/api/technician/login" -Method POST -Headers @{"Content-Type"="application/json"} -Body $body
 ```
 
 **Linux/macOS (curl):**
 ```bash
-curl -X POST http://192.168.1.36:3000/api/technician/login \
+curl -X POST http://192.168.1.30:3000/api/technician/login \
   -H "Content-Type: application/json" \
   -d '{"username":"tech1","password":"tech123"}'
 ```
@@ -102,7 +102,7 @@ curl -X POST http://192.168.1.36:3000/api/technician/login \
 
 ### Login
 ```
-POST http://192.168.1.36:3000/api/technician/login
+POST http://192.168.1.30:3000/api/technician/login
 Content-Type: application/json
 
 {
@@ -113,7 +113,7 @@ Content-Type: application/json
 
 ### Get Assigned Seals (requires token)
 ```
-GET http://192.168.1.36:3000/api/technician/my-seals
+GET http://192.168.1.30:3000/api/technician/my-seals
 Authorization: Bearer <token>
 ```
 

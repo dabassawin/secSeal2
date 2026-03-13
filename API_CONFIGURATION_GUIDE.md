@@ -15,9 +15,9 @@ This makes it easier to:
 
 ```typescript
 export const API_CONFIG = {
-  SERVER_IP: '192.168.1.36',     // Change this when server IP changes
+  SERVER_IP: '192.168.1.30',     // Change this when server IP changes
   SERVER_PORT: '3000',
-  BASE_URL: 'http://192.168.1.36:3000/api',
+  BASE_URL: 'http://192.168.1.30:3000/api',
   
   endpoints: {
     TECHNICIAN_LOGIN: '/technician/login',
@@ -44,7 +44,7 @@ ipconfig | findstr "IPv4"
 ### Step 2: Update the config file
 Edit `SealTechnician/src/config/api.config.ts` and change:
 ```typescript
-SERVER_IP: '192.168.1.36',  // Change this line to the new IP
+SERVER_IP: '192.168.1.30',  // Change this line to the new IP
 ```
 
 Also update the BASE_URL:
@@ -104,7 +104,7 @@ For production, consider:
 1. **Environment-based configuration:**
    ```typescript
    const IS_PRODUCTION = process.env.NODE_ENV === 'production';
-   const SERVER_IP = IS_PRODUCTION ? 'api.example.com' : '192.168.1.36';
+   const SERVER_IP = IS_PRODUCTION ? 'api.example.com' : '192.168.1.30';
    ```
 
 2. **Read from environment file (.env):**
@@ -131,6 +131,6 @@ For production, consider:
 ### Manual endpoint test:
 ```powershell
 $body = @{username="tech1"; password="tech123"} | ConvertTo-Json
-$url = "http://192.168.1.36:3000/api/technician/login"
+$url = "http://192.168.1.30:3000/api/technician/login"
 Invoke-WebRequest -Uri $url -Method POST -Headers @{"Content-Type"="application/json"} -Body $body
 ```
