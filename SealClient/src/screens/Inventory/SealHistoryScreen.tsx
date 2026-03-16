@@ -324,18 +324,7 @@ export const SealHistoryScreen: React.FC = () => {
                                 </View>
                             </View>
 
-                            {/* --- Cancel action (if applicable) --- */}
-                            {[SealStatus.USED, SealStatus.INSTALLED].includes(seal?.status as any) && (
-                                <View style={styles.cancelCard}>
-                                    <Text style={styles.cancelCardTitle}>⚠️ ยกเลิกรายการ (Cancel)</Text>
-                                    <Text style={styles.cancelCardDesc}>
-                                        หากบันทึกการติดตั้งผิดพลาด สามารถกดยกเลิกเพื่อคืนสถานะเป็น "พร้อมใช้งาน" ได้
-                                    </Text>
-                                    <TouchableOpacity style={styles.cancelBtn} onPress={() => setConfirmModalVisible(true)}>
-                                        <Text style={styles.cancelBtnText}>🚫 ยกเลิกซีลนี้</Text>
-                                    </TouchableOpacity>
-                                </View>
-                            )}
+                            {/* --- Cancel action removed per user request --- */}
                         </View>
 
                         {/* ──── RIGHT COLUMN ──── */}

@@ -191,6 +191,7 @@ export default function ScanScreen() {
             formData.append('isOverlayRequired', 'false');
             formData.append('scale', 'true');
             formData.append('detectOrientation', 'true');
+            formData.append('OCREngine', '2'); // Engine 2 is better for numbers/receipts
 
             const filename = manipulatedImage.uri.split('/').pop() || 'ocr_image.jpg';
             const match = /\.(\w+)$/.exec(filename);
@@ -205,7 +206,7 @@ export default function ScanScreen() {
             const response = await fetch('https://api.ocr.space/parse/image', {
                 method: 'POST',
                 headers: {
-                    'apikey': 'helloworld',
+                    'apikey': 'K85236683888957',
                 },
                 body: formData,
             });
