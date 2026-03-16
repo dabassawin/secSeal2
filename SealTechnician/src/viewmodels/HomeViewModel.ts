@@ -8,6 +8,7 @@ import { SealStatus } from '../constants/status';
 export const useHomeViewModel = (specificTechId?: number) => {
     const [seals, setSeals] = useState<Seal[]>([]);
     const [activeSeals, setActiveSeals] = useState<Seal[]>([]);
+    const [waitConfirmationSeals, setWaitConfirmationSeals] = useState<Seal[]>([]);
     const [historySeals, setHistorySeals] = useState<Seal[]>([]);
     const [notifications, setNotifications] = useState<any[]>([]);
 
@@ -19,23 +20,32 @@ export const useHomeViewModel = (specificTechId?: number) => {
         setIsLoading(true);
         setError(null);
         try {
-            // Fetch seals and notifications in parallel
+            // ✅ ALWAYS fetch fresh user info — never rely on stale React state
+            // This ensures is_center and pea_code are correct when filtering
+            let currentUser: typeof userInfo = null;
+            const me = await TechnicianService.getMe().catch(() => null);
+            if (me) {
+                currentUser = {
+                    id: me.id,
+                    username: me.username || 'Technician',
+                    role: 'technician',
+                    first_name: me.first_name,
+                    last_name: me.last_name,
+                    is_center: me.is_center,
+                    pea_code: me.pea_code
+                };
+                setUserInfo(currentUser);
+            }
+
             let sealsData: Seal[] = [];
             let notificationsData: any[] = [];
-
-            // Get current user info for filtering
-            let currentUserId: number | undefined = userInfo?.id;
-            if (!currentUserId) {
-                const me = await TechnicianService.getMe().catch(() => null);
-                if (me) currentUserId = me.id;
-            }
 
             if (specificTechId) {
                 sealsData = await TechnicianService.getSealsByTechnicianId(specificTechId);
             } else {
                 const [sData, nData] = await Promise.all([
                     TechnicianService.getAssignedSeals(),
-                    TechnicianService.getNotifications().catch(() => []) // Fallback to empty array if fails
+                    TechnicianService.getNotifications().catch(() => [])
                 ]);
                 sealsData = sData;
                 notificationsData = nData;
@@ -44,18 +54,52 @@ export const useHomeViewModel = (specificTechId?: number) => {
             setSeals(sealsData);
             setNotifications(notificationsData);
 
-            // Filter seals
-            // For "Active" seals, we only want those actually assigned to the current user
-            // and in ISSUED or READY status. 
-            // If they are ISSUED but assigned to someone else, they are effectively "History".
+            // Filter seals using local currentUser (not stale state)
+            const currentUserId = currentUser?.id;
+
             const active = sealsData.filter(s => {
+                if (currentUser?.is_center) {
+                    // Company inventory: show seals that are either:
+                    // 1. READY with no assignment (from inter-company transfer)
+                    // 2. ISSUED and assigned to this specific admin (from direct transfer from upper center)
+                    const userPea = (currentUser.pea_code || '').trim();
+                    const sealPea = (s.pea_code || '').trim();
+                    const isReadyInventory = s.status === SealStatus.READY && !s.assigned_to_technician;
+                    const isDirectlyAssigned = s.status === SealStatus.ISSUED && s.assigned_to_technician === currentUserId;
+                    
+                    return sealPea === userPea &&
+                        (isReadyInventory || isDirectlyAssigned) &&
+                        s.return_remarks !== 'ไม่ได้ใช้งาน (คืนคลัง)';
+                }
                 const isMySeal = !currentUserId || s.assigned_to_technician === currentUserId;
                 const isActiveStatus = s.status === SealStatus.ISSUED ||
                     (s.status === SealStatus.READY && s.return_remarks !== 'ไม่ได้ใช้งาน (คืนคลัง)');
                 return isMySeal && isActiveStatus;
             });
 
+            const waitConfirmation = sealsData.filter(s => {
+                if (currentUser?.is_center) {
+                    const userPea = (currentUser.pea_code || '').trim();
+                    const sealPendingPea = (s.pending_pea_code || '').trim();
+                    const sealPea = (s.pea_code || '').trim();
+
+                    // Case 1: inter-company transfer via BulkTransferPeaCode (pending_pea_code set)
+                    if (sealPendingPea !== '') {
+                        return s.status === SealStatus.WAIT_CONFIRMATION && sealPendingPea === userPea;
+                    }
+                    // Case 2: direct transfer to company admin (pending_pea_code is empty)
+                    // Must also be assigned to this admin specifically, not a regular technician in the same company
+                    return s.status === SealStatus.WAIT_CONFIRMATION && sealPea === userPea && s.assigned_to_technician === currentUserId;
+                }
+                // สำหรับช่าง: ดูซีลที่ถูกจ่ายให้เรา
+                const isMySeal = !currentUserId || s.assigned_to_technician === currentUserId;
+                return isMySeal && s.status === SealStatus.WAIT_CONFIRMATION && !s.pending_pea_code;
+            });
+
             const history = sealsData.filter(s => {
+                // Exclude seals waiting for confirmation from history
+                if (s.status === SealStatus.WAIT_CONFIRMATION) return false;
+
                 const isNotMyActiveSeal = currentUserId && s.assigned_to_technician !== currentUserId;
                 const isHistoryStatus = s.status === SealStatus.INSTALLED ||
                     s.status === SealStatus.USED ||
@@ -65,6 +109,7 @@ export const useHomeViewModel = (specificTechId?: number) => {
                 return isNotMyActiveSeal || isHistoryStatus;
             });
 
+            setWaitConfirmationSeals(waitConfirmation);
             setActiveSeals(active);
             setHistorySeals(history);
 
@@ -96,10 +141,38 @@ export const useHomeViewModel = (specificTechId?: number) => {
                     setUserInfo({
                         id: decoded.tech_id,
                         username: decoded.username || 'Technician',
-                        role: decoded.role || ''
+                        role: decoded.role || '',
+                        is_center: decoded.is_center,
+                        pea_code: decoded.pea_code
                     });
                 }
             }
+        }
+    };
+
+    const confirmSeal = async (sealNumber: string) => {
+        setIsLoading(true);
+        setError(null);
+        try {
+            await TechnicianService.confirmSealsReceipt([sealNumber]);
+            await fetchSeals();
+        } catch (err: any) {
+            setError(err.message || 'Failed to confirm seal');
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const confirmMultipleSeals = async (sealNumbers: string[]) => {
+        setIsLoading(true);
+        setError(null);
+        try {
+            await TechnicianService.confirmSealsReceipt(sealNumbers);
+            await fetchSeals();
+        } catch (err: any) {
+            setError(err.message || 'Failed to confirm seals');
+        } finally {
+            setIsLoading(false);
         }
     };
 
@@ -115,11 +188,14 @@ export const useHomeViewModel = (specificTechId?: number) => {
     return {
         seals,
         activeSeals,
+        waitConfirmationSeals,
         historySeals,
         notifications,
         userInfo,
         isLoading,
         error,
+        confirmSeal,
+        confirmMultipleSeals,
         fetchSeals: refresh
     };
 };

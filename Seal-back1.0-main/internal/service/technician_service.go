@@ -290,13 +290,18 @@ func (s *TechnicianService) TransferSeals(centerID uint, targetTechID uint, seal
 		}
 
 		// Verify that the current user (centerID) holds this seal
-		if seal.AssignedToTechnician == nil || *seal.AssignedToTechnician != centerID {
+		// If it's an inherited inventory seal (READY), it belongs to the PeaCode and won't have an AssignedToTechnician
+		// If it's a direct transfer to admin (ISSUED), it will be assigned to centerID.
+		isAssignedToCenter := seal.AssignedToTechnician != nil && *seal.AssignedToTechnician == centerID
+		isCompanyReadySeal := seal.Status == string(constants.StatusReady) && seal.AssignedToTechnician == nil && seal.PeaCode == targetTech.PeaCode
+
+		if !isAssignedToCenter && !isCompanyReadySeal {
 			return fmt.Errorf("คุณไม่มีสิทธิ์โอนซีลหมายเลข %s (ไม่ได้อยู่ในครอบครอง)", sealNum)
 		}
 
 		// Verify seal status
-		if seal.Status != string(constants.StatusIssued) {
-			return fmt.Errorf("ซีล %s ไม่ได้อยู่ในสถานะที่สามารถโอนได้ (ต้องเป็นสถานะ 'จ่าย')", sealNum)
+		if seal.Status != string(constants.StatusIssued) && seal.Status != string(constants.StatusReady) {
+			return fmt.Errorf("ซีล %s ไม่ได้อยู่ในสถานะที่สามารถโอนได้ (ต้องเป็นสถานะ 'จ่าย' หรือ 'พร้อมใช้งาน')", sealNum)
 		}
 
 		// Verify Same PEA Code
@@ -304,8 +309,10 @@ func (s *TechnicianService) TransferSeals(centerID uint, targetTechID uint, seal
 			return fmt.Errorf("ซีล %s ต้นสังกัดไม่ตรงกับช่างปลายทาง", sealNum)
 		}
 
-		// Reassign to Target
+		// Reassign to Target and wait for confirmation
 		seal.AssignedToTechnician = &targetTechID
+		seal.IssuedTo = &targetTechID
+		seal.Status = string(constants.StatusWaitConfirmation)
 
 		if err := s.repo.UpdateSeal(seal); err != nil {
 			return fmt.Errorf("เกิดข้อผิดพลาดในการโอนซีล %s: %v", sealNum, err)

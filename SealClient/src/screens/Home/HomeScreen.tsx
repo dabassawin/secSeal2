@@ -67,6 +67,14 @@ export const HomeScreen: React.FC = () => {
                         count={stats ? stats[SealStatus.INSTALLED].toLocaleString() : "-"}
                         color={colors.accentGreen}
                     />
+                    {stats && stats.pending_transfer_in > 0 && (
+                        <StatusCard
+                            title="รอยืนยัน (รับโอน)"
+                            count={stats.pending_transfer_in.toLocaleString()}
+                            color="#E65100" // Orange/Deep Orange
+                            onPress={() => (navigation as any).navigate('Inventory', { filter: 'รอยืนยันรับโอน' })}
+                        />
+                    )}
                 </View>
 
                 {/* Action Cards Grid - Row 1 */}

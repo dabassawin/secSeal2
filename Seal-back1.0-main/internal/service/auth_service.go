@@ -38,7 +38,7 @@ func (s *AuthService) VerifyPEAToken(tokenString string) (*model.User, error) {
 	go func() {
 		defer wg.Done()
 		if user == nil {
-			log.Println("⚠️ [VerifyPEAToken] Mock JWT ไม่ถูกต้อง ลองตรวจสอบ PEA API...")
+// log.Println("⚠️ [VerifyPEAToken] Mock JWT ไม่ถูกต้อง ลองตรวจสอบ PEA API...")
 			if u, e := s.verifyWithPEAAPI(tokenString); e == nil {
 				user = u
 				err = nil
@@ -123,7 +123,7 @@ func (s *AuthService) VerifyMockJWT(tokenString string) (*model.User, error) {
 			PeaName:   peaName,
 		}
 
-		log.Println("✅ [VerifyMockJWT] สำเร็จ:", user)
+// log.Println("✅ [VerifyMockJWT] สำเร็จ:", user)
 		return user, nil
 	}
 

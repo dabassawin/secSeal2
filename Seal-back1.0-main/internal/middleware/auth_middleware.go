@@ -97,7 +97,7 @@ func TechnicianJWTMiddleware() fiber.Handler {
 
 		for _, path := range skipPaths {
 			if c.Path() == path {
-				log.Println("✅ [TechnicianJWTMiddleware] Skipping JWT check for:", c.Path())
+// log.Println("✅ [TechnicianJWTMiddleware] Skipping JWT check for:", c.Path())
 				return c.Next()
 			}
 		}
@@ -105,7 +105,7 @@ func TechnicianJWTMiddleware() fiber.Handler {
 		for _, pattern := range regexPatterns {
 			match, _ := regexp.MatchString(pattern, c.Path())
 			if match {
-				log.Println("✅ [TechnicianJWTMiddleware] Skipping JWT check for:", c.Path())
+// log.Println("✅ [TechnicianJWTMiddleware] Skipping JWT check for:", c.Path())
 				return c.Next()
 			}
 		}
@@ -191,7 +191,7 @@ func TechnicianJWTMiddleware() fiber.Handler {
 		c.Locals("role", role)
 		c.Locals("is_center", isCenter)
 
-		log.Printf("🔑 [TechnicianJWTMiddleware] Access granted: tech_id=%d, role=%s, is_center=%v", techID, role, isCenter)
+// log.Printf("🔑 [TechnicianJWTMiddleware] Access granted: tech_id=%d, role=%s, is_center=%v", techID, role, isCenter)
 
 		return c.Next()
 	}

@@ -169,6 +169,40 @@ func (tc *TechnicianController) GetAssignedSealsHandler(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
 
+	// ✅ ถ้าเป็น IsCenter ให้ดึงซีลทั้งหมดในสังกัดนี้ที่อยู่ในสถานะรอยืนยัน
+	isCenter, _ := c.Locals("is_center").(bool)
+	if isCenter {
+		tech, err := tc.technicianService.GetTechnicianByID(techID)
+		if err == nil && tech.PeaCode != "" {
+			seen := make(map[uint]bool)
+			for _, s := range seals {
+				seen[s.ID] = true
+			}
+
+			// Case 1: ดึงซีลที่มี pea_code ตรงกับสังกัดและรอยืนยัน (direct transfer)
+			companySeals, err := tc.sealService.GetWaitConfirmationByPeaCode(tech.PeaCode)
+			if err == nil {
+				for _, s := range companySeals {
+					if !seen[s.ID] {
+						seals = append(seals, s)
+						seen[s.ID] = true
+					}
+				}
+			}
+
+			// Case 2: ดึงซีลที่โอนระหว่างบริษัท (inter-company, pending_pea_code set)
+			pendingSeals, err := tc.sealService.GetAllSeals("", tech.PeaCode)
+			if err == nil {
+				for _, s := range pendingSeals {
+					if !seen[s.ID] {
+						seals = append(seals, s)
+						seen[s.ID] = true
+					}
+				}
+			}
+		}
+	}
+
 	return c.JSON(seals)
 }
 
@@ -665,4 +699,45 @@ func (tc *TechnicianController) UpdateDeviceTokenHandler(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(fiber.Map{"message": "Device token updated successfully"})
+}
+
+// ConfirmSealsReceiptHandler handles POST /api/technician/seals/confirm
+func (tc *TechnicianController) ConfirmSealsReceiptHandler(c *fiber.Ctx) error {
+	techID, ok := c.Locals("tech_id").(uint)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Unauthorized"})
+	}
+
+	var req struct {
+		SealNumbers []string `json:"seal_numbers"`
+	}
+
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
+	}
+
+	if len(req.SealNumbers) == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "seal_numbers are required"})
+	}
+
+	var err error
+	isCenter, _ := c.Locals("is_center").(bool)
+
+	if isCenter {
+		// ถ้าเป็น Center ให้ใช้การยืนยันรับโอนระหว่างบริษัท
+		tech, techErr := tc.technicianService.GetTechnicianByID(techID)
+		if techErr != nil {
+			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "ไม่พบข้อมูลผู้ใช้งาน"})
+		}
+		_, err = tc.sealService.BulkConfirmCompanyTransfer(req.SealNumbers, tech.PeaCode, techID)
+	} else {
+		// ถ้าเป็น Technician ปกติ ให้ใช้การยืนยันรับซีลจากบริษัท
+		err = tc.sealService.ConfirmSealsReceipt(techID, req.SealNumbers)
+	}
+
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	return c.JSON(fiber.Map{"message": "ยืนยันการรับซีลสำเร็จ"})
 }

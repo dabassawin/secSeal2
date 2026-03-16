@@ -16,6 +16,8 @@ export interface Seal {
     return_remarks?: string;
     employee_code?: string;
     issue_remark?: string;
+    pending_pea_code?: string;
+    pea_code?: string;
     created_at?: string;
     updated_at?: string;
 }
@@ -316,6 +318,34 @@ export const TechnicianService = {
             }
         } catch (error) {
             console.error('Clear Notifications Error:', error);
+            throw error;
+        }
+    },
+
+    async confirmSealsReceipt(sealNumbers: string[]): Promise<any> {
+        try {
+            const token = await SecureStore.getItemAsync('userToken');
+            if (!token) throw new Error('No token found');
+
+            const response = await fetch(getApiUrl(API_CONFIG.endpoints.TECHNICIAN_CONFIRM_SEAL), {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    seal_numbers: sealNumbers,
+                }),
+            });
+
+            if (!response.ok) {
+                const data = await response.json().catch(() => ({}));
+                throw new Error(data.error || data.message || 'Failed to confirm receipt');
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error('Confirm Receipt Error:', error);
             throw error;
         }
     }

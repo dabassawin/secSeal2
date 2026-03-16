@@ -6,6 +6,7 @@ export const SealStatus = {
     DAMAGED: 'เสียหาย',
     LOST: 'สูญหาย',
     PENDING_RETURN: 'รอตรวจสอบคืน',
+    WAIT_CONFIRMATION: 'รอยืนยัน',
 } as const;
 
 export type SealStatusType = typeof SealStatus[keyof typeof SealStatus];
@@ -13,6 +14,7 @@ export type SealStatusType = typeof SealStatus[keyof typeof SealStatus];
 export const ALL_SEAL_STATUSES: SealStatusType[] = [
     SealStatus.READY,
     SealStatus.ISSUED,
+    SealStatus.WAIT_CONFIRMATION,
     SealStatus.INSTALLED,
     SealStatus.USED,
     SealStatus.DAMAGED,

@@ -31,8 +31,10 @@ const formatDate = (dateString?: string) => {
 
 export default function CompanyHomeScreen({ navigation, onLogout }: Props) {
     const insets = useSafeAreaInsets();
-    const { notifications, userInfo, isLoading, fetchSeals } = useHomeViewModel();
-    const [activeTab, setActiveTab] = useState<'receipts' | 'distributions'>('receipts');
+    const { notifications, userInfo, isLoading, fetchSeals, waitConfirmationSeals, confirmMultipleSeals } = useHomeViewModel();
+    const [activeTab, setActiveTab] = useState<'receipts' | 'distributions' | 'confirmation'>('confirmation');
+    const [selectedSeals, setSelectedSeals] = useState<string[]>([]);
+    const [isTabDropdownOpen, setIsTabDropdownOpen] = useState(false);
     const [searchText, setSearchText] = useState('');
     const [filterDate, setFilterDate] = useState<Date | null>(null);
     const [showDatePicker, setShowDatePicker] = useState(false);
@@ -56,6 +58,46 @@ export default function CompanyHomeScreen({ navigation, onLogout }: Props) {
     };
 
     const clearDateFilter = () => setFilterDate(null);
+
+    const toggleSelectAll = () => {
+        if (selectedSeals.length === waitConfirmationSeals.length) {
+            setSelectedSeals([]);
+        } else {
+            setSelectedSeals(waitConfirmationSeals.map(s => s.seal_number));
+        }
+    };
+
+    const toggleSealSelection = (sealNumber: string) => {
+        setSelectedSeals(prev => 
+            prev.includes(sealNumber) 
+                ? prev.filter(s => s !== sealNumber) 
+                : [...prev, sealNumber]
+        );
+    };
+
+    const handleBulkConfirm = async () => {
+        if (selectedSeals.length === 0) return;
+        Alert.alert(
+            "ยืนยันรับโอนซีล",
+            `คุณต้องการยืนยันการรับโอนซีลที่เลือกทั้งหมดจำนวน ${selectedSeals.length} ชิ้น ใช่หรือไม่?`,
+            [
+                { text: "ยกเลิก", style: "cancel" },
+                { 
+                    text: "ยืนยัน", 
+                    onPress: async () => {
+                        try {
+                            await confirmMultipleSeals(selectedSeals);
+                            setSelectedSeals([]);
+                            fetchSeals();
+                            Alert.alert("สำเร็จ", "ยืนยันการรับโอนซีลเรียบร้อยแล้ว");
+                        } catch (error: any) {
+                            Alert.alert("ผิดพลาด", error.message || "ไม่สามารถยืนยันได้");
+                        }
+                    }
+                }
+            ]
+        );
+    };
 
     const handleClearHistory = async () => {
         Alert.alert(
@@ -109,13 +151,20 @@ export default function CompanyHomeScreen({ navigation, onLogout }: Props) {
     }, [notifications, searchText, filterDate]);
 
     const allReceipts = useMemo(() => 
-        filteredNotifications.filter(n => 
-            n.action.includes('ได้รับ') || 
-            (n.action.includes('จ่าย') && n.action.includes(userInfo?.username || '87654321'))
-        ), [filteredNotifications, userInfo]);
+        filteredNotifications.filter(n => {
+            if (n.action.includes('รอยืนยัน')) return false;
+            // For company admin: only show confirmed receipts ('รับซีล') not pre-transfer logs ('ได้รับโอนซีล')
+            if (userInfo?.is_center) {
+                return n.action.includes('รับซีล') || n.action.includes('ยืนยันรับโอนซีล');
+            }
+            return n.action.includes('ได้รับ') || 
+                n.action.includes('ยืนยันรับ') ||
+                (n.action.includes('จ่าย') && n.action.includes(userInfo?.username || '87654321'));
+        }), [filteredNotifications, userInfo]);
 
     const allDistributions = useMemo(() => 
         filteredNotifications.filter(n => 
+            !n.action.includes('รอยืนยัน') && 
             (n.action.includes('จ่าย') || n.action.includes('โอน')) && 
             !n.action.includes(userInfo?.username || '87654321')
         ), [filteredNotifications, userInfo]);
@@ -199,41 +248,85 @@ export default function CompanyHomeScreen({ navigation, onLogout }: Props) {
                             <Text style={styles.summaryValue}>{allReceipts.length}</Text>
                         </View>
                         <View style={styles.divider} />
-                        <View style={styles.summaryItem}>
-                            <Text style={styles.summaryLabel}>รายการจ่ายซีล</Text>
-                            <Text style={styles.summaryValue}>{allDistributions.length}</Text>
-                        </View>
+                        <TouchableOpacity 
+                            style={styles.summaryItem} 
+                            onPress={() => {
+                                setActiveTab('confirmation');
+                                setIsTabDropdownOpen(false);
+                            }}
+                        >
+                            <Text style={[styles.summaryLabel, waitConfirmationSeals.length > 0 && { color: '#FF9800', fontWeight: 'bold' }]}>รอยืนยัน (รับโอน)</Text>
+                            <Text style={[styles.summaryValue, waitConfirmationSeals.length > 0 && { color: '#FF9800' }]}>{waitConfirmationSeals.length}</Text>
+                        </TouchableOpacity>
                     </View>
                 </View>
             </View>
 
-            {/* Filter & Tab Wrapper with Light Background Tint */}
+            {/* Tab Selector & Filter Section */}
             <View style={styles.filterWrapper}>
-                {/* Tab Selector */}
-                <View style={styles.tabContainer}>
+                {/* Modern Full-Width Strip Dropdown */}
+                <View style={styles.tabHeaderRow}>
                     <TouchableOpacity 
-                        style={[styles.tabButton, activeTab === 'receipts' && styles.activeTabButton]} 
-                        onPress={() => setActiveTab('receipts')}
+                        style={styles.currentTabSelectorStrip}
+                        onPress={() => setIsTabDropdownOpen(!isTabDropdownOpen)}
                     >
-                        <Ionicons name="download-outline" size={20} color={activeTab === 'receipts' ? '#fff' : '#6A0DAD'} />
-                        <Text style={[styles.tabText, activeTab === 'receipts' && styles.activeTabText]}>รับซีล</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity 
-                        style={[styles.tabButton, activeTab === 'distributions' && styles.activeTabButton]} 
-                        onPress={() => setActiveTab('distributions')}
-                    >
-                        <Ionicons name="send-outline" size={20} color={activeTab === 'distributions' ? '#fff' : '#6A0DAD'} />
-                        <Text style={[styles.tabText, activeTab === 'distributions' && styles.activeTabText]}>จ่ายซีล</Text>
+                        <View style={styles.currentTabInfo}>
+                            <Ionicons 
+                                name={
+                                    activeTab === 'confirmation' ? "checkmark-done-circle" :
+                                    activeTab === 'receipts' ? "download" : "send"
+                                } 
+                                size={22} 
+                                color="#fff" 
+                            />
+                            <Text style={styles.currentTabTextStrip}>
+                                {activeTab === 'confirmation' ? 'ยืนยันรับโอนซีล' : activeTab === 'receipts' ? 'ประวัติการรับซีล' : 'ประวัติการจ่ายซีล'}
+                            </Text>
+                        </View>
+                        <Ionicons name={isTabDropdownOpen ? "chevron-up" : "chevron-down"} size={20} color="#fff" />
                     </TouchableOpacity>
                 </View>
 
-                {/* Filter Section with Background Frame */}
+                {isTabDropdownOpen && (
+                    <View style={styles.tabDropdown}>
+                        <TouchableOpacity 
+                            style={[styles.dropdownItem, activeTab === 'confirmation' && styles.dropdownItemActive]}
+                            onPress={() => { setActiveTab('confirmation'); setIsTabDropdownOpen(false); }}
+                        >
+                            <Ionicons name="checkmark-done-circle-outline" size={20} color={activeTab === 'confirmation' ? '#6A0DAD' : '#757575'} />
+                            <Text style={[styles.dropdownItemText, activeTab === 'confirmation' && styles.dropdownItemTextActive]}>ยืนยันซีล</Text>
+                            {waitConfirmationSeals.length > 0 && (
+                                <View style={styles.dropdownBadge}>
+                                    <Text style={styles.dropdownBadgeText}>{waitConfirmationSeals.length}</Text>
+                                </View>
+                            )}
+                        </TouchableOpacity>
+                        <TouchableOpacity 
+                            style={[styles.dropdownItem, activeTab === 'receipts' && styles.dropdownItemActive]}
+                            onPress={() => { setActiveTab('receipts'); setIsTabDropdownOpen(false); }}
+                        >
+                            <Ionicons name="download-outline" size={20} color={activeTab === 'receipts' ? '#6A0DAD' : '#757575'} />
+                            <Text style={[styles.dropdownItemText, activeTab === 'receipts' && styles.dropdownItemTextActive]}>ประวัติรับซีล</Text>
+                        </TouchableOpacity>
+                        <TouchableOpacity 
+                            style={[styles.dropdownItem, activeTab === 'distributions' && styles.dropdownItemActive]}
+                            onPress={() => { setActiveTab('distributions'); setIsTabDropdownOpen(false); }}
+                        >
+                            <Ionicons name="send-outline" size={20} color={activeTab === 'distributions' ? '#6A0DAD' : '#757575'} />
+                            <Text style={[styles.dropdownItemText, activeTab === 'distributions' && styles.dropdownItemTextActive]}>ประวัติจ่ายซีล</Text>
+                        </TouchableOpacity>
+                    </View>
+                )}
+
+                <View style={styles.dividerFull} />
+
+                {/* Filter Section */}
                 <View style={styles.filterSection}>
                     <View style={styles.searchBox}>
                         <Ionicons name="search-outline" size={18} color="#9E9E9E" style={{ marginRight: 8 }} />
                         <TextInput
                             style={styles.searchInput}
-                            placeholder="ค้นหาชื่อซีล..."
+                            placeholder="ค้นหาเบอร์ซีล หรือชื่อช่าง..."
                             value={searchText}
                             onChangeText={setSearchText}
                         />
@@ -248,7 +341,7 @@ export default function CompanyHomeScreen({ navigation, onLogout }: Props) {
                             <Text style={[styles.dateFilterText, filterDate && styles.activeDateText]}>
                                 {filterDate 
                                     ? `วันที่: ${filterDate.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })}` 
-                                    : 'ทั้งหมด (เลือกวันที่)'}
+                                    : 'กรองตามวันที่'}
                             </Text>
                         </View>
                         {filterDate && (
@@ -278,9 +371,69 @@ export default function CompanyHomeScreen({ navigation, onLogout }: Props) {
                     <RefreshControl refreshing={isLoading} onRefresh={fetchSeals} colors={['#6A0DAD']} />
                 }
             >
-                {activeTab === 'receipts' ? (
+                {activeTab === 'confirmation' ? (
                     <View style={styles.section}>
                         <View style={styles.sectionHeader}>
+                            <View style={styles.sectionTitleRow}>
+                                <Ionicons name="checkmark-done-circle" size={20} color="#6A0DAD" />
+                                <Text style={styles.sectionTitle}>รายการรอยืนยัน ({waitConfirmationSeals.length})</Text>
+                            </View>
+                            {waitConfirmationSeals.length > 0 && (
+                                <View style={styles.actionRow}>
+                                    <TouchableOpacity onPress={toggleSelectAll} style={styles.selectAllBtn}>
+                                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                            <Ionicons 
+                                                name={selectedSeals.length === waitConfirmationSeals.length ? "checkbox" : "square-outline"} 
+                                                size={16} 
+                                                color="#6A0DAD" 
+                                                style={{ marginRight: 4 }} 
+                                            />
+                                            <Text style={styles.selectAllBtnText}>
+                                                {selectedSeals.length === waitConfirmationSeals.length ? 'ยกเลิกทั้งหมด' : 'เลือกทั้งหมด'}
+                                            </Text>
+                                        </View>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity 
+                                        onPress={handleBulkConfirm} 
+                                        disabled={selectedSeals.length === 0}
+                                        style={[styles.confirmBtn, selectedSeals.length === 0 && styles.confirmBtnDisabled]}
+                                    >
+                                        <Text style={styles.confirmBtnText}>ยืนยัน ({selectedSeals.length})</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            )}
+                        </View>
+                        
+                        <View style={styles.logBox}>
+                            {waitConfirmationSeals.length > 0 ? (
+                                waitConfirmationSeals.map((seal) => (
+                                    <TouchableOpacity 
+                                        key={seal.seal_number} 
+                                        style={[styles.logCard, selectedSeals.includes(seal.seal_number) && styles.selectedSealCard]}
+                                        onPress={() => toggleSealSelection(seal.seal_number)}
+                                    >
+                                        <View style={[styles.selectionBox, selectedSeals.includes(seal.seal_number) && styles.selectedBoxActive]}>
+                                            {selectedSeals.includes(seal.seal_number) && <Ionicons name="checkmark" size={14} color="#fff" />}
+                                        </View>
+                                        <View style={styles.logContent}>
+                                            <Text style={styles.logAction}>เบอร์ซีล: {seal.seal_number}</Text>
+                                        </View>
+                                        <View style={styles.waitBadge}>
+                                            <Text style={styles.waitBadgeText}>รอยืนยัน</Text>
+                                        </View>
+                                    </TouchableOpacity>
+                                ))
+                            ) : (
+                                <View style={styles.emptyInternal}>
+                                    <Ionicons name="checkmark-circle-outline" size={40} color="#E0E0E0" />
+                                    <Text style={styles.emptyText}>ไม่มีรายการรอการยืนยัน</Text>
+                                </View>
+                            )}
+                        </View>
+                    </View>
+                ) : activeTab === 'receipts' ? (
+                    <View style={styles.section}>
+                        <View style={[styles.sectionHeader, { flexDirection: 'row', justifyContent: 'space-between' }]}>
                             <View style={styles.sectionTitleRow}>
                                 <Ionicons name="download-outline" size={20} color="#6A0DAD" />
                                 <Text style={styles.sectionTitle}>ประวัติการรับซีล</Text>
@@ -294,7 +447,7 @@ export default function CompanyHomeScreen({ navigation, onLogout }: Props) {
                     </View>
                 ) : (
                     <View style={styles.section}>
-                        <View style={styles.sectionHeader}>
+                        <View style={[styles.sectionHeader, { flexDirection: 'row', justifyContent: 'space-between' }]}>
                             <View style={styles.sectionTitleRow}>
                                 <Ionicons name="send-outline" size={20} color="#6A0DAD" />
                                 <Text style={styles.sectionTitle}>ประวัติการจ่ายซีล</Text>
@@ -436,7 +589,7 @@ const styles = StyleSheet.create({
     },
     filterSection: {
         paddingHorizontal: 15,
-        marginTop: 10,
+        marginTop: 4,
     },
     searchBox: {
         flexDirection: 'row',
@@ -485,47 +638,118 @@ const styles = StyleSheet.create({
     clearDateBtn: {
         marginLeft: 10,
     },
-    tabContainer: {
-        flexDirection: 'row',
-        backgroundColor: 'rgba(255,255,255,0.4)',
-        marginHorizontal: 15,
-        borderRadius: 15,
-        padding: 4,
+    tabHeaderRow: {
+        paddingHorizontal: 15,
+        marginBottom: 6,
     },
-    tabButton: {
-        flex: 1,
+    currentTabSelectorStrip: {
         flexDirection: 'row',
         alignItems: 'center',
+        justifyContent: 'space-between',
+        backgroundColor: '#6A0DAD',
+        paddingHorizontal: 20,
+        paddingVertical: 14,
+        borderRadius: 15,
+        elevation: 4,
+        shadowColor: '#6A0DAD',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.3,
+        shadowRadius: 8,
+    },
+    currentTabInfo: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    currentTabTextStrip: {
+        fontSize: 16,
+        fontWeight: 'bold',
+        color: '#fff',
+        marginLeft: 12,
+    },
+    tabDropdown: {
+        backgroundColor: '#fff',
+        marginHorizontal: 15,
+        marginTop: -10,
+        marginBottom: 20,
+        borderRadius: 15,
+        padding: 5,
+        elevation: 8,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 10,
+        borderWidth: 1,
+        borderColor: '#F0F0F0',
+        zIndex: 10,
+    },
+    dropdownItem: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        padding: 15,
+        borderRadius: 10,
+    },
+    dropdownItemActive: {
+        backgroundColor: '#F3E5F5',
+    },
+    dropdownItemText: {
+        fontSize: 15,
+        color: '#757575',
+        marginLeft: 12,
+        flex: 1,
+    },
+    dropdownItemTextActive: {
+        color: '#6A0DAD',
+        fontWeight: 'bold',
+    },
+    dropdownBadge: {
+        backgroundColor: '#FF5252',
+        borderRadius: 10,
+        minWidth: 20,
+        height: 20,
         justifyContent: 'center',
-        paddingVertical: 12,
-        borderRadius: 12,
-        marginHorizontal: 2, // Added gap
+        alignItems: 'center',
+        paddingHorizontal: 6,
+    },
+    dropdownBadgeText: {
+        color: '#fff',
+        fontSize: 10,
+        fontWeight: 'bold',
+    },
+    dividerFull: {
+        height: 1,
+        backgroundColor: '#E0E0E0',
+        marginHorizontal: 15,
+        marginTop: 0,
+        marginBottom: 8,
+        opacity: 0.5,
+    },
+    tabContainer: {
+        // Obsolete
+    },
+    tabButton: {
+        // Obsolete
     },
     activeTabButton: {
-        backgroundColor: '#6A0DAD',
+        // Obsolete
     },
     tabText: {
-        fontSize: 14,
-        fontWeight: 'bold',
-        color: '#6A0DAD',
-        marginLeft: 8,
+        // Obsolete
     },
     activeTabText: {
-        color: '#fff',
+        // Obsolete
     },
     section: {
         marginBottom: 25,
     },
     sectionHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
+        flexDirection: 'column',
         marginBottom: 12,
         paddingHorizontal: 5,
     },
     sectionTitleRow: {
         flexDirection: 'row',
         alignItems: 'center',
+        marginBottom: 8,
     },
     sectionTitle: {
         fontSize: 17,
@@ -625,5 +849,79 @@ const styles = StyleSheet.create({
         color: '#FF5252',
         fontWeight: 'bold',
         marginLeft: 4,
+    },
+    badgeCount: {
+        position: 'absolute',
+        top: 2,
+        right: 2,
+        backgroundColor: '#FF5252',
+        borderRadius: 10,
+        minWidth: 18,
+        height: 18,
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: 4,
+        borderWidth: 1.5,
+        borderColor: '#F3E5F5',
+    },
+    badgeCountText: {
+        color: '#fff',
+        fontSize: 9,
+        fontWeight: 'bold',
+    },
+    actionRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+    },
+    selectAllBtn: {
+        marginRight: 10,
+    },
+    selectAllBtnText: {
+        fontSize: 12,
+        color: '#6A0DAD',
+        fontWeight: 'bold',
+    },
+    confirmBtn: {
+        backgroundColor: '#4CAF50',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 15,
+    },
+    confirmBtnDisabled: {
+        backgroundColor: '#BDBDBD',
+    },
+    confirmBtnText: {
+        color: '#fff',
+        fontSize: 12,
+        fontWeight: 'bold',
+    },
+    selectionBox: {
+        width: 20,
+        height: 20,
+        borderRadius: 6,
+        borderWidth: 2,
+        borderColor: '#E0E0E0',
+        marginRight: 12,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    selectedBoxActive: {
+        backgroundColor: '#6A0DAD',
+        borderColor: '#6A0DAD',
+    },
+    selectedSealCard: {
+        backgroundColor: '#F3E5F5',
+    },
+    waitBadge: {
+        backgroundColor: '#FFF8E1',
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 8,
+    },
+    waitBadgeText: {
+        fontSize: 10,
+        color: '#FFA000',
+        fontWeight: 'bold',
     },
 });

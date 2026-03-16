@@ -75,16 +75,39 @@ func (s *SealService) GetLatestSealNumber() (string, error) {
 }
 
 // GetAllSeals returns seals, optionally filtered by pea_code
-func (s *SealService) GetAllSeals(peaCode string) ([]model.Seal, error) {
+func (s *SealService) GetAllSeals(peaCode string, pendingPeaCode string) ([]model.Seal, error) {
 	var seals []model.Seal
-	query := s.db
+	query := s.db.Model(&model.Seal{})
+
 	if peaCode != "" {
 		query = query.Where("pea_code = ?", peaCode)
 	}
+
+	if pendingPeaCode != "" {
+		// Only return seals that are actually waiting for confirmation by this company
+		query = query.Where("pending_pea_code = ? AND status = ?", pendingPeaCode, "รอยืนยัน")
+	}
+
 	if err := query.Find(&seals).Error; err != nil {
 		return nil, err
 	}
 	return seals, nil
+}
+
+// GetWaitConfirmationByPeaCode fetches seals with status WAIT_CONFIRMATION belonging to a PEA code.
+// This handles the "direct transfer" flow where pending_pea_code is empty but pea_code matches.
+func (s *SealService) GetWaitConfirmationByPeaCode(peaCode string) ([]model.Seal, error) {
+	var seals []model.Seal
+	err := s.db.Where("pea_code = ? AND status = ? AND (pending_pea_code = '' OR pending_pea_code IS NULL)", peaCode, "รอยืนยัน").Find(&seals).Error
+	return seals, err
+}
+
+// GetReadyByPeaCode fetches READY seals that belong to the company's pea_code and are not assigned to any technician.
+// These are confirmed seals sitting in the company's inventory.
+func (s *SealService) GetReadyByPeaCode(peaCode string) ([]model.Seal, error) {
+	var seals []model.Seal
+	err := s.db.Where("pea_code = ? AND status = ? AND (assigned_to_technician IS NULL OR assigned_to_technician = 0)", peaCode, "พร้อมใช้งาน").Find(&seals).Error
+	return seals, err
 }
 
 func (s *SealService) GetSealsByStatus(status string) ([]model.Seal, error) {
@@ -303,7 +326,7 @@ func (s *SealService) IssueSealWithDetails(sealNumber string, issuedTo uint, emp
 		return errors.New("ซิลต้องอยู่ในสถานะ 'พร้อมใช้งาน' เท่านั้นจึงจะจ่ายได้")
 	}
 	now := time.Now()
-	seal.Status = string(constants.StatusIssued)
+	seal.Status = string(constants.StatusWaitConfirmation)
 	seal.IssuedTo = &issuedTo
 	seal.AssignedToTechnician = &issuedTo
 	seal.IssuedAt = &now
@@ -395,7 +418,7 @@ func GenerateNextSealNumbers(latest string, count int) ([]string, error) {
 // GetSealReport (4 statuses)
 // -------------------------------------------------------------------
 func (s *SealService) GetSealReport(peaCode string) (map[string]interface{}, error) {
-	var total, ready, paid, installed, used, damaged, pendingReturn int64
+	var total, ready, paid, waitConfirm, installed, used, damaged, pendingReturn, pendingTransferIn int64
 
 	query := s.db.Model(&model.Seal{})
 	if peaCode != "" {
@@ -412,6 +435,9 @@ func (s *SealService) GetSealReport(peaCode string) (map[string]interface{}, err
 	if err := query.Session(&gorm.Session{}).Where("status = ?", string(constants.StatusIssued)).Count(&paid).Error; err != nil {
 		return nil, err
 	}
+	if err := query.Session(&gorm.Session{}).Where("status = ?", string(constants.StatusWaitConfirmation)).Count(&waitConfirm).Error; err != nil {
+		return nil, err
+	}
 	if err := query.Session(&gorm.Session{}).Where("status = ?", string(constants.StatusInstalled)).Count(&installed).Error; err != nil {
 		return nil, err
 	}
@@ -425,14 +451,23 @@ func (s *SealService) GetSealReport(peaCode string) (map[string]interface{}, err
 		return nil, err
 	}
 
+	// Count incoming transfers (pending_pea_code matches current pea_code)
+	if peaCode != "" {
+		if err := s.db.Model(&model.Seal{}).Where("pending_pea_code = ? AND status = ?", peaCode, string(constants.StatusWaitConfirmation)).Count(&pendingTransferIn).Error; err != nil {
+			return nil, err
+		}
+	}
+
 	report := map[string]interface{}{
 		"total_seals":                         total,
-		string(constants.StatusReady):         ready,
-		string(constants.StatusIssued):        paid,
-		string(constants.StatusInstalled):     installed,
-		string(constants.StatusUsed):          used,
-		string(constants.StatusDamaged):       damaged,
-		string(constants.StatusPendingReturn): pendingReturn,
+		string(constants.StatusReady):            ready,
+		string(constants.StatusWaitConfirmation): waitConfirm,
+		string(constants.StatusIssued):           paid,
+		string(constants.StatusInstalled):        installed,
+		string(constants.StatusUsed):             used,
+		string(constants.StatusDamaged):          damaged,
+		string(constants.StatusPendingReturn):    pendingReturn,
+		"pending_transfer_in":                    pendingTransferIn,
 	}
 	return report, nil
 }
@@ -486,7 +521,7 @@ func (s *SealService) AssignSealToTechnician(sealNumber string, techID uint, iss
 	now := time.Now()
 
 	if seal.Status == string(constants.StatusReady) {
-		seal.Status = string(constants.StatusIssued)
+		seal.Status = string(constants.StatusWaitConfirmation)
 		seal.IssuedAt = &now
 		seal.IssuedBy = &issuedBy
 	}
@@ -577,8 +612,8 @@ func (s *SealService) IssueMultipleSeals(
 		if err != nil {
 			return nil, fmt.Errorf("ไม่พบซีลในระบบ: %s", fullSealNumber)
 		}
-		if seal.Status != string(constants.StatusReady) {
-			return nil, fmt.Errorf("ซีล %s ไม่ได้อยู่ในสถานะ 'พร้อมใช้งาน'", fullSealNumber)
+		if seal.Status != string(constants.StatusReady) && seal.Status != string(constants.StatusWaitConfirmation) {
+			return nil, fmt.Errorf("ซีล %s ไม่ได้อยู่ในสถานะที่พร้อมสำหรับการจ่าย", fullSealNumber)
 		}
 		sealsToIssue = append(sealsToIssue, *seal)
 	}
@@ -586,7 +621,7 @@ func (s *SealService) IssueMultipleSeals(
 	now := time.Now()
 	err := s.db.Transaction(func(tx *gorm.DB) error {
 		for i := range sealsToIssue {
-			sealsToIssue[i].Status = string(constants.StatusIssued)
+			sealsToIssue[i].Status = string(constants.StatusWaitConfirmation)
 			sealsToIssue[i].IssuedTo = &issuedTo
 			sealsToIssue[i].AssignedToTechnician = &issuedTo
 			sealsToIssue[i].IssuedAt = &now
@@ -714,7 +749,7 @@ func (s *SealService) AssignSealsByTechCode(techCode string, sealNumbers []strin
 		}
 		// ถ้าเป็น “พร้อมใช้งาน” -> เปลี่ยนเป็น “จ่าย”
 		if seal.Status == string(constants.StatusReady) {
-			seal.Status = string(constants.StatusIssued)
+			seal.Status = string(constants.StatusWaitConfirmation)
 			seal.IssuedAt = &now
 			seal.IssuedBy = &issuedBy
 		}
@@ -935,7 +970,16 @@ func (s *SealService) GetSealStatement(peaCode string, startDate string, endDate
 	}
 
 	// Count by status
-	statuses := []string{string(constants.StatusReady), string(constants.StatusIssued), string(constants.StatusInstalled), string(constants.StatusUsed), string(constants.StatusDamaged), string(constants.StatusLost)}
+	statuses := []string{
+		string(constants.StatusReady),
+		string(constants.StatusWaitConfirmation),
+		string(constants.StatusIssued),
+		string(constants.StatusInstalled),
+		string(constants.StatusUsed),
+		string(constants.StatusDamaged),
+		string(constants.StatusLost),
+		string(constants.StatusPendingReturn),
+	}
 	summary := make(map[string]int64)
 	var total int64
 
@@ -1186,17 +1230,18 @@ func (s *SealService) BulkTransferPeaCode(sealNumbers []string, newPeaCode strin
 				return fmt.Errorf("ไม่พบซีล %s ในระบบ", sn)
 			}
 			oldPeaCode := seal.PeaCode
-			seal.PeaCode = newPeaCode
+			seal.PendingPeaCode = newPeaCode
+			seal.Status = string(constants.StatusWaitConfirmation)
 			now := time.Now()
 			seal.UpdatedAt = now
 
 			if err := s.repo.Update(seal); err != nil {
-				return fmt.Errorf("โอนย้ายซีล %s ล้มเหลว", sn)
+				return fmt.Errorf("ร้องขอโอนย้ายซีล %s ล้มเหลว", sn)
 			}
 
 			logEntry := model.Log{
 				UserID: userID,
-				Action: fmt.Sprintf("โอนย้ายซีล %s จากสังกัด '%s' ไปสังกัด '%s'", sn, oldPeaCode, newPeaCode),
+				Action: fmt.Sprintf("ร้องขอโอนย้ายซีล %s จากสังกัด '%s' ไปยังสังกัด '%s' (รอยืนยัน)", sn, oldPeaCode, newPeaCode),
 			}
 			if err := s.logRepo.Create(&logEntry); err != nil {
 				return err
@@ -1206,4 +1251,148 @@ func (s *SealService) BulkTransferPeaCode(sealNumbers []string, newPeaCode strin
 		return nil
 	})
 	return transferred, err
+}
+
+func (s *SealService) BulkCancelSeals(sealNumbers []string, userID uint) (int, error) {
+	cancelled := 0
+	now := time.Now()
+	err := s.db.Transaction(func(tx *gorm.DB) error {
+		for _, sn := range sealNumbers {
+			seal, err := s.repo.FindByNumber(sn)
+			if err != nil {
+				return fmt.Errorf("ไม่พบซีล %s ในระบบ", sn)
+			}
+
+			// Only allow cancelling if Status is either wait confirmation or issued (can be recalled)
+			if seal.Status != string(constants.StatusWaitConfirmation) && seal.Status != string(constants.StatusIssued) {
+				continue // skip seals that are already used, installed, etc.
+			}
+
+			seal.Status = string(constants.StatusReady)
+			seal.IssuedBy = nil
+			seal.IssuedTo = nil
+			seal.IssuedAt = nil
+			seal.AssignedToTechnician = nil
+			seal.EmployeeCode = ""
+			seal.IssueRemark = ""
+			seal.ReturnedBy = &userID
+			seal.ReturnedAt = &now
+			seal.UpdatedAt = now
+
+			if err := tx.Save(seal).Error; err != nil {
+				return fmt.Errorf("คืนซีล %s ล้มเหลว", sn)
+			}
+
+			logEntry := model.Log{
+				UserID: userID,
+				Action: fmt.Sprintf("เรียกคืนซีล(Bulk Recall) %s กลับเป็นสถานะ 'พร้อมใช้งาน'", sn),
+			}
+			if err := s.logRepo.Create(&logEntry); err != nil {
+				return err
+			}
+			cancelled++
+		}
+		return nil
+	})
+	return cancelled, err
+}
+func (s *SealService) ConfirmSealsReceipt(techID uint, sealNumbers []string) error {
+	var seals []model.Seal
+	if err := s.db.Where("seal_number IN ? AND status = ?", sealNumbers, string(constants.StatusWaitConfirmation)).Find(&seals).Error; err != nil {
+		return err
+	}
+
+	if len(seals) == 0 {
+		return errors.New("ไม่พบซีลที่รอการยืนยัน")
+	}
+
+	now := time.Now()
+	return s.db.Transaction(func(tx *gorm.DB) error {
+		for i := range seals {
+			// ตรวจสอบว่าเป็นซีลที่ถูกจ่ายให้อนันต์คนนี้จริงหรือไม่
+			if seals[i].IssuedTo == nil || *seals[i].IssuedTo != techID {
+				return fmt.Errorf("คุณไม่มีสิทธิ์ยืนยันซีล %s", seals[i].SealNumber)
+			}
+
+			seals[i].Status = string(constants.StatusIssued)
+			seals[i].UpdatedAt = now
+
+			if err := tx.Save(&seals[i]).Error; err != nil {
+				return err
+			}
+
+			logEntry := model.Log{
+				UserID: techID,
+				Action: fmt.Sprintf("ยืนยันการรับซีล %s", seals[i].SealNumber),
+			}
+			if err := s.logRepo.Create(&logEntry); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+}
+
+// BulkConfirmCompanyTransfer — Confirm incoming seal transfers for a company.
+// Handles two cases:
+//  1. Direct transfer (pending_pea_code is empty, pea_code = company's code)
+//  2. Inter-company transfer (pending_pea_code = company's code)
+func (s *SealService) BulkConfirmCompanyTransfer(sealNumbers []string, currentPeaCode string, userID uint) (int, error) {
+	confirmed := 0
+	err := s.db.Transaction(func(tx *gorm.DB) error {
+		for _, sn := range sealNumbers {
+			seal, err := s.repo.FindByNumber(sn)
+			if err != nil {
+				return fmt.Errorf("ไม่พบซีล %s ในระบบ", sn)
+			}
+
+			if seal.Status != string(constants.StatusWaitConfirmation) {
+				return fmt.Errorf("ซีล %s ไม่ได้อยู่ในสถานะรอยืนยัน", sn)
+			}
+
+			var logMsg string
+
+			if seal.PendingPeaCode != "" {
+				// Case 1: Inter-company transfer — validate pending_pea_code
+				if seal.PendingPeaCode != currentPeaCode {
+					return fmt.Errorf("ซีล %s ไม่ได้รอยืนยันรับโอนสำหรับสังกัดคุณ", sn)
+				}
+				oldPeaCode := seal.PeaCode
+				seal.PeaCode = seal.PendingPeaCode
+				seal.PendingPeaCode = ""
+				seal.AssignedToTechnician = nil
+				seal.IssuedTo = &userID
+				seal.Status = string(constants.StatusReady)
+				logMsg = fmt.Sprintf("ยืนยันรับโอนซีล %s จากสังกัด '%s' เข้าสู่สังกัด '%s'", sn, oldPeaCode, seal.PeaCode)
+			} else {
+				// Case 2: Direct transfer to company admin — validate pea_code
+				if seal.PeaCode != currentPeaCode {
+					return fmt.Errorf("ซีล %s ไม่ได้อยู่ในสังกัดของคุณ", sn)
+				}
+				// Return seal to company admin as an assigned seal (StatusIssued)
+				seal.AssignedToTechnician = &userID
+				seal.IssuedTo = &userID
+				seal.Status = string(constants.StatusIssued)
+				logMsg = fmt.Sprintf("รับซีล %s", sn)
+			}
+
+			now := time.Now()
+			seal.UpdatedAt = now
+
+			if err := s.repo.Update(seal); err != nil {
+				return fmt.Errorf("ยืนยันซีล %s ล้มเหลว", sn)
+			}
+
+			logEntry := model.Log{
+				UserID: userID,
+				Action: logMsg,
+			}
+			if err := s.logRepo.Create(&logEntry); err != nil {
+				return err
+			}
+			confirmed++
+		}
+		return nil
+	})
+	return confirmed, err
 }

@@ -10,6 +10,7 @@ const (
 	StatusDamaged       SealStatus = "เสียหาย"
 	StatusLost          SealStatus = "สูญหาย"
 	StatusPendingReturn SealStatus = "รอตรวจสอบคืน"
+	StatusWaitConfirmation SealStatus = "รอยืนยัน"
 )
 
 // GetAllSealStatuses returns a slice of all valid seal statuses
@@ -22,6 +23,7 @@ func GetAllSealStatuses() []SealStatus {
 		StatusDamaged,
 		StatusLost,
 		StatusPendingReturn,
+		StatusWaitConfirmation,
 	}
 }
 

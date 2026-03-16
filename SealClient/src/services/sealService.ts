@@ -21,9 +21,12 @@ export const sealService = {
     },
 
 
-    getSeals: async (peaCode?: string): Promise<Seal[]> => {
+    getSeals: async (peaCode?: string, pendingPeaCode?: string): Promise<Seal[]> => {
         try {
-            const url = peaCode ? `/api/seals?pea_code=${encodeURIComponent(peaCode)}` : '/api/seals';
+            let url = '/api/seals?';
+            if (peaCode) url += `pea_code=${encodeURIComponent(peaCode)}&`;
+            if (pendingPeaCode) url += `pending_pea_code=${encodeURIComponent(pendingPeaCode)}&`;
+            
             const response = await api.get(url);
             return Array.isArray(response.data) ? response.data : (response.data.seals || []);
         } catch (error) {
@@ -124,5 +127,13 @@ export const sealService = {
 
     bulkTransferPeaCode: async (sealNumbers: string[], newPeaCode: string) => {
         return await api.post('/api/seals/bulk-transfer', { seal_numbers: sealNumbers, new_pea_code: newPeaCode });
+    },
+
+    bulkRecallSeals: async (sealNumbers: string[]) => {
+        return await api.post('/api/seals/bulk-recall', { seal_numbers: sealNumbers });
+    },
+
+    bulkConfirmCompanyTransfer: async (sealNumbers: string[], peaCode: string) => {
+        return await api.post('/api/seals/bulk-confirm-transfer', { seal_numbers: sealNumbers, pea_code: peaCode });
     },
 };

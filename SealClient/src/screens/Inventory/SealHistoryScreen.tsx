@@ -10,13 +10,14 @@ import { SealStatus } from '../../constants/status';
 
 // ── Status Color / Icon Mapping ──────────────────────────────────
 const STATUS_MAP: Record<string, { color: string; icon: string; label: string }> = {
-    [SealStatus.READY]: { color: '#2196F3', icon: '🔵', label: 'พร้อมใช้งาน (Available)' },
-    [SealStatus.ISSUED]: { color: '#FF9800', icon: '🟡', label: 'จ่ายซีลให้ช่าง (Issued)' },
-    [SealStatus.INSTALLED]: { color: '#4CAF50', icon: '✅', label: 'ติดตั้งแล้ว (Installed)' },
-    [SealStatus.USED]: { color: '#9C27B0', icon: '🟣', label: 'ใช้งานแล้ว (Used)' },
-    [SealStatus.DAMAGED]: { color: '#F44336', icon: '🔴', label: 'เสียหาย (Damaged)' },
-    [SealStatus.LOST]: { color: '#F44336', icon: '🔴', label: 'สูญหาย (Lost)' },
-    [SealStatus.PENDING_RETURN]: { color: '#FF9800', icon: '🔶', label: 'รอตรวจสอบคืน (Pending Return)' },
+    [SealStatus.READY]: { color: '#2196F3', icon: '🔵', label: 'พร้อมใช้งาน' },
+    [SealStatus.ISSUED]: { color: '#FF9800', icon: '🟡', label: 'จ่ายซีลให้ช่าง' },
+    [SealStatus.INSTALLED]: { color: '#4CAF50', icon: '✅', label: 'ติดตั้งแล้ว' },
+    [SealStatus.USED]: { color: '#9C27B0', icon: '🟣', label: 'ใช้งานแล้ว' },
+    [SealStatus.DAMAGED]: { color: '#F44336', icon: '🔴', label: 'เสียหาย' },
+    [SealStatus.LOST]: { color: '#F44336', icon: '🔴', label: 'สูญหาย' },
+    [SealStatus.PENDING_RETURN]: { color: '#FF9800', icon: '🔶', label: 'รอตรวจสอบคืน' },
+    [SealStatus.WAIT_CONFIRMATION]: { color: '#00BCD4', icon: '⏳', label: 'รอยืนยัน' },
 };
 const getStatusInfo = (status?: string) =>
     STATUS_MAP[status || ''] || { color: '#9E9E9E', icon: '⚪', label: status || 'ไม่ทราบสถานะ' };
@@ -25,15 +26,17 @@ const getStatusInfo = (status?: string) =>
 const ActivityItem: React.FC<{ log: Log; isLast?: boolean }> = ({ log, isLast }) => {
     const getActionDetails = (action: string) => {
         if (action.includes('created') || action.includes('นำเข้า') || action.includes('สร้างข้อมูล'))
-            return { icon: '➕', color: '#66bb6a', label: 'สร้างข้อมูล (Created)' };
+            return { icon: '➕', color: '#66bb6a', label: 'สร้างข้อมูล' };
         if (action.includes('ตรวจสอบ') || action.includes('พร้อมใช้งาน'))
-            return { icon: '🔵', color: '#2196F3', label: 'พร้อมใช้งาน (Available)' };
+            return { icon: '🔵', color: '#2196F3', label: 'พร้อมใช้งาน' };
         if (action.includes('assigned') || action.includes(SealStatus.ISSUED))
-            return { icon: '🟡', color: '#FF9800', label: 'จ่ายซีลให้ช่าง (Issued)' };
+            return { icon: '🟡', color: '#FF9800', label: 'จ่ายซีลให้ช่าง' };
+        if (action.includes('wait_confirmation') || action.includes(SealStatus.WAIT_CONFIRMATION))
+            return { icon: '⏳', color: '#00BCD4', label: 'รอยืนยัน' };
         if (action.includes('used') || action.includes('ติดตั้ง') || action.includes(SealStatus.INSTALLED))
-            return { icon: '✅', color: '#4CAF50', label: 'ติดตั้งซีลแล้ว (Installed)' };
+            return { icon: '✅', color: '#4CAF50', label: 'ติดตั้งซีลแล้ว' };
         if (action.includes('return') || action.includes('คืน'))
-            return { icon: '🔶', color: '#FF9800', label: 'คืนซีล (Returned)' };
+            return { icon: '🔶', color: '#FF9800', label: 'คืนซีล' };
         return { icon: '📝', color: '#9E9E9E', label: 'การดำเนินงานอื่นๆ' };
     };
     const details = getActionDetails(log.action);
@@ -85,7 +88,7 @@ export const SealHistoryScreen: React.FC = () => {
     const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
 
     const STATUS_OPTIONS = [
-        SealStatus.READY, SealStatus.ISSUED, SealStatus.INSTALLED,
+        SealStatus.READY, SealStatus.WAIT_CONFIRMATION, SealStatus.ISSUED, SealStatus.INSTALLED,
         SealStatus.USED, SealStatus.DAMAGED, SealStatus.LOST, SealStatus.PENDING_RETURN
     ];
 

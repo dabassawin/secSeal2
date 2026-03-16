@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TextInput, TouchableOpacity, Modal, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TextInput, TouchableOpacity, Modal, Alert, Platform } from 'react-native';
 import { colors, sizes } from '@/constants';
 import { Header } from '@/components/dashboard';
 import { sealService } from '@/services/sealService';
@@ -10,9 +10,29 @@ import { useAuth } from '@/context/AuthContext';
 import { SealStatus } from '../../constants/status';
 
 // ─── Status Badge ────────────────────────────────────────────────────────
-const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
+const StatusBadge: React.FC<{ status: string; seal?: Seal }> = ({ status, seal }) => {
     let bgColor: string = colors.bgLight;
     let textColor: string = colors.textLight;
+
+    const { user } = useAuth();
+    
+    const label = useMemo(() => {
+        switch (status) {
+            case SealStatus.READY: return 'พร้อมใช้งาน';
+            case SealStatus.WAIT_CONFIRMATION: 
+                if (seal && seal.pending_pea_code === user?.pea_code) {
+                    return 'รอยืนยันรับโอน';
+                }
+                return 'รอยืนยัน';
+            case SealStatus.ISSUED: return 'จ่าย';
+            case SealStatus.INSTALLED: return 'ติดตั้งแล้ว';
+            case SealStatus.USED: return 'ใช้งานแล้ว';
+            case SealStatus.PENDING_RETURN: return 'รอตรวจสอบคืน';
+            case SealStatus.DAMAGED: return 'เสียหาย';
+            case SealStatus.LOST: return 'สูญหาย';
+            default: return status;
+        }
+    }, [status, seal, user?.pea_code]);
 
     switch (status) {
         case SealStatus.READY:
@@ -23,6 +43,15 @@ const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
         case SealStatus.INSTALLED:
             bgColor = '#E3F2FD';
             textColor = '#1976D2';
+            break;
+        case SealStatus.WAIT_CONFIRMATION:
+            if (seal && seal.pending_pea_code === user?.pea_code) {
+                bgColor = '#E8F5E9'; // Use green for incoming to stand out? Or Cyan.
+                textColor = '#2E7D32';
+            } else {
+                bgColor = '#E0F7FA';
+                textColor = '#006064';
+            }
             break;
         case SealStatus.USED:
             bgColor = '#F3E5F5';
@@ -44,7 +73,7 @@ const StatusBadge: React.FC<{ status: string }> = ({ status }) => {
 
     return (
         <View style={[styles.statusBadge, { backgroundColor: bgColor }]}>
-            <Text style={[styles.statusText, { color: textColor }]}>{status}</Text>
+            <Text style={[styles.statusText, { color: textColor }]}>{label}</Text>
         </View>
     );
 };
@@ -69,6 +98,8 @@ const Checkbox: React.FC<{ checked: boolean; onPress: () => void; partial?: bool
 export const SealInventoryScreen: React.FC = () => {
     const navigation = useNavigation();
     const { user } = useAuth();
+    const route = (navigation as any).getState().routes.find((r: any) => r.name === 'Inventory');
+    const routeParams = route?.params as { filter?: string } | undefined;
     const userPeaCode = user?.pea_code as string | undefined;
 
     // Data
@@ -96,7 +127,9 @@ export const SealInventoryScreen: React.FC = () => {
 
     const statuses = [
         'สถานะทั้งหมด',
+        'รอยืนยันรับโอน',
         SealStatus.READY,
+        SealStatus.WAIT_CONFIRMATION,
         SealStatus.ISSUED,
         SealStatus.INSTALLED,
         SealStatus.USED,
@@ -107,6 +140,7 @@ export const SealInventoryScreen: React.FC = () => {
 
     const statusOptions = [
         SealStatus.READY,
+        SealStatus.WAIT_CONFIRMATION,
         SealStatus.ISSUED,
         SealStatus.INSTALLED,
         SealStatus.USED,
@@ -115,24 +149,34 @@ export const SealInventoryScreen: React.FC = () => {
         SealStatus.PENDING_RETURN
     ];
 
-    const getStatusLabel = (status: string) => {
+    const getStatusLabel = (status: string, seal?: Seal) => {
         switch (status) {
-            case SealStatus.READY: return 'พร้อมใช้งาน (Ready)';
-            case SealStatus.ISSUED: return 'จ่าย (Issued / Assigned)';
-            case SealStatus.INSTALLED: return 'ติดตั้งแล้ว (Installed)';
-            case SealStatus.USED: return 'ใช้งานแล้ว (Used / Returned)';
-            case SealStatus.PENDING_RETURN: return 'รอตรวจสอบคืน (Pending Return)';
-            case SealStatus.DAMAGED: return 'เสียหาย (Damaged)';
-            case SealStatus.LOST: return 'สูญหาย (Lost)';
+            case SealStatus.READY: return 'พร้อมใช้งาน';
+            case SealStatus.WAIT_CONFIRMATION: 
+                if (seal && seal.pending_pea_code === user?.pea_code) {
+                    return 'รอยืนยันรับโอน';
+                }
+                return 'รอยืนยัน';
+            case SealStatus.ISSUED: return 'จ่าย';
+            case SealStatus.INSTALLED: return 'ติดตั้งแล้ว';
+            case SealStatus.USED: return 'ใช้งานแล้ว';
+            case SealStatus.PENDING_RETURN: return 'รอตรวจสอบคืน';
+            case SealStatus.DAMAGED: return 'เสียหาย';
+            case SealStatus.LOST: return 'สูญหาย';
             default: return status;
         }
     };
 
     useFocusEffect(
         useCallback(() => {
+            if (routeParams?.filter) {
+                setStatusFilter(routeParams.filter);
+                // Clear the param after using it so it doesn't stick
+                navigation.setParams({ filter: undefined } as any);
+            }
             fetchSeals();
             fetchMasPea();
-        }, [userPeaCode])
+        }, [userPeaCode, routeParams?.filter])
     );
 
     const fetchMasPea = async () => {
@@ -153,8 +197,16 @@ export const SealInventoryScreen: React.FC = () => {
     const fetchSeals = async () => {
         try {
             setLoading(true);
-            const data = await sealService.getSeals(userPeaCode);
-            setSeals(data);
+            // Fetch seals belonging to this PEA
+            const owned = await sealService.getSeals(userPeaCode);
+            // Fetch seals transferred to this PEA
+            const incoming = await sealService.getSeals(undefined, userPeaCode);
+            
+            // Combine and remove any potential duplicates (though unlikely)
+            const combined = [...owned, ...incoming];
+            const unique = Array.from(new Map(combined.map(s => [s.id, s])).values());
+            
+            setSeals(unique);
         } catch (error) {
             console.error('Error fetching seals:', error);
         } finally {
@@ -166,10 +218,18 @@ export const SealInventoryScreen: React.FC = () => {
         return seals.filter(seal => {
             const matchesSearch = seal.seal_number.toLowerCase().includes(searchQuery.toLowerCase()) ||
                 (seal.installed_serial && seal.installed_serial.toLowerCase().includes(searchQuery.toLowerCase()));
-            const matchesStatus = statusFilter === 'สถานะทั้งหมด' || seal.status === statusFilter;
+            
+            let matchesStatus = true;
+            if (statusFilter !== 'สถานะทั้งหมด') {
+                if (statusFilter === 'รอยืนยันรับโอน') {
+                    matchesStatus = seal.status === SealStatus.WAIT_CONFIRMATION && seal.pending_pea_code === user?.pea_code;
+                } else {
+                    matchesStatus = seal.status === statusFilter;
+                }
+            }
             return matchesSearch && matchesStatus;
         });
-    }, [seals, searchQuery, statusFilter]);
+    }, [seals, searchQuery, statusFilter, user?.pea_code]);
 
     // ─── Selection Logic ─────────────────────────────────────────────
     const isAllSelected = filteredSeals.length > 0 && filteredSeals.every(s => selectedIds.has(s.id));
@@ -200,6 +260,19 @@ export const SealInventoryScreen: React.FC = () => {
     const selectedSealNumbers = useMemo(() => {
         return seals.filter(s => selectedIds.has(s.id)).map(s => s.seal_number);
     }, [seals, selectedIds]);
+
+    const canRecall = useMemo(() => {
+        return selectedIds.size > 0;
+    }, [selectedIds.size]);
+
+    const canConfirmTransfer = useMemo(() => {
+        if (selectedIds.size === 0) return false;
+        const selectedSeals = seals.filter(s => selectedIds.has(s.id));
+        return selectedSeals.every(s =>
+            s.status === SealStatus.WAIT_CONFIRMATION &&
+            s.pending_pea_code === user?.pea_code
+        );
+    }, [seals, selectedIds, user?.pea_code]);
 
     // ─── Bulk Actions ────────────────────────────────────────────────
     const handleBulkStatusUpdate = async () => {
@@ -238,6 +311,105 @@ export const SealInventoryScreen: React.FC = () => {
             fetchSeals();
         } catch (err: any) {
             Alert.alert('เกิดข้อผิดพลาด', err.response?.data?.error || 'ไม่สามารถโอนย้ายได้');
+        } finally {
+            setActionLoading(false);
+        }
+    };
+
+    const handleBulkRecall = async () => {
+        // 1. Validate statuses first
+        const selectedSeals = seals.filter(s => selectedIds.has(s.id));
+        const invalidSeals = selectedSeals.filter(s =>
+            s.status !== SealStatus.WAIT_CONFIRMATION &&
+            s.status !== SealStatus.ISSUED
+        );
+
+        if (invalidSeals.length > 0) {
+            const errorMsg = 'สามารถเรียกคืนได้เฉพาะซีลที่อยู่ในสถานะ "รอยืนยัน" และ "จ่าย" เท่านั้น';
+            if (Platform.OS === 'web') {
+                window.alert(errorMsg);
+            } else {
+                Alert.alert('ไม่สามารถดำเนินการได้', errorMsg);
+            }
+            return;
+        }
+
+        const title = 'ยืนยันการเรียกคืนซีล';
+        const message = `คุณต้องการเรียกคืนซีลจำนวน ${selectedIds.size} รายการ กลับเป็นสถานะ 'พร้อมใช้งาน' หรือไม่?`;
+
+        const proceed = await new Promise((resolve) => {
+            if (Platform.OS === 'web') {
+                resolve(window.confirm(message));
+            } else {
+                Alert.alert(title, message, [
+                    { text: 'ยกเลิก', style: 'cancel', onPress: () => resolve(false) },
+                    { text: 'เรียกคืนซีล', style: 'destructive', onPress: () => resolve(true) }
+                ]);
+            }
+        });
+
+        if (!proceed) return;
+
+        try {
+            setActionLoading(true);
+            const res = await sealService.bulkRecallSeals(selectedSealNumbers);
+            const successMsg = res.data.message || `เรียกคืนซีลสำเร็จ ${res.data.count} รายการ`;
+
+            if (Platform.OS === 'web') {
+                window.alert(successMsg);
+            } else {
+                Alert.alert('สำเร็จ ✅', successMsg);
+            }
+            clearSelection();
+            fetchSeals();
+        } catch (err: any) {
+            const errorMsg = err.response?.data?.error || 'ไม่สามารถเรียกคืนซีลได้';
+            if (Platform.OS === 'web') {
+                window.alert(errorMsg);
+            } else {
+                Alert.alert('เกิดข้อผิดพลาด', errorMsg);
+            }
+        } finally {
+            setActionLoading(false);
+        }
+    };
+
+    const handleBulkConfirmTransfer = async () => {
+        const title = 'ยืนยันการรับโอนซีล';
+        const message = `คุณต้องการยืนยันการรับโอนซีลจำนวน ${selectedIds.size} รายการ เข้าสู่สังกัดของคุณหรือไม่?`;
+
+        const proceed = await new Promise((resolve) => {
+            if (Platform.OS === 'web') {
+                resolve(window.confirm(message));
+            } else {
+                Alert.alert(title, message, [
+                    { text: 'ยกเลิก', style: 'cancel', onPress: () => resolve(false) },
+                    { text: 'ยืนยันรับโอน', style: 'default', onPress: () => resolve(true) }
+                ]);
+            }
+        });
+
+        if (!proceed) return;
+
+        try {
+            setActionLoading(true);
+            const res = await sealService.bulkConfirmCompanyTransfer(selectedSealNumbers, user?.pea_code || '');
+            const successMsg = res.data.message || `ยืนยันรับโอนซีลสำเร็จ ${res.data.confirmed} รายการ`;
+
+            if (Platform.OS === 'web') {
+                window.alert(successMsg);
+            } else {
+                Alert.alert('สำเร็จ ✅', successMsg);
+            }
+            clearSelection();
+            fetchSeals();
+        } catch (err: any) {
+            const errorMsg = err.response?.data?.error || 'ไม่สามารถยืนยันรับโอนซีลได้';
+            if (Platform.OS === 'web') {
+                window.alert(errorMsg);
+            } else {
+                Alert.alert('เกิดข้อผิดพลาด', errorMsg);
+            }
         } finally {
             setActionLoading(false);
         }
@@ -373,10 +545,10 @@ export const SealInventoryScreen: React.FC = () => {
                                                 <Text style={styles.peaNameText}>{getPeaName(seal.pea_code)}</Text>
                                             </View>
 
-                                            {/* Status */}
-                                            <View style={[styles.cell, { flex: 1.5 }]}>
-                                                <StatusBadge status={seal.status} />
-                                            </View>
+                                             {/* Status */}
+                                             <View style={[styles.cell, { flex: 1.5 }]}>
+                                                 <StatusBadge status={seal.status} seal={seal} />
+                                             </View>
 
                                             {/* Updated Date */}
                                             <View style={[styles.cell, { flex: 1.5 }]}>
@@ -432,6 +604,23 @@ export const SealInventoryScreen: React.FC = () => {
 
                     {/* Right: action buttons */}
                     <View style={styles.floatingBarRight}>
+                        <TouchableOpacity
+                            style={[styles.recallBtn, !canRecall && styles.recallBtnDisabled]}
+                            onPress={handleBulkRecall}
+                            disabled={!canRecall || actionLoading}
+                        >
+                            <Text style={styles.recallBtnText}>🔄 เรียกคืนซีล</Text>
+                        </TouchableOpacity>
+
+                        {canConfirmTransfer && (
+                            <TouchableOpacity
+                                style={styles.confirmTransferBtn}
+                                onPress={handleBulkConfirmTransfer}
+                                disabled={actionLoading}
+                            >
+                                <Text style={styles.confirmTransferBtnText}>📥 ยืนยันรับโอน</Text>
+                            </TouchableOpacity>
+                        )}
                         <TouchableOpacity
                             style={styles.transferBtn}
                             onPress={() => setShowTransferModal(true)}
@@ -934,6 +1123,37 @@ const styles = StyleSheet.create({
     floatingBarRight: {
         flexDirection: 'row',
         gap: 10,
+    },
+    recallBtn: {
+        backgroundColor: '#D32F2F', // Deep red
+        paddingVertical: 10,
+        paddingHorizontal: 16,
+        borderRadius: 8,
+        marginRight: 10,
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    recallBtnDisabled: {
+        backgroundColor: '#EF9A9A', // Lighter red for disabled
+    },
+    recallBtnText: {
+        color: 'white',
+        fontWeight: 'bold',
+        fontSize: 13,
+    },
+    confirmTransferBtn: {
+        backgroundColor: '#2E7D32', // Green
+        paddingVertical: 10,
+        paddingHorizontal: 16,
+        borderRadius: 8,
+        marginRight: 10,
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    confirmTransferBtnText: {
+        color: 'white',
+        fontWeight: 'bold',
+        fontSize: 13,
     },
     transferBtn: {
         backgroundColor: '#3A3A4A',

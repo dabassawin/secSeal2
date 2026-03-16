@@ -25,8 +25,13 @@ export interface SealReport {
     total_seals: number;
     [SealStatus.READY]: number;
     [SealStatus.ISSUED]: number;
+    [SealStatus.WAIT_CONFIRMATION]: number;
     [SealStatus.INSTALLED]: number;
     [SealStatus.USED]: number;
+    [SealStatus.DAMAGED]: number;
+    [SealStatus.LOST]: number;
+    [SealStatus.PENDING_RETURN]: number;
+    pending_transfer_in: number;
 }
 
 export interface Seal {
@@ -44,6 +49,7 @@ export interface Seal {
     create_remarks?: string; // หมายเหตุตอนสร้าง
     issue_remark?: string; // หมายเหตุตอนจ่าย
     return_remarks?: string; // หมายเหตุตอนคืน
+    pending_pea_code?: string; // รหัสกฟฟ. ปลายทางที่รอการยืนยัน
     issued_at?: string;
     used_at?: string;
     returned_at?: string;

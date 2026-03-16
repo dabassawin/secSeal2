@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/Kev2406/PEA/internal/domain/constants"
 	"github.com/Kev2406/PEA/internal/service"
 	"github.com/gofiber/fiber/v2"
 )
@@ -26,7 +27,7 @@ func NewSealController(sealService *service.SealService) *SealController {
 // 0) GetAllSealsHandler - Get all seals
 // -------------------------------------------------------------------
 func (sc *SealController) GetAllSealsHandler(c *fiber.Ctx) error {
-	seals, err := sc.sealService.GetAllSeals(c.Query("pea_code", ""))
+	seals, err := sc.sealService.GetAllSeals(c.Query("pea_code", ""), c.Query("pending_pea_code", ""))
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": err.Error(),
@@ -78,7 +79,7 @@ func (sc *SealController) GetSealByIDAndStatusHandler(c *fiber.Ctx) error {
 		})
 	}
 
-	log.Println("🎬 กำลังดึงซีล ID:", sealID, " สถานะ:", status)
+// log.Println("🎬 กำลังดึงซีล ID:", sealID, " สถานะ:", status)
 
 	seal, err := sc.sealService.GetSealByIDAndStatus(uint(sealID), status)
 	if err != nil {
@@ -421,7 +422,7 @@ func incrementSealNumber(current string) string {
 // -------------------------------------------------------------------
 func (sc *SealController) CheckSealExistsHandler(c *fiber.Ctx) error {
 	sealNumber := c.Params("seal_number")
-	log.Println("🔍 Checking Seal:", sealNumber)
+// log.Println("🔍 Checking Seal:", sealNumber)
 
 	seal, err := sc.sealService.GetSealByNumber(sealNumber)
 	if err == nil && seal != nil && seal.ID != 0 {
@@ -656,6 +657,34 @@ func (sc *SealController) CancelSealHandler(c *fiber.Ctx) error {
 	})
 }
 
+func (sc *SealController) BulkCancelSealsHandler(c *fiber.Ctx) error {
+	userID, ok := c.Locals("user_id").(uint)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Unauthorized"})
+	}
+
+	var req struct {
+		SealNumbers []string `json:"seal_numbers"`
+	}
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
+	}
+
+	if len(req.SealNumbers) == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "No seal_numbers provided"})
+	}
+
+	count, err := sc.sealService.BulkCancelSeals(req.SealNumbers, userID)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	return c.JSON(fiber.Map{
+		"message": fmt.Sprintf("เรียกคืนซีลจำนวน %d รายการสำเร็จ", count),
+		"count":   count,
+	})
+}
+
 // -------------------------------------------------------------------
 // GetPendingReturnsHandler
 // GET /api/seals/pending-returns?pea_code=...
@@ -723,7 +752,7 @@ func (sc *SealController) ScanAndUseSealHandler(c *fiber.Ctx) error {
 	if err != nil {
 		log.Println("⚠️ No seal image or err receiving image:", err)
 	} else {
-		log.Println("📷 Received seal image:", file.Filename, "size:", file.Size)
+// log.Println("📷 Received seal image:", file.Filename, "size:", file.Size)
 		uploadDir := "./uploads"
 		if _, err := os.Stat(uploadDir); os.IsNotExist(err) {
 			os.Mkdir(uploadDir, 0755)
@@ -734,7 +763,7 @@ func (sc *SealController) ScanAndUseSealHandler(c *fiber.Ctx) error {
 			log.Println("❌ Failed to save seal image:", err)
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to save image"})
 		}
-		log.Println("✅ Seal image saved to", savePath)
+// log.Println("✅ Seal image saved to", savePath)
 		imagePath = "/uploads/" + fileName
 	}
 
@@ -744,7 +773,7 @@ func (sc *SealController) ScanAndUseSealHandler(c *fiber.Ctx) error {
 	if err != nil {
 		log.Println("⚠️ No meter image or err receiving meter_image:", err)
 	} else {
-		log.Println("📷 Received meter image:", meterFile.Filename, "size:", meterFile.Size)
+// log.Println("📷 Received meter image:", meterFile.Filename, "size:", meterFile.Size)
 		uploadDir := "./uploads"
 		if _, err := os.Stat(uploadDir); os.IsNotExist(err) {
 			os.Mkdir(uploadDir, 0755)
@@ -754,7 +783,7 @@ func (sc *SealController) ScanAndUseSealHandler(c *fiber.Ctx) error {
 		if err := c.SaveFile(meterFile, savePath); err != nil {
 			log.Println("❌ Failed to save meter image:", err)
 		} else {
-			log.Println("✅ Meter image saved to", savePath)
+// log.Println("✅ Meter image saved to", savePath)
 			meterImagePath = "/uploads/" + fileName
 		}
 	}
@@ -876,6 +905,9 @@ func (sc *SealController) CheckSealOwnershipHandler(c *fiber.Ctx) error {
 	if seal.Status == "เสียหาย" {
 		return c.Status(fiber.StatusConflict).JSON(fiber.Map{"error": "ซีลนี้อยู่ในสถานะเสียหาย หรือชำรุดก่อนนำไปใช้งาน"})
 	}
+	if seal.Status == string(constants.StatusWaitConfirmation) {
+		return c.Status(fiber.StatusConflict).JSON(fiber.Map{"error": "กรุณากดยืนยันการรับซีลในหน้าหลักก่อนนำไปใช้งาน"})
+	}
 
 	ownershipInfo := fiber.Map{
 		"is_owner":     seal.AssignedToTechnician != nil && *seal.AssignedToTechnician == techID,
@@ -962,6 +994,40 @@ func (sc *SealController) BulkTransferPeaCodeHandler(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"message":     fmt.Sprintf("โอนย้ายซีลสำเร็จ %d รายการ ไปสังกัด %s", transferred, request.NewPeaCode),
 		"transferred": transferred,
+	})
+}
+
+// 25) BulkConfirmCompanyTransferHandler
+// POST /api/seals/bulk-confirm-transfer
+// Body: { "seal_numbers": [...], "pea_code": "S2" }
+func (sc *SealController) BulkConfirmCompanyTransferHandler(c *fiber.Ctx) error {
+	userID, ok := c.Locals("user_id").(uint)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Unauthorized"})
+	}
+
+	var request struct {
+		SealNumbers []string `json:"seal_numbers"`
+		PeaCode     string   `json:"pea_code"`
+	}
+	if err := c.BodyParser(&request); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
+	}
+	if len(request.SealNumbers) == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "seal_numbers is required"})
+	}
+	if request.PeaCode == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "pea_code is required"})
+	}
+
+	confirmed, err := sc.sealService.BulkConfirmCompanyTransfer(request.SealNumbers, request.PeaCode, userID)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	return c.JSON(fiber.Map{
+		"message":   fmt.Sprintf("ยืนยันรับโอนซีลสำเร็จ %d รายการ", confirmed),
+		"confirmed": confirmed,
 	})
 }
 

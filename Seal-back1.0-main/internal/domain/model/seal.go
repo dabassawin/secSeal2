@@ -28,6 +28,7 @@ type Seal struct {
 	IssueRemark          string         `json:"issue_remark,omitempty"`
 	AssignedToTechnician *uint          `json:"assigned_to_technician,omitempty"`
 	CreateRemarks        string         `json:"create_remarks,omitempty"`
+	PendingPeaCode       string         `gorm:"size:10" json:"pending_pea_code,omitempty"` // รหัสกฟฟ. ปลายทางที่รอการยืนยัน
 
 	// ✅ เพิ่มฟิลด์เก็บลิงก์รูปภาพ
 	// image1 = รูปซีลที่ติดตั้ง, image2 = รูปซีลที่คืน, image3 = รูปมิเตอร์

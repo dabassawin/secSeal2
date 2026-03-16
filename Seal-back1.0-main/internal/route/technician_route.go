@@ -29,6 +29,7 @@ func SetupTechnicianRoutes(router fiber.Router, techController *controller.Techn
 	protectedTech.Get("/seals/check-return/:seal_number", techController.CheckReturnableSealHandler)
 	protectedTech.Post("/seals/upload-images", techController.UploadSealImagesHandler)
 	protectedTech.Post("/seals/transfer", techController.TransferSealsHandler) // ✅ Transfer seals AP
+	protectedTech.Post("/seals/confirm", techController.ConfirmSealsReceiptHandler) // ✅ Confirm seal receipt
 	protectedTech.Get("/seals/center-list", techController.GetAllTechnicianSealsHandler) // ✅ ใช้ชื่อใหม่เพื่อไม่ให้ทับกับของ User
 	protectedTech.Post("/device-token", techController.UpdateDeviceTokenHandler)
 

@@ -30,11 +30,12 @@ const { width } = Dimensions.get('window');
 
 export default function HomeScreen({ onLogout }: HomeScreenProps) {
     const navigation = useNavigation<NavigationProp>();
-    const { activeSeals, historySeals, userInfo, isLoading, error, fetchSeals } = useHomeViewModel();
+    const { activeSeals, waitConfirmationSeals, historySeals, userInfo, isLoading, error, fetchSeals, confirmSeal, confirmMultipleSeals } = useHomeViewModel();
     const insets = useSafeAreaInsets();
-    const [activeTab, setActiveTab] = useState<'pending' | 'history' | 'returned'>('pending');
+    const [activeTab, setActiveTab] = useState<'wait_confirm' | 'pending' | 'history' | 'returned'>('wait_confirm');
     const [dropdownVisible, setDropdownVisible] = useState(false);
     const [searchText, setSearchText] = useState('');
+    const [selectedSealNumbers, setSelectedSealNumbers] = useState<string[]>([]);
 
     const pendingSeals = activeSeals;
     const returnedSeals = historySeals.filter(s =>
@@ -48,16 +49,19 @@ export default function HomeScreen({ onLogout }: HomeScreenProps) {
     );
 
     const getTabLabel = (tab: string) => {
+        const isCenter = userInfo?.is_center;
         if (tab === 'pending') return `รอดำเนินการ (${pendingSeals.length})`;
-        if (tab === 'history') return `ติดตั้งแล้ว (${completedSeals.length})`;
+        if (tab === 'history') return isCenter ? `ติดตั้ง/พร้อมใช้ (${completedSeals.length})` : `ติดตั้งแล้ว (${completedSeals.length})`;
         if (tab === 'returned') return `คืนแล้ว (${returnedSeals.length})`;
+        if (tab === 'wait_confirm') return isCenter ? `ยืนยันรับโอน (${waitConfirmationSeals.length})` : `ยืนยันซีล (${waitConfirmationSeals.length})`;
         return '';
     };
 
-    const getTabIcon = (tab: string): "time-outline" | "checkmark-done-outline" | "return-down-back-outline" => {
+    const getTabIcon = (tab: string): "time-outline" | "checkmark-done-outline" | "return-down-back-outline" | "checkbox-outline" => {
         if (tab === 'pending') return 'time-outline';
         if (tab === 'history') return 'checkmark-done-outline';
         if (tab === 'returned') return 'return-down-back-outline';
+        if (tab === 'wait_confirm') return 'checkbox-outline';
         return 'time-outline';
     };
 
@@ -86,55 +90,120 @@ export default function HomeScreen({ onLogout }: HomeScreenProps) {
 
     const onRefresh = useCallback(() => {
         fetchSeals();
+        setSelectedSealNumbers([]);
     }, []);
+
+    const toggleSealSelection = (sealNumber: string) => {
+        setSelectedSealNumbers(prev =>
+            prev.includes(sealNumber)
+                ? prev.filter(n => n !== sealNumber)
+                : [...prev, sealNumber]
+        );
+    };
+
+    const toggleSelectAll = () => {
+        if (selectedSealNumbers.length === waitConfirmationSeals.length) {
+            setSelectedSealNumbers([]);
+        } else {
+            setSelectedSealNumbers(waitConfirmationSeals.map(s => s.seal_number));
+        }
+    };
+
+    const handleBulkConfirm = async () => {
+        if (selectedSealNumbers.length === 0) return;
+
+        const isCenter = userInfo?.is_center;
+        Alert.alert(
+            isCenter ? 'ยืนยันการรับโอนซีล' : 'ยืนยันการรับซีล',
+            isCenter 
+                ? `คุณต้องการยืนยันการรับโอนซีลที่เลือกทั้งหมดจำนวน ${selectedSealNumbers.length} ชิ้น เข้าสู่สังกัดของคุณ ใช่หรือไม่?`
+                : `คุณต้องการยืนยันการรับซีลที่เลือกทั้งหมดจำนวน ${selectedSealNumbers.length} ชิ้น ใช่หรือไม่?`,
+            [
+                { text: 'ยกเลิก', style: 'cancel' },
+                {
+                    text: 'ยืนยัน',
+                    onPress: async () => {
+                        await confirmMultipleSeals(selectedSealNumbers);
+                        setSelectedSealNumbers([]);
+                    }
+                }
+            ]
+        );
+    };
 
     let currentSeals = pendingSeals;
     if (activeTab === 'history') currentSeals = completedSeals;
     else if (activeTab === 'returned') currentSeals = returnedSeals;
+    else if (activeTab === 'wait_confirm') currentSeals = waitConfirmationSeals;
 
     const displayedSeals = currentSeals.filter(
         seal => seal.seal_number.toLowerCase().includes(searchText.toLowerCase())
     );
 
-    const renderSealItem = ({ item }: { item: Seal }) => (
-        <View style={styles.card}>
-            <View style={styles.cardLeft}>
-                <View style={styles.iconContainer}>
-                    <Ionicons name="barcode-outline" size={24} color="#6A0DAD" />
-                </View>
-                <View style={styles.cardContent}>
-                    <Text style={styles.serialLabel}>Serial Number</Text>
-                    <Text style={styles.sealNumber}>{item.seal_number}</Text>
+    const renderSealItem = ({ item }: { item: Seal }) => {
+        const isSelected = selectedSealNumbers.includes(item.seal_number);
+        const isWaitConfirm = item.status === SealStatus.WAIT_CONFIRMATION;
 
-                    <View style={styles.metaRow}>
-                        <Ionicons name="cube-outline" size={14} color="#757575" style={{ marginRight: 4 }} />
-                        <Text style={styles.metaText}>Type: Seal</Text>
-                    </View>
-                    <View style={styles.metaRow}>
-                        <Ionicons name="time-outline" size={14} color="#757575" style={{ marginRight: 4 }} />
-                        <Text style={styles.metaText}>Status: {item.status}</Text>
+        return (
+            <TouchableOpacity
+                style={[styles.card, isSelected && styles.cardSelected]}
+                onPress={() => isWaitConfirm ? toggleSealSelection(item.seal_number) : null}
+                activeOpacity={isWaitConfirm ? 0.7 : 1}
+            >
+                <View style={styles.cardLeft}>
+                    {isWaitConfirm ? (
+                        <TouchableOpacity
+                            style={styles.selectionIndicator}
+                            onPress={() => toggleSealSelection(item.seal_number)}
+                        >
+                            <Ionicons
+                                name={isSelected ? "checkbox" : "square-outline"}
+                                size={24}
+                                color={isSelected ? "#6A0DAD" : "#CCC"}
+                            />
+                        </TouchableOpacity>
+                    ) : (
+                        <View style={styles.iconContainer}>
+                            <Ionicons name="barcode-outline" size={24} color="#6A0DAD" />
+                        </View>
+                    )}
+                    <View style={styles.cardContent}>
+                        <Text style={styles.serialLabel}>Serial Number</Text>
+                        <Text style={styles.sealNumber}>{item.seal_number}</Text>
+
+                        <View style={styles.metaRow}>
+                            <Ionicons name="cube-outline" size={14} color="#757575" style={{ marginRight: 4 }} />
+                            <Text style={styles.metaText}>Type: Seal</Text>
+                        </View>
+                        <View style={styles.metaRow}>
+                            <Ionicons name="time-outline" size={14} color="#757575" style={{ marginRight: 4 }} />
+                            <Text style={styles.metaText}>Status: {item.status}</Text>
+                        </View>
                     </View>
                 </View>
-            </View>
 
-            <View style={styles.cardRight}>
-                <View style={[styles.statusBadge,
-                (item.status === SealStatus.DAMAGED || item.status === SealStatus.PENDING_RETURN) ? styles.statusFailed :
-                    (item.status === SealStatus.INSTALLED || item.status === SealStatus.USED || (item.status === SealStatus.READY && item.return_remarks === 'ไม่ได้ใช้งาน (คืนคลัง)')) ? styles.statusSuccess : styles.statusPending
-                ]}>
-                    <Text style={[styles.statusText,
-                    (item.status === SealStatus.DAMAGED || item.status === SealStatus.PENDING_RETURN) ? styles.textFailed :
-                        (item.status === SealStatus.INSTALLED || item.status === SealStatus.USED || (item.status === SealStatus.READY && item.return_remarks === 'ไม่ได้ใช้งาน (คืนคลัง)')) ? styles.textSuccess : styles.textPending
+                <View style={styles.cardRight}>
+                    <View style={[styles.statusBadge,
+                    (item.status === SealStatus.DAMAGED || item.status === SealStatus.PENDING_RETURN) ? styles.statusFailed :
+                        (item.status === SealStatus.INSTALLED || item.status === SealStatus.USED || (item.status === SealStatus.READY && item.return_remarks === 'ไม่ได้ใช้งาน (คืนคลัง)')) ? styles.statusSuccess :
+                            (item.status === SealStatus.WAIT_CONFIRMATION) ? styles.statusWarning : styles.statusPending
                     ]}>
-                        {(item.status === SealStatus.DAMAGED || item.status === SealStatus.PENDING_RETURN) ? item.status :
-                            (item.status === SealStatus.USED) ? 'คืนแล้ว' :
-                                (item.status === SealStatus.READY && item.return_remarks === 'ไม่ได้ใช้งาน (คืนคลัง)') ? 'คืนคลัง' :
-                                    (item.status === SealStatus.INSTALLED) ? SealStatus.INSTALLED : 'ยังไม่ติดตั้ง'}
-                    </Text>
+                        <Text style={[styles.statusText,
+                        (item.status === SealStatus.DAMAGED || item.status === SealStatus.PENDING_RETURN) ? styles.textFailed :
+                            (item.status === SealStatus.INSTALLED || item.status === SealStatus.USED || (item.status === SealStatus.READY && item.return_remarks === 'ไม่ได้ใช้งาน (คืนคลัง)')) ? styles.textSuccess :
+                                (item.status === SealStatus.WAIT_CONFIRMATION) ? styles.textWarning : styles.textPending
+                        ]}>
+                            {(item.status === SealStatus.DAMAGED || item.status === SealStatus.PENDING_RETURN) ? item.status :
+                                (item.status === SealStatus.USED) ? 'คืนแล้ว' :
+                                    (item.status === SealStatus.READY && item.return_remarks === 'ไม่ได้ใช้งาน (คืนคลัง)') ? 'คืนคลัง' :
+                                        (item.status === SealStatus.INSTALLED) ? SealStatus.INSTALLED :
+                            (item.status === SealStatus.WAIT_CONFIRMATION) ? (userInfo?.is_center ? 'รอยืนยันรับโอน' : 'รอยืนยันรับซีล') : 'ยังไม่ติดตั้ง'}
+                        </Text>
+                    </View>
                 </View>
-            </View>
-        </View>
-    );
+            </TouchableOpacity>
+        );
+    };
 
     return (
         <View style={styles.container}>
@@ -168,7 +237,9 @@ export default function HomeScreen({ onLogout }: HomeScreenProps) {
                     <View style={styles.statsCard}>
                         <View style={styles.statsInfo}>
                             <Text style={styles.statsLabel}>ยอดซีลคงเหลือในมือ</Text>
-                            <Text style={styles.statsValue}>{activeSeals.length} <Text style={styles.statsUnit}>ชิ้น</Text></Text>
+                            <Text style={styles.statsValue}>{activeSeals.length} <Text style={styles.statsUnit}>ชิ้น</Text>
+                                {waitConfirmationSeals.length > 0 && <Text style={styles.statsSubValue}> (ต้องยืนยัน {waitConfirmationSeals.length})</Text>}
+                            </Text>
                             <Text style={styles.statsDate}>ข้อมูลล่าสุด: {new Date().toLocaleDateString('th-TH')}</Text>
                         </View>
                         <View style={styles.statsIcon}>
@@ -181,22 +252,54 @@ export default function HomeScreen({ onLogout }: HomeScreenProps) {
             {/* Content Section */}
             <View style={[styles.body, { paddingBottom: 80 + insets.bottom }]}>
                 {/* Dropdown Header */}
-                <TouchableOpacity
-                    style={styles.dropdownHeader}
-                    onPress={() => setDropdownVisible(true)}
-                >
-                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                        <Ionicons name={getTabIcon(activeTab)} size={20} color="#6A0DAD" style={{ marginRight: 8 }} />
-                        <Text style={styles.dropdownHeaderText}>{getTabLabel(activeTab)}</Text>
+                <View style={styles.dropdownHeaderContainer}>
+                    <TouchableOpacity
+                        style={styles.dropdownHeader}
+                        onPress={() => setDropdownVisible(true)}
+                    >
+                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                            <Ionicons name={getTabIcon(activeTab)} size={20} color="#6A0DAD" style={{ marginRight: 8 }} />
+                            <Text style={styles.dropdownHeaderText}>{getTabLabel(activeTab)}</Text>
+                        </View>
+                        <Ionicons name="chevron-down-outline" size={20} color="#757575" />
+                    </TouchableOpacity>
+                </View>
+
+                {activeTab === 'wait_confirm' && waitConfirmationSeals.length > 0 && (
+                    <View style={styles.selectionControlRow}>
+                        <TouchableOpacity
+                            style={styles.selectAllHeader}
+                            onPress={toggleSelectAll}
+                        >
+                            <Ionicons
+                                name={selectedSealNumbers.length === waitConfirmationSeals.length ? "checkbox" : "square-outline"}
+                                size={22}
+                                color="#6A0DAD"
+                            />
+                            <Text style={styles.selectAllText}>เลือกทั้งหมด</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity
+                            style={[
+                                styles.bulkConfirmButton,
+                                selectedSealNumbers.length === 0 && styles.bulkConfirmButtonDisabled
+                            ]}
+                            onPress={handleBulkConfirm}
+                            disabled={selectedSealNumbers.length === 0}
+                        >
+                            <Ionicons name="checkmark-done-circle" size={18} color="#fff" />
+                            <Text style={styles.bulkConfirmText}>
+                                ยืนยันที่เลือก ({selectedSealNumbers.length})
+                            </Text>
+                        </TouchableOpacity>
                     </View>
-                    <Ionicons name="chevron-down-outline" size={20} color="#757575" />
-                </TouchableOpacity>
+                )}
 
                 {/* Dropdown Menu Modal */}
                 <Modal visible={dropdownVisible} transparent={true} animationType="fade">
                     <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setDropdownVisible(false)}>
                         <View style={styles.dropdownMenu}>
-                            {['pending', 'history', 'returned'].map(tab => (
+                            {['wait_confirm', 'pending', 'history', 'returned'].map(tab => (
                                 <TouchableOpacity
                                     key={tab}
                                     style={[styles.dropdownItem, activeTab === tab && styles.dropdownItemActive]}
@@ -409,20 +512,27 @@ const styles = StyleSheet.create({
         paddingHorizontal: 20,
         paddingBottom: 80, // Space for footer
     },
-    dropdownHeader: {
+    dropdownHeaderContainer: {
         flexDirection: 'row',
-        backgroundColor: '#fff',
-        borderRadius: 12,
-        paddingHorizontal: 16,
-        paddingVertical: 14,
-        marginBottom: 16,
-        elevation: 2,
         alignItems: 'center',
         justifyContent: 'space-between',
+        marginBottom: 16,
+    },
+    dropdownHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#fff',
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        borderRadius: 12,
+        flex: 1,
+        marginRight: 10,
+        justifyContent: 'space-between',
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
+        shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.1,
-        shadowRadius: 2,
+        shadowRadius: 4,
+        elevation: 2,
     },
     dropdownHeaderText: {
         color: '#6A0DAD',
@@ -550,6 +660,9 @@ const styles = StyleSheet.create({
     statusFailed: {
         backgroundColor: '#FFEBEE',
     },
+    statusWarning: {
+        backgroundColor: '#E3F2FD',
+    },
     statusText: {
         fontSize: 10,
         fontWeight: 'bold',
@@ -563,6 +676,9 @@ const styles = StyleSheet.create({
     textFailed: {
         color: '#F44336',
     },
+    textWarning: {
+        color: '#2196F3',
+    },
     actionButton: {
         backgroundColor: '#fff',
         paddingHorizontal: 16,
@@ -575,6 +691,65 @@ const styles = StyleSheet.create({
         color: '#6A0DAD',
         fontSize: 12,
         fontWeight: 'bold',
+    },
+    confirmButton: {
+        backgroundColor: '#6A0DAD',
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 8,
+    },
+    confirmButtonText: {
+        color: '#fff',
+        fontSize: 12,
+        fontWeight: 'bold',
+    },
+    statsSubValue: {
+        fontSize: 14,
+        color: '#FF9800',
+        fontWeight: 'bold',
+    },
+    bulkConfirmButton: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#4CAF50',
+        paddingHorizontal: 10,
+        paddingVertical: 6,
+        borderRadius: 20,
+        gap: 4,
+    },
+    bulkConfirmText: {
+        color: '#fff',
+        fontSize: 12,
+        fontWeight: 'bold',
+    },
+    bulkConfirmButtonDisabled: {
+        backgroundColor: '#CCC',
+    },
+    cardSelected: {
+        borderColor: '#6A0DAD',
+        borderWidth: 1,
+        backgroundColor: '#F3E5F5',
+    },
+    selectionIndicator: {
+        marginRight: 12,
+        justifyContent: 'center',
+    },
+    selectAllHeader: {
+        flexDirection: 'row',
+        alignItems: 'center',
+    },
+    selectAllText: {
+        marginLeft: 8,
+        fontSize: 14,
+        color: '#6A0DAD',
+        fontWeight: 'bold',
+    },
+    selectionControlRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        marginBottom: 12,
+        paddingHorizontal: 4,
     },
     emptyContainer: {
         alignItems: 'center',

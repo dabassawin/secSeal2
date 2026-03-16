@@ -87,6 +87,12 @@ func SetupSealRoutes(router fiber.Router, sealController *controller.SealControl
 
 	// -- 22) POST /api/seals/bulk-transfer : batch transfer pea_code
 	seal.Post("/bulk-transfer", middleware.JWTMiddleware(), sealController.BulkTransferPeaCodeHandler)
+
+	// -- 23) POST /api/seals/bulk-recall : batch recall (cancel) seals back to available
+	seal.Post("/bulk-recall", middleware.JWTMiddleware(), sealController.BulkCancelSealsHandler)
+
+	// -- 24) POST /api/seals/bulk-confirm-transfer : batch confirm company transfer
+	seal.Post("/bulk-confirm-transfer", middleware.JWTMiddleware(), sealController.BulkConfirmCompanyTransferHandler)
 }
 
 // SetupPublicSealRoutes sets up public routes for "seals" (no JWT required)

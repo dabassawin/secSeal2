@@ -5,7 +5,7 @@
 import Constants from 'expo-constants';
 
 // IP address of your machine on the local network
-const SERVER_IP = '192.168.1.25';
+const SERVER_IP = '192.168.1.37';
 const SERVER_PORT = '3000';
 
 // Base URL is derived from SERVER_IP so you only update one place
@@ -30,6 +30,7 @@ export const API_CONFIG = {
     TECHNICIAN_AVATAR: '/technician/avatar',
     TECHNICIANS_LIST: '/technician/list',
     TECHNICIAN_TRANSFER_SEAL: '/technician/seals/transfer',
+    TECHNICIAN_CONFIRM_SEAL: '/technician/seals/confirm',
     SCAN_SEAL: '/scan-seal',
     CHECK_SCAN_SEAL: '/scan-seal/check',
   },
