@@ -5,6 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets, SafeAreaView } from 'react-native-safe-area-context';
 import { API_CONFIG, getApiUrl } from '../../config/api.config';
 import { AuthService } from '../../services/AuthService';
+import { TechnicianService } from '../../services/TechnicianService';
 
 export default function CompanyTechnicianListScreen({ navigation }: any) {
     const [technicians, setTechnicians] = useState<any[]>([]);
@@ -15,7 +16,16 @@ export default function CompanyTechnicianListScreen({ navigation }: any) {
         setLoading(true);
         try {
             const token = await AuthService.getToken();
-            const response = await fetch(getApiUrl('/technician/list'), {
+            
+            // Get current user com_code to filter technicians by center
+            const me = await TechnicianService.getMe().catch(() => null);
+            let url = getApiUrl('/technician/list');
+            
+            if (me?.is_center && me?.com_code) {
+                url += `?com_code=${me.com_code}`;
+            }
+
+            const response = await fetch(url, {
                 headers: {
                     'Authorization': `Bearer ${token}`
                 }

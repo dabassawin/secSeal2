@@ -1,0 +1,3 @@
+Seal-back1.0-main/internal/service/technician_service.go
+SealClient/src/services/api.ts
+SealTechnician/src/config/api.config.ts

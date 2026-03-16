@@ -4,8 +4,18 @@
 
 import Constants from 'expo-constants';
 
-// IP address of your machine on the local network
-const SERVER_IP = '192.168.1.37';
+// Try to get IP dynamically from Metro bundler in development
+const getLocalServerIp = () => {
+  // Constants.expoConfig?.hostUri is usually present in development mode via Expo Go and contains "IP:PORT"
+  const hostUri = Constants.expoConfig?.hostUri;
+  if (hostUri) {
+    return hostUri.split(':')[0];
+  }
+  // Fallback IP if not running in development or not via Expo Go
+  return '192.168.1.38';
+};
+
+const SERVER_IP = getLocalServerIp();
 const SERVER_PORT = '3000';
 
 // Base URL is derived from SERVER_IP so you only update one place

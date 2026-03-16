@@ -46,6 +46,7 @@ func (c *MasComController) CreateCom(ctx *fiber.Ctx) error {
 		PhoneNumber:    "-",
 		CompanyName:    com.NameTh,
 		PeaCode:        com.PeaCode,
+		ComCode:        com.ComCode, // ✅ เพิ่ม com_code ให้บัญชีศูนย์
 		IsCenter:       true,
 	}
 

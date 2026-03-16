@@ -12,7 +12,7 @@ export const useHomeViewModel = (specificTechId?: number) => {
     const [historySeals, setHistorySeals] = useState<Seal[]>([]);
     const [notifications, setNotifications] = useState<any[]>([]);
 
-    const [userInfo, setUserInfo] = useState<{ id?: number, username: string, role: string, first_name?: string, last_name?: string, is_center?: boolean, pea_code?: string } | null>(null);
+    const [userInfo, setUserInfo] = useState<{ id?: number, username: string, role: string, first_name?: string, last_name?: string, is_center?: boolean, pea_code?: string, com_code?: string } | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -130,7 +130,8 @@ export const useHomeViewModel = (specificTechId?: number) => {
                 first_name: data.first_name,
                 last_name: data.last_name,
                 is_center: data.is_center,
-                pea_code: data.pea_code
+                pea_code: data.pea_code,
+                com_code: data.com_code
             });
         } catch (error) {
             console.log('Failed to fetch full profile, falling back to JWT:', error);

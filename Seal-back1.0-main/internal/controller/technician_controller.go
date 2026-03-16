@@ -99,6 +99,7 @@ func (tc *TechnicianController) RegisterHandler(c *fiber.Ctx) error {
 		Email:          req.Email,
 		PhoneNumber:    req.PhoneNumber,
 		PeaCode:        req.PeaCode, // ✅ Map ค่า
+		ComCode:        req.ComCode, // ✅ รหัสศูนย์งาน
 
 		// ใส่ค่านี้ด้วย
 		CompanyName: req.CompanyName,
@@ -481,7 +482,7 @@ func (tc *TechnicianController) SetPasswordHandler(c *fiber.Ctx) error {
 	if err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "failed to hash password"})
 	}
-	technicians, err := tc.technicianService.GetAllTechnicians("", false)
+	technicians, err := tc.technicianService.GetAllTechnicians("", false, "")
 	if err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "failed to fetch technicians"})
 	}
@@ -499,7 +500,7 @@ func (tc *TechnicianController) SetPasswordHandler(c *fiber.Ctx) error {
 // ResetAllPasswordsHandler re-hashes all passwords that are stored as plain text
 // POST /api/technician/reset-passwords
 func (tc *TechnicianController) ResetAllPasswordsHandler(c *fiber.Ctx) error {
-	technicians, err := tc.technicianService.GetAllTechnicians("", false)
+	technicians, err := tc.technicianService.GetAllTechnicians("", false, "")
 	if err != nil {
 		return c.Status(500).JSON(fiber.Map{"error": "Failed to fetch technicians"})
 	}
@@ -530,8 +531,9 @@ func (tc *TechnicianController) ResetAllPasswordsHandler(c *fiber.Ctx) error {
 }
 func (tc *TechnicianController) GetAllTechniciansHandler(c *fiber.Ctx) error {
 	peaCode := c.Query("pea_code", "")
+	comCode := c.Query("com_code", "")
 	isPrefix := c.Query("is_prefix", "false") == "true"
-	technicians, err := tc.technicianService.GetAllTechnicians(peaCode, isPrefix)
+	technicians, err := tc.technicianService.GetAllTechnicians(peaCode, isPrefix, comCode)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to fetch technicians"})
 	}
