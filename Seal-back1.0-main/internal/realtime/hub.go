@@ -45,7 +45,6 @@ func (h *Hub) Run() {
 			}
 			h.clients[client.peaCode][client.conn] = true
 			h.mu.Unlock()
-			log.Printf("Client registered for PEA: %s", client.peaCode)
 
 		case client := <-h.unregister:
 			h.mu.Lock()
@@ -59,7 +58,6 @@ func (h *Hub) Run() {
 				}
 			}
 			h.mu.Unlock()
-			log.Printf("Client unregistered from PEA: %s", client.peaCode)
 
 		case bm := <-h.broadcast:
 			h.mu.RLock()
