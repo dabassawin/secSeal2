@@ -15,20 +15,16 @@ export const useRealtime = (peaCode: string | undefined, onMessage: (msg: string
         const wsUrl = `ws://${API_CONFIG.SERVER_IP}:${API_CONFIG.SERVER_PORT}/ws/${peaCode}`;
 
         const connect = () => {
-            console.log(`📡 Connecting to WebSocket: ${wsUrl}`);
             const socket = new WebSocket(wsUrl);
 
             socket.onopen = () => {
-                console.log(`✅ WebSocket connected for PEA: ${peaCode}`);
             };
 
             socket.onmessage = (event) => {
-                console.log('📩 WebSocket message received:', event.data);
                 onMessage(event.data);
             };
 
             socket.onclose = (e) => {
-                console.log(`🔌 WebSocket disconnected. Code: ${e.code}. Retrying in 5 seconds...`);
                 // Delay reconnection to avoid spamming the server
                 setTimeout(() => {
                     if (peaCode) connect();
@@ -47,7 +43,6 @@ export const useRealtime = (peaCode: string | undefined, onMessage: (msg: string
 
         return () => {
             if (ws.current) {
-                console.log('🧹 Cleaning up WebSocket connection');
                 ws.current.close();
             }
         };

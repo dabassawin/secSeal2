@@ -13,16 +13,13 @@ export const useRealtime = (peaCode: string | undefined, onMessage: (msg: string
             const socket = new WebSocket(`${WS_BASE_URL}/ws/${peaCode}`);
 
             socket.onopen = () => {
-                console.log(`WebSocket connected for PEA: ${peaCode}`);
             };
 
             socket.onmessage = (event) => {
-                console.log('WebSocket message received:', event.data);
                 onMessage(event.data);
             };
 
             socket.onclose = () => {
-                console.log('WebSocket disconnected. Retrying in 3 seconds...');
                 setTimeout(connect, 3000);
             };
 
