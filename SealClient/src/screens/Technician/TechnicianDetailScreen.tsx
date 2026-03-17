@@ -12,9 +12,11 @@ export const TechnicianDetailScreen: React.FC = () => {
     const route = useRoute();
     const navigation = useNavigation();
     const { user } = useAuth();
-    const params = (route.params || {}) as { id?: string | number; technician?: Technician };
+    const params = (route.params || {}) as { id?: string | number; technician?: any };
 
-    const [techData, setTechData] = useState<Technician | null>(params.technician || null);
+    // Validate technician object to avoid "[object Object]" string bug on web refresh
+    const initialTechData = params.technician && typeof params.technician === 'object' && params.technician.id ? params.technician as Technician : null;
+    const [techData, setTechData] = useState<Technician | null>(initialTechData);
     const [masPeaList, setMasPeaList] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
 
@@ -22,6 +24,7 @@ export const TechnicianDetailScreen: React.FC = () => {
         const init = async () => {
             if (Platform.OS === 'web') {
                 console.log('[TechnicianDetail] Initializing with id:', params.id, 'user_pea:', user?.pea_code);
+                console.log('[TechnicianDetail] Initial tech data valid:', !!initialTechData);
             }
 
             if (!user?.pea_code) {
@@ -31,7 +34,11 @@ export const TechnicianDetailScreen: React.FC = () => {
             
             setLoading(true);
             await fetchMasPea();
-            if (!techData && params.id) {
+            
+            // Re-check validity in case it changed or for clarity
+            const currentDataValid = techData && typeof techData === 'object' && (techData as any).id;
+            if (!currentDataValid && params.id) {
+                if (Platform.OS === 'web') console.log('[TechnicianDetail] Fetching tech by id:', params.id);
                 await fetchTechnicianById(params.id);
             }
             setLoading(false);
@@ -53,12 +60,24 @@ export const TechnicianDetailScreen: React.FC = () => {
 
     const fetchTechnicianById = async (id: string | number) => {
         try {
-            // Fetch filtered by user's area prefix to ensure backend returns data
+            // Step 1: Try filtered fetch (faster and more secure)
             const peaPrefix = user?.pea_code ? user.pea_code.substring(0, 4) : undefined;
-            const allTechs = await technicianService.getTechnicians(peaPrefix, !!peaPrefix);
+            let allTechs = await technicianService.getTechnicians(peaPrefix, !!peaPrefix);
             
-            const found = allTechs.find(t => t.id.toString() === id.toString());
-            if (found) setTechData(found);
+            let found = allTechs.find(t => t.id.toString() === id.toString());
+            
+            // Step 2: Fallback to wide search if not found (in case of prefix mismatch on refresh)
+            if (!found && peaPrefix) {
+                if (Platform.OS === 'web') console.log('[TechnicianDetail] Not found in prefix, trying wide search...');
+                allTechs = await technicianService.getTechnicians();
+                found = allTechs.find(t => t.id.toString() === id.toString());
+            }
+
+            if (found) {
+                setTechData(found);
+            } else {
+                if (Platform.OS === 'web') console.error('[TechnicianDetail] Technician not found after wide search. ID:', id);
+            }
         } catch (error) {
             console.error('Failed to fetch technician:', error);
         }
