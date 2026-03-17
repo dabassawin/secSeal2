@@ -37,7 +37,6 @@ function CompanyBottomTabNavigator({ onLogout }: CompanyNavigatorProps) {
                 headerShown: false,
                 tabBarActiveTintColor: '#6A0DAD',
                 tabBarInactiveTintColor: '#BDBDBD',
-                tabBarHideOnKeyboard: true,
                 tabBarStyle: {
                     backgroundColor: '#fff',
                     borderTopWidth: 0,
@@ -49,7 +48,6 @@ function CompanyBottomTabNavigator({ onLogout }: CompanyNavigatorProps) {
                     height: 70 + insets.bottom,
                     paddingBottom: insets.bottom || 5,
                     paddingTop: 5,
-                    position: 'absolute', // Floating effect
                     borderTopLeftRadius: 20,
                     borderTopRightRadius: 20,
                 },

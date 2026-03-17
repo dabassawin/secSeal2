@@ -32,7 +32,8 @@ export const useHomeViewModel = (specificTechId?: number) => {
                     first_name: me.first_name,
                     last_name: me.last_name,
                     is_center: me.is_center,
-                    pea_code: me.pea_code
+                    pea_code: me.pea_code,
+                    com_code: me.com_code
                 };
                 setUserInfo(currentUser);
             }

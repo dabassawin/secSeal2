@@ -8,6 +8,7 @@ import RNPickerSelect from 'react-native-picker-select';
 import { useHomeViewModel } from '../../viewmodels/HomeViewModel';
 import { getApiUrl } from '../../config/api.config';
 import { AuthService } from '../../services/AuthService';
+import { TechnicianService } from '../../services/TechnicianService';
 
 export default function CompanyAssignSealScreen({ navigation, route }: any) {
     const initialSelectedSeals = route.params?.initialSelectedSeals;
@@ -26,17 +27,11 @@ export default function CompanyAssignSealScreen({ navigation, route }: any) {
     const [techModalSearchText, setTechModalSearchText] = useState('');
     const [tempSelectedSeals, setTempSelectedSeals] = useState<string[]>([]);
 
-    useEffect(() => {
-        if (userInfo?.is_center && userInfo?.com_code) {
-            fetchTechnicians();
-        } else if (userInfo && !userInfo.is_center) {
-            fetchTechnicians(); // Fallback if regular tech somehow reaches here (unlikely)
-        }
-    }, [userInfo?.com_code, userInfo?.is_center]);
-
+    // Replacing previous useEffect with combined useFocusEffect logic
     useFocusEffect(
         React.useCallback(() => {
             fetchSeals();
+            fetchTechnicians();
         }, [])
     );
 
@@ -55,10 +50,12 @@ export default function CompanyAssignSealScreen({ navigation, route }: any) {
     const fetchTechnicians = async () => {
         try {
             const token = await AuthService.getToken();
-            // Get com_code from userInfo if available
+            
+            // Fetch user info directly here to avoid relying on stale state
+            const me = await TechnicianService.getMe().catch(() => null);
             let url = getApiUrl('/technician/list');
-            if (userInfo?.is_center && userInfo?.com_code) {
-                url += `?com_code=${userInfo.com_code}`;
+            if (me?.is_center && me?.com_code) {
+                url += `?com_code=${me.com_code}`;
             }
             
             const response = await fetch(url, {
@@ -66,7 +63,14 @@ export default function CompanyAssignSealScreen({ navigation, route }: any) {
             });
             if (response.ok) {
                 const data = await response.json();
-                setTechnicians(data);
+                
+                // Filter out company itself and admin accounts
+                const filteredData = data.filter((tech: any) => 
+                    tech.technician_code !== '87654321' && 
+                    tech.is_center !== true &&
+                    !tech.first_name?.includes('บริษัท')
+                );
+                setTechnicians(filteredData);
             }
         } catch (error) {
             console.error('Error fetching technicians:', error);
@@ -436,15 +440,8 @@ export default function CompanyAssignSealScreen({ navigation, route }: any) {
                             data={technicians.filter(t => {
                                 const fullName = (t.first_name + ' ' + t.last_name).toLowerCase();
                                 const search = techModalSearchText.toLowerCase();
-                                const isCompany = t.technician_code === '87654321';
-                                const isSameCenter = !userInfo?.is_center || (userInfo?.com_code && t.com_code === userInfo.com_code);
-                                // Also hide other center accounts from being selected as targets
-                                const isTargetCenterAccount = t.is_center;
                                 
-                                return !isCompany && !isTargetCenterAccount && isSameCenter && (
-                                    fullName.includes(search) ||
-                                    t.technician_code.toLowerCase().includes(search)
-                                );
+                                return fullName.includes(search) || t.technician_code.toLowerCase().includes(search);
                             })}
                             keyExtractor={item => item.id.toString()}
                             renderItem={({ item }) => {
