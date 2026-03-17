@@ -149,7 +149,7 @@ func (s *SealService) CreateSeal(seal *model.Seal, userID uint) error {
 	seal.CreatedAt = now
 	seal.UpdatedAt = now
 
-	return s.db.Transaction(func(tx *gorm.DB) error {
+	err = s.db.Transaction(func(tx *gorm.DB) error {
 		if err := s.repo.Create(seal); err != nil {
 			return err
 		}
@@ -159,6 +159,11 @@ func (s *SealService) CreateSeal(seal *model.Seal, userID uint) error {
 		}
 		return s.logRepo.Create(&logEntry)
 	})
+
+	if err == nil {
+		s.hub.Broadcast(seal.PeaCode, "seal_updated")
+	}
+	return err
 }
 
 func (s *SealService) GenerateAndCreateSeals(count int, userID uint) ([]model.Seal, error) {
@@ -193,6 +198,11 @@ func (s *SealService) GenerateAndCreateSeals(count int, userID uint) ([]model.Se
 	if err != nil {
 		return nil, err
 	}
+
+	if len(seals) > 0 {
+		s.hub.Broadcast("", "seal_updated") // Global broadcast for global creation
+	}
+
 	return seals, nil
 }
 
@@ -241,6 +251,11 @@ func (s *SealService) GenerateAndCreateSealsFromNumber(startingSealNumber string
 	if err != nil {
 		return nil, err
 	}
+
+	if len(newSeals) > 0 {
+		s.hub.Broadcast(peaCode, "seal_updated")
+	}
+
 	return newSeals, nil
 }
 
@@ -952,7 +967,7 @@ func (s *SealService) UpdateSealStatusAdmin(sealNumber string, status string, us
 	now := time.Now()
 	seal.UpdatedAt = now
 
-	return s.db.Transaction(func(tx *gorm.DB) error {
+	err = s.db.Transaction(func(tx *gorm.DB) error {
 		if err := s.repo.Update(seal); err != nil {
 			return err
 		}
@@ -962,6 +977,11 @@ func (s *SealService) UpdateSealStatusAdmin(sealNumber string, status string, us
 		}
 		return s.logRepo.Create(&logEntry)
 	})
+
+	if err == nil {
+		s.hub.Broadcast(seal.PeaCode, "seal_updated")
+	}
+	return err
 }
 
 // -------------------------------------------------------------------

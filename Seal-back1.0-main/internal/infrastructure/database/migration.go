@@ -14,7 +14,6 @@ func CreateStoreTable(db *gorm.DB) error {
 	// ✅ ปิด foreign key constraints ชั่วคราวเพื่อป้องกันปัญหาที่อาจเกิดขึ้น
 	db.Config.DisableForeignKeyConstraintWhenMigrating = true
 
-	// ✅ เพิ่ม Log เช็คว่ารันถึงแต่ละโมเดลหรือไม่
 	log.Println("🔄 Migrating User Table...")
 	if err := db.AutoMigrate(&model.User{}); err != nil {
 		log.Printf("❌ Failed to migrate User: %v", err)
@@ -50,9 +49,9 @@ func CreateStoreTable(db *gorm.DB) error {
 	}
 	log.Println("✅ Log Table Migrated Successfully!")
 
-	log.Println("🔄 Migrating MasPea Table...")
 	// 🔄 Renaming Logic Removed: We are mapping struct field PeaCode to DB column "code" directly.
 	// if db.Migrator().HasColumn(&model.MasPea{}, "code") { ... }
+	log.Println("🔄 Migrating MasPea Table...")
 	if err := db.AutoMigrate(&model.MasPea{}); err != nil {
 		log.Printf("❌ Failed to migrate MasPea: %v", err)
 		return err
