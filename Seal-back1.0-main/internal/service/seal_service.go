@@ -342,7 +342,7 @@ func (s *SealService) IssueSealWithDetails(sealNumber string, issuedTo uint, emp
 	seal.EmployeeCode = employeeCode
 	seal.IssueRemark = remark
 
-	return s.db.Transaction(func(tx *gorm.DB) error {
+	err = s.db.Transaction(func(tx *gorm.DB) error {
 		if err := s.repo.Update(seal); err != nil {
 			return err
 		}
@@ -548,7 +548,7 @@ func (s *SealService) AssignSealToTechnician(sealNumber string, techID uint, iss
 	seal.IssuedTo = &techID
 	seal.IssueRemark = remark
 
-	return s.db.Transaction(func(tx *gorm.DB) error {
+	err = s.db.Transaction(func(tx *gorm.DB) error {
 		if err := tx.Save(seal).Error; err != nil {
 			return err
 		}
@@ -562,6 +562,11 @@ func (s *SealService) AssignSealToTechnician(sealNumber string, techID uint, iss
 		}
 		return nil
 	})
+
+	if err == nil {
+		s.hub.Broadcast(seal.PeaCode, "seal_updated")
+	}
+	return err
 }
 
 func (s *SealService) InstallSeal(sealNumber string, techID uint, serialNumber string) error {
@@ -589,7 +594,7 @@ func (s *SealService) InstallSeal(sealNumber string, techID uint, serialNumber s
 	seal.UsedAt = &now
 	seal.InstalledSerial = serialNumber
 
-	return s.db.Transaction(func(tx *gorm.DB) error {
+	err = s.db.Transaction(func(tx *gorm.DB) error {
 		if err := s.repo.Update(seal); err != nil {
 			return err
 		}
@@ -819,6 +824,14 @@ func (s *SealService) AssignSealsByTechCode(techCode string, sealNumbers []strin
 
 		s.notifyTechnicianAsync(technician.ID, "ได้รับซีลใหม่", fmt.Sprintf("คุณได้รับมอบหมายซีลหมายเลข %s", sn))
 	}
+
+	if len(sealNumbers) > 0 {
+		seal, err := s.repo.FindByNumber(sealNumbers[0])
+		if err == nil {
+			s.hub.Broadcast(seal.PeaCode, "seal_updated")
+		}
+	}
+
 	return nil
 }
 func (s *SealService) CancelSeal(sealNumber string, userID uint) error {
@@ -840,7 +853,7 @@ func (s *SealService) CancelSeal(sealNumber string, userID uint) error {
 	seal.ReturnedBy = &userID
 	seal.ReturnedAt = &now
 
-	return s.db.Transaction(func(tx *gorm.DB) error {
+	err = s.db.Transaction(func(tx *gorm.DB) error {
 		if err := s.repo.Update(seal); err != nil {
 			return err
 		}

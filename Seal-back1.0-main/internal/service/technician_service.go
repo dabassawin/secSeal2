@@ -11,6 +11,7 @@ import (
 
 	"github.com/Kev2406/PEA/internal/domain/model"
 	"github.com/Kev2406/PEA/internal/domain/repository"
+	"github.com/Kev2406/PEA/internal/realtime"
 
 	//"github.com/Kev2406/PEA/internal/uploads"
 
@@ -36,11 +37,12 @@ func (s *TechnicianService) notifyTechnicianAsync(techID uint, title, body strin
 // TechnicianService รับผิดชอบ business logic สำหรับการลงทะเบียนและล็อกอินของช่าง
 type TechnicianService struct {
 	repo *repository.TechnicianRepository
+	hub  *realtime.Hub
 }
 
 // NewTechnicianService สร้าง instance ของ TechnicianService
-func NewTechnicianService(repo *repository.TechnicianRepository) *TechnicianService {
-	return &TechnicianService{repo: repo}
+func NewTechnicianService(repo *repository.TechnicianRepository, hub *realtime.Hub) *TechnicianService {
+	return &TechnicianService{repo: repo, hub: hub}
 }
 
 // Register สำหรับลงทะเบียนช่างใหม่
@@ -124,7 +126,14 @@ func (s *TechnicianService) InstallSeal(sealNumber string, techID uint, serialNu
 		UserID: techID,
 		Action: fmt.Sprintf("ติดตั้งซีล %s (Serial: %s)", sealNumber, serialNumber),
 	}
-	return s.repo.CreateLog(&logEntry)
+	if err := s.repo.CreateLog(&logEntry); err != nil {
+		return err
+	}
+
+	if s.hub != nil {
+		s.hub.Broadcast(seal.PeaCode, "seal_updated")
+	}
+	return nil
 }
 
 func (s *TechnicianService) ReturnSealWithImage(sealNumber string, techID uint, remarks string, imageURL string) error {
@@ -172,7 +181,14 @@ func (s *TechnicianService) ReturnSealWithImage(sealNumber string, techID uint, 
 		UserID: techID,
 		Action: fmt.Sprintf("คืนซีล %s (เหตุผล: %s)", sealNumber, remarks),
 	}
-	return s.repo.CreateLog(&logEntry)
+	if err := s.repo.CreateLog(&logEntry); err != nil {
+		return err
+	}
+
+	if s.hub != nil {
+		s.hub.Broadcast(seal.PeaCode, "seal_updated")
+	}
+	return nil
 }
 
 func (s *TechnicianService) CheckReturnableSeal(sealNumber string, techID uint) (*model.Seal, error) {
@@ -336,6 +352,14 @@ func (s *TechnicianService) TransferSeals(centerID uint, targetTechID uint, seal
 			Action: fmt.Sprintf("ได้รับโอนซีล %s จากศูนย์งาน/ตัวแทน (ID: %d)", sealNum, centerID),
 		}
 		_ = s.repo.CreateLog(&targetLog)
+	}
+
+	if s.hub != nil && len(sealNumbers) > 0 {
+		// Just take first seal's PEA code for broadcast
+		seal, err := s.repo.FindSealByNumber(sealNumbers[0])
+		if err == nil {
+			s.hub.Broadcast(seal.PeaCode, "seal_updated")
+		}
 	}
 
 	return nil

@@ -153,7 +153,7 @@ func main() {
 	userService := service.NewUserService(userRepo)
 	sealService := service.NewSealService(sealRepo, transactionRepo, logRepo, config.DB, technicianRepo, hub)
 	logService := service.NewLogService(logRepo)
-	technicianService := service.NewTechnicianService(technicianRepo)
+	technicianService := service.NewTechnicianService(technicianRepo, hub)
 	masPeaService := service.NewMasPeaService(masPeaRepo)
 	masComService := service.NewMasComService(masComRepo)
 
