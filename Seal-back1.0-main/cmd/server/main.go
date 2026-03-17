@@ -17,8 +17,10 @@ import (
 	"github.com/Kev2406/PEA/internal/middleware"
 	"github.com/Kev2406/PEA/internal/route"
 	"github.com/Kev2406/PEA/internal/service"
+	"github.com/Kev2406/PEA/internal/realtime"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
+	"github.com/gofiber/websocket/v2"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/joho/godotenv"
 	"golang.org/x/crypto/bcrypt"
@@ -143,9 +145,13 @@ func main() {
 	masPeaRepo := repository.NewMasPeaRepository(config.DB)
 	masComRepo := repository.NewMasComRepository(config.DB)
 
+	// Hub
+	hub := realtime.NewHub()
+	go hub.Run()
+
 	// services
 	userService := service.NewUserService(userRepo)
-	sealService := service.NewSealService(sealRepo, transactionRepo, logRepo, config.DB, technicianRepo)
+	sealService := service.NewSealService(sealRepo, transactionRepo, logRepo, config.DB, technicianRepo, hub)
 	logService := service.NewLogService(logRepo)
 	technicianService := service.NewTechnicianService(technicianRepo)
 	masPeaService := service.NewMasPeaService(masPeaRepo)
@@ -171,6 +177,20 @@ func main() {
 	route.SetupMasPeaRoutes(publicGroup, masPeaController)   // Public for now, or move to secure if needed
 	route.SetupMasComRoutes(publicGroup, masComController)   // ศูนย์งาน routes
 	route.SetupPublicSealRoutes(publicGroup, sealController) // ✅ Public seal routes (scan-use)
+
+	// WebSocket Route
+	app.Get("/ws/:peaCode", websocket.New(func(c *websocket.Conn) {
+		peaCode := c.Params("peaCode")
+		hub.Register(peaCode, c)
+		defer hub.Unregister(peaCode, c)
+
+		for {
+			_, _, err := c.ReadMessage()
+			if err != nil {
+				break
+			}
+		}
+	}))
 
 	// ✅ Login API endpoint
 	app.Post("/api/auth/login", func(c *fiber.Ctx) error {

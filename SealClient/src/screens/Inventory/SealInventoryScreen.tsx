@@ -8,6 +8,7 @@ import { Seal } from '@/types';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '@/context/AuthContext';
 import { SealStatus } from '../../constants/status';
+import { useRealtime } from '@/hooks/useRealtime';
 
 // ─── Status Badge ────────────────────────────────────────────────────────
 const StatusBadge: React.FC<{ status: string; seal?: Seal }> = ({ status, seal }) => {
@@ -178,6 +179,14 @@ export const SealInventoryScreen: React.FC = () => {
             fetchMasPea();
         }, [userPeaCode, routeParams?.filter])
     );
+
+    // ✅ Real-time Updates
+    useRealtime(userPeaCode, (msg) => {
+        if (msg === 'seal_updated') {
+            console.log('🔄 Real-time update: refreshing seals...');
+            fetchSeals();
+        }
+    });
 
     const fetchMasPea = async () => {
         try {

@@ -13,12 +13,20 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 )
 
+var (
+	loggedMissingHeader      = false
+	loggedTechnicianMissing = false
+)
+
 // ✅ JWTMiddleware ใช้ตรวจสอบ Token (ทั้ง PEA API และ Mock JWT)
 func JWTMiddleware() fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		authHeader := c.Get("Authorization")
 		if authHeader == "" {
-			log.Println("🚨 Missing Authorization header")
+			if !loggedMissingHeader {
+				log.Println("🚨 Missing Authorization header (further logs will be suppressed)")
+				loggedMissingHeader = true
+			}
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{
 				"error": "Missing token",
 			})
@@ -114,7 +122,10 @@ func TechnicianJWTMiddleware() fiber.Handler {
 		authHeader := c.Get("Authorization")
 
 		if authHeader == "" {
-			log.Println("❌ [TechnicianJWTMiddleware] Missing Token")
+			if !loggedTechnicianMissing {
+				log.Println("❌ [TechnicianJWTMiddleware] Missing Token (further logs will be suppressed)")
+				loggedTechnicianMissing = true
+			}
 			return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Missing token"})
 		}
 

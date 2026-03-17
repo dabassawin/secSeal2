@@ -15,7 +15,7 @@ import (
 	"github.com/Kev2406/PEA/internal/domain/repository"
 	"github.com/Kev2406/PEA/internal/dto"
 
-	//"github.com/Kev2406/PEA/internal/utils" // ✅ Import Push Notification Utils
+	"github.com/Kev2406/PEA/internal/realtime"
 	"gorm.io/gorm"
 )
 
@@ -40,6 +40,7 @@ type SealService struct {
 
 	// เพิ่มฟิลด์ technicianRepo เพื่อเรียก FindByTechCode
 	technicianRepo *repository.TechnicianRepository
+	hub            *realtime.Hub
 }
 
 // NewSealService รับ repository ต่าง ๆ จากภายนอก
@@ -48,14 +49,16 @@ func NewSealService(
 	transactionRepo *repository.TransactionRepository,
 	logRepo *repository.LogRepository,
 	db *gorm.DB,
-	technicianRepo *repository.TechnicianRepository, // <<-- เพิ่มพารามิเตอร์นี้
+	technicianRepo *repository.TechnicianRepository,
+	hub *realtime.Hub,
 ) *SealService {
 	return &SealService{
 		repo:            repo,
 		transactionRepo: transactionRepo,
 		logRepo:         logRepo,
 		db:              db,
-		technicianRepo:  technicianRepo, // <<-- เซตเข้าฟิลด์
+		technicianRepo:  technicianRepo,
+		hub:             hub,
 	}
 }
 
@@ -294,7 +297,7 @@ func (s *SealService) UpdateSealStatus(sealNumber string, newStatus string, user
 	default:
 		return errors.New("สถานะไม่ถูกต้อง")
 	}
-	return s.db.Transaction(func(tx *gorm.DB) error {
+	err = s.db.Transaction(func(tx *gorm.DB) error {
 		if err := s.repo.Update(seal); err != nil {
 			return err
 		}
@@ -304,6 +307,11 @@ func (s *SealService) UpdateSealStatus(sealNumber string, newStatus string, user
 		}
 		return s.logRepo.Create(&logEntry)
 	})
+
+	if err == nil {
+		s.hub.Broadcast(seal.PeaCode, "seal_updated")
+	}
+	return err
 }
 
 // -------------------------------------------------------------------
@@ -344,6 +352,11 @@ func (s *SealService) IssueSealWithDetails(sealNumber string, issuedTo uint, emp
 		}
 		return s.logRepo.Create(&logEntry)
 	})
+
+	if err == nil {
+		s.hub.Broadcast(seal.PeaCode, "seal_updated")
+	}
+	return err
 }
 
 func (s *SealService) UpdateSealStatusWithExtra(sealNumber string, newStatus string, userID uint, deviceSerial string, remarks string) error {
@@ -375,7 +388,7 @@ func (s *SealService) UpdateSealStatusWithExtra(sealNumber string, newStatus str
 	default:
 		return errors.New("สถานะไม่ถูกต้อง (version Extra)")
 	}
-	return s.db.Transaction(func(tx *gorm.DB) error {
+	err = s.db.Transaction(func(tx *gorm.DB) error {
 		if err := s.repo.Update(seal); err != nil {
 			return err
 		}
@@ -385,6 +398,11 @@ func (s *SealService) UpdateSealStatusWithExtra(sealNumber string, newStatus str
 		}
 		return s.logRepo.Create(&logEntry)
 	})
+
+	if err == nil {
+		s.hub.Broadcast(seal.PeaCode, "seal_updated")
+	}
+	return err
 }
 
 // -------------------------------------------------------------------
@@ -581,6 +599,11 @@ func (s *SealService) InstallSeal(sealNumber string, techID uint, serialNumber s
 		}
 		return s.logRepo.Create(&logEntry)
 	})
+
+	if err == nil {
+		s.hub.Broadcast(seal.PeaCode, "seal_updated")
+	}
+	return err
 }
 
 func (s *SealService) GetSealLogs(sealNumber string) ([]model.Log, error) {
@@ -652,6 +675,11 @@ func (s *SealService) IssueMultipleSeals(
 	if err != nil {
 		return nil, err
 	}
+
+	if len(sealsToIssue) > 0 {
+		s.hub.Broadcast(sealsToIssue[0].PeaCode, "seal_updated")
+	}
+
 	return sealsToIssue, nil
 }
 
@@ -822,6 +850,11 @@ func (s *SealService) CancelSeal(sealNumber string, userID uint) error {
 		}
 		return s.logRepo.Create(&logEntry)
 	})
+
+	if err == nil {
+		s.hub.Broadcast(seal.PeaCode, "seal_updated")
+	}
+	return err
 }
 
 // GetAllAssignedSeals ดึงซีลทั้งหมดที่จ่ายให้ช่าง
@@ -891,6 +924,9 @@ func (s *SealService) ScanAndUseSeal(sealNumber string, userID uint, imagePath s
 
 	if err != nil {
 		return "", err
+	}
+	if err == nil {
+		s.hub.Broadcast(seal.PeaCode, "seal_updated")
 	}
 	return "ติดตั้งสำเร็จ", nil
 }
@@ -1168,7 +1204,7 @@ func (s *SealService) AcceptReturn(sealNumber string, userID uint) error {
 		seal.AssignedToTechnician = nil
 	}
 
-	return s.db.Transaction(func(tx *gorm.DB) error {
+	err = s.db.Transaction(func(tx *gorm.DB) error {
 		if err := s.repo.Update(seal); err != nil {
 			return err
 		}
@@ -1178,6 +1214,11 @@ func (s *SealService) AcceptReturn(sealNumber string, userID uint) error {
 		}
 		return s.logRepo.Create(&logEntry)
 	})
+
+	if err == nil {
+		s.hub.Broadcast(seal.PeaCode, "seal_updated")
+	}
+	return err
 }
 
 // -------------------------------------------------------------------
@@ -1215,6 +1256,15 @@ func (s *SealService) BulkUpdateStatus(sealNumbers []string, status string, rema
 		}
 		return nil
 	})
+
+	if err == nil && len(sealNumbers) > 0 {
+		// Just use the first seal's PEA code for broadcasting, assuming they belong to the same PEA
+		// Or better, broadcast to the one we know.
+		seal, _ := s.repo.FindByNumber(sealNumbers[0])
+		if seal != nil {
+			s.hub.Broadcast(seal.PeaCode, "seal_updated")
+		}
+	}
 	return updated, err
 }
 
@@ -1250,6 +1300,17 @@ func (s *SealService) BulkTransferPeaCode(sealNumbers []string, newPeaCode strin
 		}
 		return nil
 	})
+
+	if err == nil && len(sealNumbers) > 0 {
+		// Broadcast to the original PEA and possibly the new one
+		// For simplicity, just broadcast "updated"
+		s.hub.Broadcast(newPeaCode, "seal_updated")
+		
+		seal, _ := s.repo.FindByNumber(sealNumbers[0])
+		if seal != nil {
+			s.hub.Broadcast(seal.PeaCode, "seal_updated")
+		}
+	}
 	return transferred, err
 }
 
@@ -1294,6 +1355,13 @@ func (s *SealService) BulkCancelSeals(sealNumbers []string, userID uint) (int, e
 		}
 		return nil
 	})
+
+	if err == nil && len(sealNumbers) > 0 {
+		seal, _ := s.repo.FindByNumber(sealNumbers[0])
+		if seal != nil {
+			s.hub.Broadcast(seal.PeaCode, "seal_updated")
+		}
+	}
 	return cancelled, err
 }
 func (s *SealService) ConfirmSealsReceipt(techID uint, sealNumbers []string) error {
@@ -1307,7 +1375,7 @@ func (s *SealService) ConfirmSealsReceipt(techID uint, sealNumbers []string) err
 	}
 
 	now := time.Now()
-	return s.db.Transaction(func(tx *gorm.DB) error {
+	err := s.db.Transaction(func(tx *gorm.DB) error {
 		for i := range seals {
 			// ตรวจสอบว่าเป็นซีลที่ถูกจ่ายให้อนันต์คนนี้จริงหรือไม่
 			if seals[i].IssuedTo == nil || *seals[i].IssuedTo != techID {
@@ -1331,6 +1399,11 @@ func (s *SealService) ConfirmSealsReceipt(techID uint, sealNumbers []string) err
 		}
 		return nil
 	})
+
+	if err == nil && len(seals) > 0 {
+		s.hub.Broadcast(seals[0].PeaCode, "seal_updated")
+	}
+	return err
 }
 
 // BulkConfirmCompanyTransfer — Confirm incoming seal transfers for a company.
@@ -1394,5 +1467,9 @@ func (s *SealService) BulkConfirmCompanyTransfer(sealNumbers []string, currentPe
 		}
 		return nil
 	})
+
+	if err == nil && len(sealNumbers) > 0 {
+		s.hub.Broadcast(currentPeaCode, "seal_updated")
+	}
 	return confirmed, err
 }
