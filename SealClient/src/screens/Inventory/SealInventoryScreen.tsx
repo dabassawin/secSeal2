@@ -170,14 +170,20 @@ export const SealInventoryScreen: React.FC = () => {
 
     useFocusEffect(
         useCallback(() => {
-            if (routeParams?.filter) {
-                setStatusFilter(routeParams.filter);
+            // Find the pending parameter either from direct Inventory params or nested
+            const invRoute = (navigation as any).getState().routes.find((r: any) => r.name === 'Inventory');
+            const invParams = invRoute?.params as any;
+            const filterValue = invParams?.filter || invParams?.params?.filter;
+
+            if (filterValue) {
+                setStatusFilter(filterValue);
                 // Clear the param after using it so it doesn't stick
                 navigation.setParams({ filter: undefined } as any);
+                navigation.getParent()?.setParams({ filter: undefined, params: undefined } as any);
             }
             fetchSeals();
             fetchMasPea();
-        }, [userPeaCode, routeParams?.filter])
+        }, [userPeaCode])
     );
 
     // ✅ Real-time Updates

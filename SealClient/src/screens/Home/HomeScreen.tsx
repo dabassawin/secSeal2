@@ -58,7 +58,7 @@ export const HomeScreen: React.FC = () => {
                         title="ซีลทั้งหมดในคลัง"
                         count={stats ? stats.total_seals.toLocaleString() : "-"}
                         color={colors.primaryPurple}
-                        onPress={() => (navigation as any).navigate('Inventory')}
+                        onPress={() => (navigation as any).navigate('Inventory', { screen: 'SealInventory' })}
                     />
                     <StatusCard
                         title="พร้อมใช้งาน (ในคลัง)"
@@ -80,7 +80,7 @@ export const HomeScreen: React.FC = () => {
                             title="รอยืนยัน (รับโอน)"
                             count={stats.pending_transfer_in.toLocaleString()}
                             color="#E65100" // Orange/Deep Orange
-                            onPress={() => (navigation as any).navigate('Inventory', { filter: 'รอยืนยันรับโอน' })}
+                            onPress={() => (navigation as any).navigate('Inventory', { screen: 'SealInventory', params: { filter: 'รอยืนยันรับโอน' } })}
                         />
                     )}
                 </View>
