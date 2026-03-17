@@ -9,6 +9,7 @@ import { useHomeViewModel } from '../../viewmodels/HomeViewModel';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { TechnicianService } from '../../services/TechnicianService';
 import { Alert } from 'react-native';
+import { useRealtime } from '../../hooks/useRealtime';
 
 type Props = {
     navigation: NativeStackNavigationProp<any>;
@@ -42,6 +43,14 @@ export default function CompanyHomeScreen({ navigation, onLogout }: Props) {
     useEffect(() => {
         fetchSeals();
     }, []);
+
+    // ✅ Real-time Updates
+    useRealtime(userInfo?.pea_code, (msg: string) => {
+        if (msg === 'seal_updated') {
+            console.log('🔄 Company real-time update triggered');
+            fetchSeals();
+        }
+    });
 
     const handleLogout = async () => {
         await AuthService.logout();

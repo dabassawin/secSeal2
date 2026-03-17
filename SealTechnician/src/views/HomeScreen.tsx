@@ -10,6 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { AuthService } from '../services/AuthService';
 import { API_CONFIG } from '../config/api.config';
 import { SealStatus } from '../constants/status';
+import { useRealtime } from '../hooks/useRealtime';
 
 type RootStackParamList = {
     Home: undefined;
@@ -73,6 +74,14 @@ export default function HomeScreen({ onLogout }: HomeScreenProps) {
     useEffect(() => {
         fetchSeals();
     }, []);
+
+    // ✅ Real-time Updates
+    useRealtime(userInfo?.pea_code, useCallback((msg: string) => {
+        if (msg === 'seal_updated') {
+            console.log('🔄 Technician real-time update triggered');
+            fetchSeals();
+        }
+    }, [fetchSeals]));
 
     useEffect(() => {
         if (error === 'Invalid token' || error?.toLowerCase().includes('token')) {
