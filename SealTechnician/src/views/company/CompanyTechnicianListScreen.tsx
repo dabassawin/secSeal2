@@ -31,7 +31,6 @@ export default function CompanyTechnicianListScreen({ navigation }: any) {
                 }
             });
             const data = await response.json();
-            console.log('Fetched Technicians:', data);
             
             // Filter out company itself if it appears in the technician list
             // We use both name and code to be safe, or check for is_center flag if available

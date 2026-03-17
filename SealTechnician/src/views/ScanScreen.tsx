@@ -212,7 +212,6 @@ export default function ScanScreen() {
             });
 
             const responseText = await response.text();
-            console.log("OCR Response Text:", responseText);
 
             const jsonResponse = JSON.parse(responseText);
 

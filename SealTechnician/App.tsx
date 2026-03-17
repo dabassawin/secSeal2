@@ -25,7 +25,6 @@ export default function App() {
         setIsAuthenticated(true);
       }
     } catch (error) {
-      console.log('Error checking token:', error);
     } finally {
       setIsLoading(false);
     }

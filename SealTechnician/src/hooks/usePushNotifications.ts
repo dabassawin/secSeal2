@@ -39,7 +39,6 @@ export const usePushNotifications = (): PushNotificationState => {
 
         // Fired when a user taps on or interacts with a notification 
         responseListener.current = Notifications.addNotificationResponseReceivedListener((response: Notifications.NotificationResponse) => {
-            console.log("Notification Response:", response);
         });
 
         return () => {
@@ -98,7 +97,6 @@ async function registerForPushNotificationsAsync() {
             token = `${e}`;
         }
     } else {
-        console.log('Must use physical device for Push Notifications');
     }
 
     return token;

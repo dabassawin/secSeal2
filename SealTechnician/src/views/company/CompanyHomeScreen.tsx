@@ -47,7 +47,6 @@ export default function CompanyHomeScreen({ navigation, onLogout }: Props) {
     // ✅ Real-time Updates
     useRealtime(userInfo?.pea_code, (msg: string) => {
         if (msg === 'seal_updated') {
-            console.log('🔄 Company real-time update triggered');
             fetchSeals();
         }
     });

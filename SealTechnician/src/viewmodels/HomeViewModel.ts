@@ -134,7 +134,6 @@ export const useHomeViewModel = (specificTechId?: number) => {
                 com_code: data.com_code
             });
         } catch (error) {
-            console.log('Failed to fetch full profile, falling back to JWT:', error);
             const token = await AuthService.getToken();
             if (token) {
                 const decoded = parseJwt(token);

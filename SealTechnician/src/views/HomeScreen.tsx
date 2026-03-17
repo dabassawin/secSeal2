@@ -78,7 +78,6 @@ export default function HomeScreen({ onLogout }: HomeScreenProps) {
     // ✅ Real-time Updates
     useRealtime(userInfo?.pea_code, useCallback((msg: string) => {
         if (msg === 'seal_updated') {
-            console.log('🔄 Technician real-time update triggered');
             fetchSeals();
         }
     }, [fetchSeals]));
