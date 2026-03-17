@@ -101,7 +101,7 @@ export const HomeScreen: React.FC = () => {
                         icon="👥"
                         iconColor="#5d4037"
                         iconBgColor="#efebe9"
-                        onPress={() => (navigation as any).navigate('Technicians')}
+                        onPress={() => (navigation as any).navigate('Technicians', { screen: 'MasComList' })}
                     />
 
                     <ActionCard
