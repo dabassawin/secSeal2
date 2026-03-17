@@ -97,6 +97,13 @@ export const TechnicianListScreen: React.FC = () => {
         try {
             setLoading(true);
             const comCode = route.params?.com_code;
+            
+            // Log for debugging (remove in a real production environment eventually, 
+            // but helpful to see in dev tools for web)
+            if (Platform.OS === 'web') {
+                console.log('[TechnicianList] Fetching data for com_code:', comCode, 'params:', route.params);
+            }
+
             if (comCode) {
                 // เข้ามาจากหน้าศูนย์งาน → ส่ง com_code ไปกรองที่ backend
                 const data = await technicianService.getTechnicians(undefined, false, comCode);
@@ -244,7 +251,7 @@ export const TechnicianListScreen: React.FC = () => {
                             <Text style={styles.backBtnText}>← ย้อนกลับ</Text>
                         </TouchableOpacity>
                         <Text style={styles.centerTitle}>
-                            บุคลากรประจำศูนย์: {route.params?.center_name || masComList.find(c => c.com_code === route.params?.com_code)?.name_th || route.params?.com_code}
+                            บุคลากรประจำศูนย์: {route.params?.center_name || masComList.find(c => c.com_code === route.params?.com_code)?.name_th || route.params?.com_code || '...'}
                         </Text>
                     </View>
                 )}

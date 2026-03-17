@@ -20,6 +20,15 @@ export const TechnicianDetailScreen: React.FC = () => {
 
     useEffect(() => {
         const init = async () => {
+            if (Platform.OS === 'web') {
+                console.log('[TechnicianDetail] Initializing with id:', params.id, 'user_pea:', user?.pea_code);
+            }
+
+            if (!user?.pea_code) {
+                if (Platform.OS === 'web') console.log('[TechnicianDetail] Waiting for user session...');
+                return;
+            }
+            
             setLoading(true);
             await fetchMasPea();
             if (!techData && params.id) {
@@ -86,8 +95,22 @@ export const TechnicianDetailScreen: React.FC = () => {
             <View style={styles.mainContainer}>
                 <Header />
                 <View style={styles.centered}>
-                    <Text style={{ fontSize: 16, color: '#666' }}>ไม่พบข้อมูลช่างเทคนิค</Text>
-                    <Text style={{ fontSize: 16, color: '#666', marginTop: 20 }}>กรุณากลับไปที่หน้าแผงควบคุมหลัก</Text>
+                    <Text style={{ fontSize: 18, color: '#333', fontWeight: 'bold' }}>ไม่พบข้อมูลช่างเทคนิค</Text>
+                    <Text style={{ fontSize: 14, color: '#666', marginTop: 10 }}>อาจเกิดจากเซสชันหมดอายุหรือข้อมูลไม่ถูกต้อง</Text>
+                    
+                    <TouchableOpacity 
+                        style={[styles.purpleBtn, { marginTop: 30, paddingHorizontal: 30 }]}
+                        onPress={() => window.location.reload()}
+                    >
+                        <Text style={styles.purpleBtnText}>รีเฟรชหน้าจอ (Refresh)</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity 
+                        style={{ marginTop: 20 }}
+                        onPress={() => (navigation as any).navigate('Technicians', { screen: 'MasComList' })}
+                    >
+                        <Text style={{ color: colors.primaryPurple }}>กลับไปที่รายชื่อศูนย์งาน</Text>
+                    </TouchableOpacity>
                 </View>
             </View>
         );
@@ -320,5 +343,17 @@ const styles = StyleSheet.create({
         backgroundColor: '#eee',
         marginVertical: sizes.md,
         marginBottom: sizes.lg,
+    },
+    purpleBtn: {
+        height: 42,
+        backgroundColor: colors.primaryPurple,
+        borderRadius: 8,
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    purpleBtnText: {
+        color: '#FFF',
+        fontWeight: 'bold',
+        fontSize: 14,
     },
 });
