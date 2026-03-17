@@ -8,6 +8,7 @@ import { sealService } from '@/services/sealService';
 import { SealReport } from '@/types';
 import { useNavigation } from '@react-navigation/native';
 import { SealStatus } from '../../constants/status';
+import { useRealtime } from '@/hooks/useRealtime';
 
 export const HomeScreen: React.FC = () => {
     const navigation = useNavigation();
@@ -33,6 +34,13 @@ export const HomeScreen: React.FC = () => {
             setLoading(false);
         }
     };
+
+    // ✅ Real-time Updates
+    useRealtime(user?.pea_code, (msg: string) => {
+        if (msg === 'seal_updated') {
+            fetchData();
+        }
+    });
 
     return (
         <View style={styles.mainContainer}>
