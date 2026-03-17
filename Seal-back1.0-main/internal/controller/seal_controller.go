@@ -2,7 +2,6 @@ package controller
 
 import (
 	"fmt"
-	"log"
 	"net/url"
 	"os"
 	"path/filepath"
@@ -79,7 +78,6 @@ func (sc *SealController) GetSealByIDAndStatusHandler(c *fiber.Ctx) error {
 		})
 	}
 
-// log.Println("🎬 กำลังดึงซีล ID:", sealID, " สถานะ:", status)
 
 	seal, err := sc.sealService.GetSealByIDAndStatus(uint(sealID), status)
 	if err != nil {
@@ -393,14 +391,12 @@ func (sc *SealController) CreateSealHandler(c *fiber.Ctx) error {
 // -------------------------------------------------------------------
 func incrementSealNumber(current string) string {
 	if len(current) < 5 {
-		log.Println("❌ Error: Invalid seal number format")
 		return current
 	}
 
 	re := regexp.MustCompile(`^([A-Za-z]*)(\d+)$`)
 	matches := re.FindStringSubmatch(current)
 	if len(matches) != 3 {
-		log.Println("❌ Error: Invalid seal number format")
 		return current
 	}
 
@@ -409,7 +405,6 @@ func incrementSealNumber(current string) string {
 
 	num, err := strconv.ParseInt(numberPart, 10, 64)
 	if err != nil {
-		log.Println("❌ Error parsing seal number:", err)
 		return current
 	}
 	num++
@@ -422,7 +417,6 @@ func incrementSealNumber(current string) string {
 // -------------------------------------------------------------------
 func (sc *SealController) CheckSealExistsHandler(c *fiber.Ctx) error {
 	sealNumber := c.Params("seal_number")
-// log.Println("🔍 Checking Seal:", sealNumber)
 
 	seal, err := sc.sealService.GetSealByNumber(sealNumber)
 	if err == nil && seal != nil && seal.ID != 0 {
@@ -453,7 +447,6 @@ func (sc *SealController) InstallSealHandler(c *fiber.Ctx) error {
 	}
 
 	if err := sc.sealService.UseSealWithSerial(sealNumber, techID, req.SerialNumber); err != nil {
-		log.Println("❌ Install Seal Error:", err)
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
 	}
 	return c.JSON(fiber.Map{
@@ -750,9 +743,7 @@ func (sc *SealController) ScanAndUseSealHandler(c *fiber.Ctx) error {
 	var imagePath string
 	file, err := c.FormFile("image")
 	if err != nil {
-		log.Println("⚠️ No seal image or err receiving image:", err)
 	} else {
-// log.Println("📷 Received seal image:", file.Filename, "size:", file.Size)
 		uploadDir := "./uploads"
 		if _, err := os.Stat(uploadDir); os.IsNotExist(err) {
 			os.Mkdir(uploadDir, 0755)
@@ -760,10 +751,8 @@ func (sc *SealController) ScanAndUseSealHandler(c *fiber.Ctx) error {
 		fileName := fmt.Sprintf("seal_%s_%s", sealNumber, file.Filename)
 		savePath := filepath.Join(uploadDir, fileName)
 		if err := c.SaveFile(file, savePath); err != nil {
-			log.Println("❌ Failed to save seal image:", err)
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to save image"})
 		}
-// log.Println("✅ Seal image saved to", savePath)
 		imagePath = "/uploads/" + fileName
 	}
 
@@ -771,9 +760,7 @@ func (sc *SealController) ScanAndUseSealHandler(c *fiber.Ctx) error {
 	var meterImagePath string
 	meterFile, err := c.FormFile("meter_image")
 	if err != nil {
-		log.Println("⚠️ No meter image or err receiving meter_image:", err)
 	} else {
-// log.Println("📷 Received meter image:", meterFile.Filename, "size:", meterFile.Size)
 		uploadDir := "./uploads"
 		if _, err := os.Stat(uploadDir); os.IsNotExist(err) {
 			os.Mkdir(uploadDir, 0755)
@@ -781,9 +768,7 @@ func (sc *SealController) ScanAndUseSealHandler(c *fiber.Ctx) error {
 		fileName := fmt.Sprintf("meter_%s_%s", sealNumber, meterFile.Filename)
 		savePath := filepath.Join(uploadDir, fileName)
 		if err := c.SaveFile(meterFile, savePath); err != nil {
-			log.Println("❌ Failed to save meter image:", err)
 		} else {
-// log.Println("✅ Meter image saved to", savePath)
 			meterImagePath = "/uploads/" + fileName
 		}
 	}

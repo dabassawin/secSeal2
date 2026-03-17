@@ -60,7 +60,7 @@ func main() {
 	// ✅ Robust .env loading with absolute paths
 	// Get current working directory
 	cwd, _ := os.Getwd()
-	log.Printf("Current working directory: %s", cwd)
+	// log.Printf("Current working directory: %s", cwd)
 
 	// Try different possible locations for .env file
 	envPaths := []string{
@@ -71,13 +71,13 @@ func main() {
 
 	envLoaded := false
 	for _, envPath := range envPaths {
-		log.Printf("Trying to load .env from: %s", envPath)
+		// log.Printf("Trying to load .env from: %s", envPath)
 		if err := godotenv.Load(envPath); err == nil {
 			log.Printf("✅ Loaded environment variables from: %s", envPath)
 			envLoaded = true
 			break
 		} else {
-			log.Printf("Failed to load from %s: %v", envPath, err)
+			// log.Printf("Failed to load from %s: %v", envPath, err)
 		}
 	}
 

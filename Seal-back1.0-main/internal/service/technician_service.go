@@ -4,7 +4,6 @@ import (
 	"github.com/Kev2406/PEA/internal/domain/constants"
 
 	"errors"
-	"log"
 	"time"
 
 	"fmt"
@@ -57,7 +56,6 @@ func (s *TechnicianService) Register(tech *model.Technician) error {
 	tech.UpdatedAt = time.Now()
 
 	// 🔍 Debug Technician Data ก่อนบันทึก
-	fmt.Println("🔍 Debug Technician Data:", tech)
 
 	return s.repo.Create(tech)
 }
@@ -92,7 +90,6 @@ func (s *TechnicianService) Login(username, password string) (string, error) {
 	return signedToken, nil
 }
 func (s *TechnicianService) InstallSeal(sealNumber string, techID uint, serialNumber string) error {
-	log.Printf("🔧 [InstallSeal] sealNumber=%s, techID=%d\n", sealNumber, techID)
 
 	// 🔎 **1) ตรวจสอบว่าซีลมีอยู่ในระบบ**
 	seal, err := s.repo.FindSealByNumber(sealNumber)
@@ -217,15 +214,12 @@ func (s *TechnicianService) UpdateTechnician(techID uint, req struct {
 	PhoneNumber string
 	CompanyName string
 }) error {
-	log.Println("🔍 [SERVICE] Checking if technician exists: ID =", techID)
 
 	tech, err := s.repo.FindByID(techID)
 	if err != nil {
-		log.Println("❌ [ERROR] Technician not found:", err)
 		return err
 	}
 
-	log.Println("✅ [SERVICE] Found Technician:", tech)
 
 	// อัปเดตข้อมูลใหม่
 	tech.FirstName = req.FirstName
@@ -233,15 +227,12 @@ func (s *TechnicianService) UpdateTechnician(techID uint, req struct {
 	tech.PhoneNumber = req.PhoneNumber
 	tech.CompanyName = req.CompanyName
 
-	log.Println("🛠️ [SERVICE] Updating Technician:", tech)
 
 	err = s.repo.UpdateTechnician(tech)
 	if err != nil {
-		log.Println("❌ [ERROR] Database update failed:", err)
 		return err
 	}
 
-	log.Println("✅ [SERVICE] Technician update success!")
 	return nil
 }
 

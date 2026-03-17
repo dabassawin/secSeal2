@@ -114,25 +114,20 @@ func (s *SealService) GetReadyByPeaCode(peaCode string) ([]model.Seal, error) {
 }
 
 func (s *SealService) GetSealsByStatus(status string) ([]model.Seal, error) {
-	log.Println("🎬 กำลังดึงซีลสถานะ:", status)
 	var seals []model.Seal
 	if err := s.db.Where("status = ?", status).Find(&seals).Error; err != nil {
 		return nil, err
 	}
-	log.Println("🔍 เจอซีลจำนวน:", len(seals))
 	return seals, nil
 }
 
 func (s *SealService) GetSealByIDAndStatus(sealID uint, status string) (*model.Seal, error) {
-	log.Println("🔍 กำลังดึงซีลจาก ID:", sealID, " และสถานะ:", status)
 
 	var seal model.Seal
 	if err := s.db.Where("id = ? AND status = ?", sealID, status).First(&seal).Error; err != nil {
-		log.Println("❌ ไม่พบซีล ID:", sealID, "ที่มีสถานะ:", status)
 		return nil, err
 	}
 
-	log.Println("✅ เจอซีล ID:", sealID, " สถานะ:", status)
 	return &seal, nil
 }
 
@@ -938,9 +933,8 @@ func (s *SealService) ScanAndUseSeal(sealNumber string, userID uint, imagePath s
 	if err != nil {
 		return "", err
 	}
-	if err == nil {
-		s.hub.Broadcast(seal.PeaCode, "seal_updated")
-	}
+
+	s.hub.Broadcast(seal.PeaCode, "seal_updated")
 	return "ติดตั้งสำเร็จ", nil
 }
 
