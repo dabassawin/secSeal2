@@ -66,7 +66,7 @@ export const TechnicianListScreen: React.FC = () => {
                 fetchMasPea();
                 fetchMasCom();
             }
-        }, [user?.pea_code])
+        }, [user?.pea_code, route.params?.com_code])
     );
 
     const fetchMasPea = async () => {
@@ -238,12 +238,14 @@ export const TechnicianListScreen: React.FC = () => {
             <Header />
 
             <View style={styles.content}>
-                {route.params?.center_name && (
+                {(route.params?.center_name || route.params?.com_code) && (
                     <View style={styles.backContainer}>
-                        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()}>
+                        <TouchableOpacity style={styles.backBtn} onPress={() => (navigation as any).navigate('Technicians', { screen: 'MasComList' })}>
                             <Text style={styles.backBtnText}>← ย้อนกลับ</Text>
                         </TouchableOpacity>
-                        <Text style={styles.centerTitle}>บุคลากรประจำศูนย์: {route.params.center_name}</Text>
+                        <Text style={styles.centerTitle}>
+                            บุคลากรประจำศูนย์: {route.params?.center_name || masComList.find(c => c.com_code === route.params?.com_code)?.name_th || route.params?.com_code}
+                        </Text>
                     </View>
                 )}
 

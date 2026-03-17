@@ -6,10 +6,12 @@ import { Header } from '@/components/dashboard';
 import { Technician } from '@/types';
 import { userService } from '@/services/userService';
 import { technicianService } from '@/services/technicianService';
+import { useAuth } from '@/context/AuthContext';
 
 export const TechnicianDetailScreen: React.FC = () => {
     const route = useRoute();
     const navigation = useNavigation();
+    const { user } = useAuth();
     const params = (route.params || {}) as { id?: string | number; technician?: Technician };
 
     const [techData, setTechData] = useState<Technician | null>(params.technician || null);
@@ -26,7 +28,7 @@ export const TechnicianDetailScreen: React.FC = () => {
             setLoading(false);
         };
         init();
-    }, [params.id]);
+    }, [params.id, user?.pea_code]);
 
     // เมื่อกดปุ่ม Back ของเบราว์เซอร์ ให้ reload หน้า 1 ครั้ง
     // เพื่อให้ React Navigation resolve URL ไปยังหน้าที่ถูกต้อง
@@ -42,8 +44,10 @@ export const TechnicianDetailScreen: React.FC = () => {
 
     const fetchTechnicianById = async (id: string | number) => {
         try {
-            // Fetch all and find by ID since there's no getById API
-            const allTechs = await technicianService.getTechnicians();
+            // Fetch filtered by user's area prefix to ensure backend returns data
+            const peaPrefix = user?.pea_code ? user.pea_code.substring(0, 4) : undefined;
+            const allTechs = await technicianService.getTechnicians(peaPrefix, !!peaPrefix);
+            
             const found = allTechs.find(t => t.id.toString() === id.toString());
             if (found) setTechData(found);
         } catch (error) {

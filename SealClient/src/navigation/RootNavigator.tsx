@@ -231,7 +231,7 @@ const RootNavigator = () => {
                             path: 'technicians',
                             screens: {
                                 MasComList: '',
-                                TechnicianList: 'list',
+                                TechnicianList: 'list/:com_code',
                                 TechnicianDetail: 'detail/:id',
                             },
                         },
