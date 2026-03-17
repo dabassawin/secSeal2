@@ -9,6 +9,7 @@ import { BarChart, BarChartData } from '@/components/charts/BarChart';
 import { KPICard } from '@/components/charts/KPICard';
 import { AnomalyReport, getAnomalyCount } from '@/components/report/AnomalyReport';
 import { SealStatus } from '../../constants/status';
+import { useRealtime } from '../../hooks/useRealtime';
 
 // ─── Status badge colors ────────────────────────────
 const STATUS_COLORS: Record<string, { bg: string; text: string }> = {
@@ -362,6 +363,14 @@ export const ReportScreen: React.FC = () => {
     useEffect(() => {
         fetchData();
     }, [fetchData]);
+
+    // ✅ Real-time Updates
+    useRealtime(peaCode || user?.pea_code, useCallback((msg: string) => {
+        if (msg === 'seal_updated') {
+            console.log('🔄 Dashboard real-time update triggered');
+            fetchData();
+        }
+    }, [fetchData]));
 
     // ─── Filter + Sort + Page ───────────────────────
     const filteredItems = useMemo(() => {
