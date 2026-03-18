@@ -121,7 +121,7 @@ export const MasComListScreen: React.FC = () => {
                             style={styles.addBtn}
                             onPress={() => (navigation as any).navigate('AddMasCom')}
                         >
-                            <Text style={styles.addBtnText}>🏢+ เพิ่มศูนย์งานใหม่</Text>
+                            <Text style={styles.addBtnText}>🏢 + เพิ่มศูนย์งานใหม่</Text>
                         </TouchableOpacity>
                     </View>
                 </View>
@@ -129,12 +129,24 @@ export const MasComListScreen: React.FC = () => {
                 {/* TABLE */}
                 <View style={styles.tableContainer}>
                     <View style={styles.tableHeader}>
-                        <Text style={[styles.headerText, { flex: 0.5 }]}>#</Text>
-                        <Text style={[styles.headerText, { flex: 2.5 }]}>ชื่อศูนย์งาน</Text>
-                        <Text style={[styles.headerText, { flex: 1.5 }]}>รหัสศูนย์งาน</Text>
-                        <Text style={[styles.headerText, { flex: 2 }]}>รหัสการไฟฟ้า</Text>
-                        <Text style={[styles.headerText, { flex: 1.5 }]}>ชื่อการไฟฟ้า</Text>
-                        <Text style={[styles.headerText, { flex: 1.2, textAlign: 'center' }]}>จัดการ</Text>
+                        <View style={[styles.cell, { width: 80 }]}>
+                            <Text style={styles.headerText}>#</Text>
+                        </View>
+                        <View style={[styles.cell, { flex: 10 }]}>
+                            <Text style={styles.headerText}>ชื่อศูนย์งาน</Text>
+                        </View>
+                        <View style={[styles.cell, { flex: 15 }]}>
+                            <Text style={styles.headerText}>รหัสศูนย์งาน</Text>
+                        </View>
+                        <View style={[styles.cell, { flex: 15 }]}>
+                            <Text style={styles.headerText}>รหัสการไฟฟ้า</Text>
+                        </View>
+                        <View style={[styles.cell, { flex: 10, paddingLeft: 20 }]}>
+                            <Text style={styles.headerText}>ชื่อการไฟฟ้า</Text>
+                        </View>
+                        <View style={[styles.cell, { width: 180, alignItems: 'center' }]}>
+                            <Text style={styles.headerText}>จัดการ</Text>
+                        </View>
                     </View>
 
                     <ScrollView style={styles.scrollBody}>
@@ -158,34 +170,33 @@ export const MasComListScreen: React.FC = () => {
                                         style={styles.tableRow}
                                         onPress={() => (navigation as any).navigate('TechnicianList', { pea_code: cPeaCode, com_code: cCode, center_name: cNameTh })}
                                     >
-                                        <Text style={[styles.cellText, { flex: 0.5 }]}>{index + 1}</Text>
-
-                                        <View style={[styles.cell, { flex: 2.5, flexDirection: 'row', alignItems: 'center' }]}>
+                                        <View style={[styles.cell, { width: 80, flexDirection: 'row', alignItems: 'center' }]}>
+                                            <Text style={[styles.cellText, { width: 30 }]}>{index + 1}</Text>
                                             <View style={styles.avatar}>
                                                 <Text style={styles.avatarText}>🏢</Text>
                                             </View>
-                                            <View style={{ marginLeft: 10 }}>
-                                                <Text style={styles.techName}>{cNameTh}</Text>
-                                                <Text style={styles.techEmail}>{cNameEng}</Text>
-                                            </View>
                                         </View>
 
-                                        <View style={[styles.cell, { flex: 1.5 }]}>
+                                        <View style={[styles.cell, { flex: 10 }]}>
+                                            <Text style={styles.techName}>{cNameTh}</Text>
+                                            <Text style={styles.techEmail}>{cNameEng}</Text>
+                                        </View>
+
+                                        <View style={[styles.cell, { flex: 15 }]}>
                                             <View style={styles.codeBadge}>
                                                 <Text style={styles.codeText}>{cCode}</Text>
                                             </View>
                                         </View>
 
-                                        <View style={[styles.cell, { flex: 2, flexDirection: 'row', alignItems: 'center' }]}>
-                                            <Text style={{ marginRight: 5 }}>⚡</Text>
+                                        <View style={[styles.cell, { flex: 15 }]}>
                                             <Text style={styles.cellText}>{cPeaCode || '-'}</Text>
                                         </View>
 
-                                        <View style={[styles.cell, { flex: 1.5 }]}>
+                                        <View style={[styles.cell, { flex: 10, paddingLeft: 20 }]}>
                                             <Text style={styles.cellText}>{getPeaName(cPeaCode) || '-'}</Text>
                                         </View>
 
-                                        <View style={[styles.cell, { flex: 1.2, flexDirection: 'row', justifyContent: 'center' }]}>
+                                        <View style={[styles.cell, { width: 180, flexDirection: 'row', justifyContent: 'center' }]}>
                                             <TouchableOpacity
                                                 style={styles.actionIcon}
                                             >

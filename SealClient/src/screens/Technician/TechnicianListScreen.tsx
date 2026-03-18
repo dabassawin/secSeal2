@@ -310,13 +310,27 @@ export const TechnicianListScreen: React.FC = () => {
                 {/* TABLE */}
                 <View style={styles.tableContainer}>
                     <View style={styles.tableHeader}>
-                        <Text style={[styles.headerText, { flex: 0.5 }]}>#</Text>
-                        <Text style={[styles.headerText, { flex: 2.5 }]}>ชื่อ - นามสกุล</Text>
-                        <Text style={[styles.headerText, { flex: 1.5 }]}>รหัสช่าง / ID</Text>
-                        <Text style={[styles.headerText, { flex: 2 }]}>รหัสการไฟฟ้า</Text>
-                        <Text style={[styles.headerText, { flex: 2 }]}>ชื่อการไฟฟ้า</Text>
-                        <Text style={[styles.headerText, { flex: 1.2, textAlign: 'center' }]}>สถานะ</Text>
-                        <Text style={[styles.headerText, { flex: 1.2, textAlign: 'center' }]}>จัดการ</Text>
+                        <View style={[styles.cell, { width: 80 }]}>
+                            <Text style={styles.headerText}>#</Text>
+                        </View>
+                        <View style={[styles.cell, { flex: 10 }]}>
+                            <Text style={styles.headerText}>ชื่อ - นามสกุล</Text>
+                        </View>
+                        <View style={[styles.cell, { flex: 15 }]}>
+                            <Text style={styles.headerText}>รหัสช่าง / ID</Text>
+                        </View>
+                        <View style={[styles.cell, { flex: 15 }]}>
+                            <Text style={styles.headerText}>รหัสการไฟฟ้า</Text>
+                        </View>
+                        <View style={[styles.cell, { flex: 10, paddingLeft: 20 }]}>
+                            <Text style={styles.headerText}>ชื่อการไฟฟ้า</Text>
+                        </View>
+                        <View style={[styles.cell, { width: 220, alignItems: 'center' }]}>
+                            <Text style={styles.headerText}>สถานะ</Text>
+                        </View>
+                        <View style={[styles.cell, { width: 180, alignItems: 'center' }]}>
+                            <Text style={styles.headerText}>จัดการ</Text>
+                        </View>
                     </View>
 
                     <ScrollView style={styles.scrollBody}>
@@ -333,41 +347,40 @@ export const TechnicianListScreen: React.FC = () => {
                                     style={styles.tableRow}
                                     onPress={() => (navigation as any).navigate('TechnicianDetail', { id: tech.id, technician: tech })}
                                 >
-                                    <Text style={[styles.cellText, { flex: 0.5 }]}>{index + 1}</Text>
-
-                                    <View style={[styles.cell, { flex: 2.5, flexDirection: 'row', alignItems: 'center' }]}>
+                                    <View style={[styles.cell, { width: 80, flexDirection: 'row', alignItems: 'center' }]}>
+                                        <Text style={[styles.cellText, { width: 30 }]}>{index + 1}</Text>
                                         <View style={styles.avatar}>
                                             <Text style={styles.avatarText}>👤</Text>
                                         </View>
-                                        <View style={{ marginLeft: 10 }}>
-                                            <Text style={styles.techName}>{tech.first_name} {tech.last_name}</Text>
-                                            <Text style={styles.techEmail}>{tech.username || tech.email}</Text>
-                                        </View>
                                     </View>
 
-                                    <View style={[styles.cell, { flex: 1.5 }]}>
+                                    <View style={[styles.cell, { flex: 10 }]}>
+                                        <Text style={styles.techName}>{tech.first_name} {tech.last_name}</Text>
+                                        <Text style={styles.techEmail}>{tech.username || tech.email}</Text>
+                                    </View>
+
+                                    <View style={[styles.cell, { flex: 15 }]}>
                                         <View style={styles.codeBadge}>
                                             <Text style={styles.codeText}>{tech.technician_code}</Text>
                                         </View>
                                     </View>
 
-                                    <View style={[styles.cell, { flex: 2, flexDirection: 'row', alignItems: 'center' }]}>
-                                        <Text style={{ marginRight: 5 }}>🏢</Text>
+                                    <View style={[styles.cell, { flex: 15 }]}>
                                         <Text style={styles.cellText}>{tech.pea_code || '-'}</Text>
                                     </View>
 
-                                    <View style={[styles.cell, { flex: 2 }]}>
+                                    <View style={[styles.cell, { flex: 10, paddingLeft: 20 }]}>
                                         <Text style={styles.cellText}>{getPeaName(tech.pea_code) || '-'}</Text>
                                     </View>
 
-                                    <View style={[styles.cell, { flex: 1.2, alignItems: 'center' }]}>
+                                    <View style={[styles.cell, { width: 220, alignItems: 'center' }]}>
                                         <View style={styles.statusBadge}>
                                             <Text style={styles.statusDot}>●</Text>
                                             <Text style={styles.statusText}>ปกติ</Text>
                                         </View>
                                     </View>
 
-                                    <View style={[styles.cell, { flex: 1.2, flexDirection: 'row', justifyContent: 'center' }]}>
+                                    <View style={[styles.cell, { width: 180, flexDirection: 'row', justifyContent: 'center' }]}>
                                         <TouchableOpacity
                                             style={styles.actionIcon}
                                             onPress={() => (navigation as any).navigate('TechnicianDetail', { id: tech.id, technician: tech })}
