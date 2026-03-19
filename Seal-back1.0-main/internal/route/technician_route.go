@@ -21,7 +21,13 @@ func SetupTechnicianRoutes(router fiber.Router, techController *controller.Techn
 	tech.Put("/update/:id", techController.UpdateTechnicianHandler)    // อัปเดตข้อมูลช่าง
 	tech.Delete("/delete/:id", techController.DeleteTechnicianHandler) // ลบข้อมูลช่าง
 
-	// 🔹 Protected Routes สำหรับ Technician (ใช้ TechnicianJWT) — ต้องลงทะเบียนก่อน userProtected
+	// 🔹 Protected Routes สำหรับ User ปกติ (ใช้ regular JWT)
+	// สมัครก่อนที่จะมีการ Use TechnicianJWTMiddleware เพื่อป้องกัน middleware ตีกัน
+	tech.Get("/seals", middleware.JWTMiddleware(), techController.GetAllTechnicianSealsHandler)
+
+	// 🔹 Protected Routes สำหรับ Technician (ใช้ TechnicianJWT)
+	// ตั้ง Group ย่อยโดยใส่ /app หรือปล่อยให้ tech.Use ก็ได้ 
+	// เพื่อความชัวร์ ใช้ middleware ตรงๆ ใน level นี้
 	protectedTech := tech.Group("", middleware.TechnicianJWTMiddleware())
 	protectedTech.Get("/my-seals", techController.GetAssignedSealsHandler)
 	protectedTech.Put("/seals/install", techController.InstallSealHandler)
@@ -39,8 +45,4 @@ func SetupTechnicianRoutes(router fiber.Router, techController *controller.Techn
 	// ✅ Notifications
 	protectedTech.Get("/notifications", techController.GetNotificationsHandler)
 	protectedTech.Delete("/notifications", techController.ClearNotificationsHandler)
-
-	// 🔹 Protected Routes สำหรับ User ปกติ (ใช้ regular JWT)
-	userProtected := tech.Group("", middleware.JWTMiddleware())
-	userProtected.Get("/seals", techController.GetAllTechnicianSealsHandler)
 }

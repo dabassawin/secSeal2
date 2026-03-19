@@ -4,6 +4,7 @@ import { useRoute, useNavigation } from '@react-navigation/native';
 import { colors, sizes } from '@/constants';
 import { Header } from '@/components/dashboard';
 import { sealService } from '@/services/sealService';
+import { technicianService } from '@/services/technicianService';
 import api from '@/services/api';
 import { Seal, Log } from '@/types';
 import { SealStatus } from '../../constants/status';
@@ -79,6 +80,8 @@ export const SealHistoryScreen: React.FC = () => {
     const [seal, setSeal] = useState<Seal | null>(null);
     const [logs, setLogs] = useState<Log[]>([]);
     const [loading, setLoading] = useState(true);
+    const [technicianName, setTechnicianName] = useState<string>('');
+    const [technicianData, setTechnicianData] = useState<any>(null);
     const [confirmModalVisible, setConfirmModalVisible] = useState(false);
     const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);
 
@@ -115,6 +118,20 @@ export const SealHistoryScreen: React.FC = () => {
             ]);
             setSeal(sealData);
             setLogs(logData);
+
+            // Fetch technician name if seal is assigned
+            if (sealData?.employee_code) {
+                try {
+                    const technicians = await technicianService.getTechnicians();
+                    const tech = technicians.find(t => t.technician_code === sealData.employee_code);
+                    if (tech) {
+                        setTechnicianName(`${tech.first_name} ${tech.last_name}`.trim());
+                        setTechnicianData(tech);
+                    }
+                } catch (e) {
+                    console.error('Error fetching technician name:', e);
+                }
+            }
         } catch (error) {
             console.error('Error fetching seal history:', error);
         } finally {
@@ -264,22 +281,36 @@ export const SealHistoryScreen: React.FC = () => {
                                 <Text style={styles.sectionTitle}>📋 ข้อมูลปฏิบัติงาน (Operation Info)</Text>
                                 <View style={styles.opRow}>
                                     {/* Technician */}
-                                    <View style={styles.opSubCard}>
+                                    <TouchableOpacity
+                                        style={styles.opSubCard}
+                                        activeOpacity={seal?.employee_code && technicianData ? 0.7 : 1}
+                                        onPress={() => {
+                                            if (technicianData) {
+                                                (navigation as any).navigate('Technicians', {
+                                                    screen: 'TechnicianDetail',
+                                                    params: { id: technicianData.id, technician: technicianData }
+                                                });
+                                            }
+                                        }}
+                                    >
                                         <View style={styles.opSubCardHeader}>
                                             <View style={[styles.opIconCircle, { backgroundColor: '#E8EAF6' }]}>
                                                 <Text style={styles.opIconText}>👤</Text>
                                             </View>
                                             <Text style={styles.opSubLabel}>ช่างผู้รับผิดชอบ (Technician)</Text>
                                         </View>
-                                        <Text style={styles.opSubValue}>
+                                        <Text style={[styles.opSubValue, technicianData && { color: colors.primaryPurple, textDecorationLine: 'underline' }]}>
                                             {seal?.employee_code
-                                                ? `${seal.employee_code}`
+                                                ? (technicianName || seal.employee_code)
                                                 : 'ยังไม่ได้มอบหมาย'}
                                         </Text>
                                         {seal?.employee_code && (
                                             <Text style={styles.opSubMeta}>ID: {seal.employee_code}</Text>
                                         )}
-                                    </View>
+                                        {technicianData && (
+                                            <Text style={{ fontSize: 11, color: colors.primaryPurple, marginTop: 4 }}>คลิกเพื่อดูข้อมูลช่าง →</Text>
+                                        )}
+                                    </TouchableOpacity>
                                     {/* Meter No */}
                                     <View style={styles.opSubCard}>
                                         <View style={styles.opSubCardHeader}>

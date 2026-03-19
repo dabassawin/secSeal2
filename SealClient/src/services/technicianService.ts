@@ -46,7 +46,7 @@ export const technicianService = {
 
     getTechnicianSeals: async (id: number | string): Promise<any[]> => {
         try {
-            const response = await api.get(`/api/technician/seals/all?technician_id=${id}`);
+            const response = await api.get(`/api/technician/seals?technician_id=${id}`);
             return response.data || [];
         } catch (error) {
             console.error(`Error fetching seals for technician ${id}:`, error);

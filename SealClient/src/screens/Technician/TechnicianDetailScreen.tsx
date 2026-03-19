@@ -68,14 +68,22 @@ export const TechnicianDetailScreen: React.FC = () => {
     };
 
     const fetchSeals = async (id: string | number) => {
-        const data = await technicianService.getTechnicianSeals(id);
-        // Filter out seals returned / canceled if we only want 'holding' (usually WAIT_CONFIRMATION, ISSUED, INSTALLED)
-        // But the user requested "ซีลที่ถืออยู่" - let's display what we fetched since it returns assigned seals.
-        // Or we just display all from `GetSealsByTechnician` which includes past. 
-        // For accurate holding, we filter by IssuedTo == techID and (Status == 'จ่าย' or 'รอยืนยัน') 
-        // We'll just display them all as requested for now, or filter to exclude 'USED' (คืนแล้ว).
-        const holdingSeals = data.filter(s => s.status !== 'ใช้งานแล้ว' && s.status !== 'พร้อมใช้งาน');
-        setSeals(holdingSeals);
+        try {
+            const data = await technicianService.getTechnicianSeals(id);
+            const holdingSeals = data.filter(s => s.status !== 'ใช้งานแล้ว' && s.status !== 'พร้อมใช้งาน');
+            setSeals(holdingSeals);
+        } catch (e: any) {
+            console.error('Error fetching seals:', e);
+        }
+    };
+
+    const getStatusStyle = (status?: string) => {
+        switch (status) {
+            case 'จ่าย': return { bg: '#E3F2FD', text: '#1976D2' };
+            case 'ติดตั้งแล้ว': return { bg: '#E8F5E9', text: '#388E3C' };
+            case 'รอยืนยัน': return { bg: '#FFF3E0', text: '#F57C00' };
+            default: return { bg: '#F3F4F6', text: '#4B5563' };
+        }
     };
 
     const getPeaName = (code?: string) => {
@@ -217,13 +225,29 @@ export const TechnicianDetailScreen: React.FC = () => {
                         <Text style={styles.noSealsText}>ไม่มีซีลที่ถืออยู่</Text>
                     ) : (
                         seals.map((seal, index) => (
-                            <View key={seal.id || index} style={styles.sealListItem}>
+                            <TouchableOpacity
+                                key={seal.id || index}
+                                style={styles.sealListItem}
+                                activeOpacity={0.7}
+                                onPress={() => {
+                                    (navigation as any).navigate('Inventory', {
+                                        screen: 'SealHistory',
+                                        params: { sealNumber: seal.seal_number || seal.SealNumber }
+                                    });
+                                }}
+                            >
                                 <View style={styles.sealNumberGroup}>
                                     <Text style={styles.sealDot}>●</Text>
                                     <Text style={styles.sealNumberText}>#{seal.seal_number || seal.SealNumber}</Text>
+                                    <View style={[styles.statusBadge, { backgroundColor: getStatusStyle(seal.status || seal.Status).bg, marginLeft: 8 }]}>
+                                        <Text style={[styles.statusText, { color: getStatusStyle(seal.status || seal.Status).text }]}>{seal.status || seal.Status}</Text>
+                                    </View>
                                 </View>
-                                <Text style={styles.sealDateText}>เบิกเมื่อ: {formatDate(seal.issued_at || seal.created_at)}</Text>
-                            </View>
+                                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                                    <Text style={styles.sealDateText}>เบิกเมื่อ: {formatDate(seal.issued_at || seal.created_at)}</Text>
+                                    <Text style={{ marginLeft: 8, color: '#A0AEC0', fontSize: 16 }}>›</Text>
+                                </View>
+                            </TouchableOpacity>
                         ))
                     )}
                 </View>
@@ -568,5 +592,14 @@ const styles = StyleSheet.create({
     sealDateText: {
         fontSize: 13,
         color: '#718096',
+    },
+    statusBadge: {
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 12,
+    },
+    statusText: {
+        fontSize: 10,
+        fontWeight: 'bold',
     },
 });
