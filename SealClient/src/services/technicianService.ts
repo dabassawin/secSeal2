@@ -42,5 +42,15 @@ export const technicianService = {
 
     deleteTechnician: async (id: number) => {
         return await api.delete(`/api/technician/delete/${id}`);
+    },
+
+    getTechnicianSeals: async (id: number | string): Promise<any[]> => {
+        try {
+            const response = await api.get(`/api/technician/seals/all?technician_id=${id}`);
+            return response.data || [];
+        } catch (error) {
+            console.error(`Error fetching seals for technician ${id}:`, error);
+            return [];
+        }
     }
 };

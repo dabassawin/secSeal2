@@ -247,9 +247,7 @@ export const TechnicianListScreen: React.FC = () => {
             <View style={styles.content}>
                 {(route.params?.center_name || route.params?.com_code) && (
                     <View style={styles.backContainer}>
-                        <TouchableOpacity style={styles.backBtn} onPress={() => (navigation as any).navigate('Technicians', { screen: 'MasComList' })}>
-                            <Text style={styles.backBtnText}>← ย้อนกลับ</Text>
-                        </TouchableOpacity>
+
                         <Text style={styles.centerTitle}>
                             บุคลากรประจำศูนย์: {route.params?.center_name || masComList.find(c => c.com_code === route.params?.com_code)?.name_th || route.params?.com_code || '...'}
                         </Text>

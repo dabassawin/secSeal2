@@ -807,6 +807,7 @@ func (s *SealService) AssignSealsByTechCode(techCode string, sealNumbers []strin
 		// ใส่ technician ลงในฟิลด์ AssignedToTechnician และ IssuedTo
 		seal.AssignedToTechnician = &technician.ID
 		seal.IssuedTo = &technician.ID
+		seal.EmployeeCode = techCode
 
 		// ใช้ per-seal remark ถ้ามี, ไม่งั้นใช้ remark ทั่วไป
 		if sealRemarks != nil {
