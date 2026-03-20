@@ -28,13 +28,15 @@ export const TechnicianDetailScreen: React.FC = () => {
             setLoading(true);
             await fetchMasPea();
             
+            let searchId = params.id || initialTechData?.id;
+            
             const currentDataValid = techData && typeof techData === 'object' && (techData as any).id;
             if (!currentDataValid && params.id) {
-                await fetchTechnicianById(params.id);
+                const matchedId = await fetchTechnicianById(params.id);
+                if (matchedId) searchId = matchedId;
             }
-            if (params.id || initialTechData?.id) {
-                const searchId = params.id || initialTechData?.id;
-                if (searchId) await fetchSeals(searchId);
+            if (searchId) {
+                await fetchSeals(searchId);
             }
             setLoading(false);
         };
@@ -45,17 +47,21 @@ export const TechnicianDetailScreen: React.FC = () => {
         try {
             const peaPrefix = user?.pea_code ? user.pea_code.substring(0, 4) : undefined;
             let allTechs = await technicianService.getTechnicians(peaPrefix, !!peaPrefix);
-            let found = allTechs.find(t => t.id.toString() === id.toString());
+            let found = allTechs.find(t => t.id.toString() === id.toString() || (t.technician_code && t.technician_code.toString() === id.toString()));
             
             if (!found && peaPrefix) {
                 allTechs = await technicianService.getTechnicians();
-                found = allTechs.find(t => t.id.toString() === id.toString());
+                found = allTechs.find(t => t.id.toString() === id.toString() || (t.technician_code && t.technician_code.toString() === id.toString()));
             }
 
-            if (found) setTechData(found);
+            if (found) {
+                setTechData(found);
+                return found.id;
+            }
         } catch (error) {
             console.error('Failed to fetch technician:', error);
         }
+        return null;
     };
 
     const fetchMasPea = async () => {

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, TextInput, TouchableOpacity } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { colors, sizes } from '@/constants';
 import { Header } from '@/components/dashboard';
 import { logService } from '@/services/logService';
@@ -51,6 +52,43 @@ const LogRow: React.FC<{ log: Log, isLast: boolean }> = ({ log, isLast }) => {
         return '📄';
     };
 
+    const navigation = useNavigation<any>();
+
+    const renderActionText = (text: string) => {
+        const parts = text.split(/(ซีล\s*[A-Za-z0-9-]+|seal\s*[A-Za-z0-9-]+|ช่าง\s*[A-Za-z0-9-]+|technician\s*[A-Za-z0-9-]+)/i);
+        return (
+            <Text style={styles.actionText}>
+                {parts.map((part, index) => {
+                    const matchSeal = part.match(/(?:ซีล|seal)\s+([A-Za-z0-9-]+)/i);
+                    const matchTech = part.match(/(?:ช่าง|technician)\s+([A-Za-z0-9-]+)/i);
+
+                    if (matchSeal) {
+                        return (
+                            <Text 
+                                key={index} 
+                                style={{ color: colors.primaryPurple, textDecorationLine: 'underline', fontWeight: 'bold' }}
+                                onPress={() => navigation.navigate('Inventory', { screen: 'SealHistory', params: { sealNumber: matchSeal[1] } })}
+                            >
+                                {part}
+                            </Text>
+                        );
+                    } else if (matchTech) {
+                        return (
+                            <Text 
+                                key={index} 
+                                style={{ color: '#E53E3E', textDecorationLine: 'underline', fontWeight: 'bold' }}
+                                onPress={() => navigation.navigate('Technicians', { screen: 'TechnicianDetail', params: { id: matchTech[1] } })}
+                            >
+                                {part}
+                            </Text>
+                        );
+                    }
+                    return <Text key={index}>{part}</Text>;
+                })}
+            </Text>
+        );
+    };
+
     return (
         <View style={styles.logRowContainer}>
             {/* Timeline Column */}
@@ -70,7 +108,7 @@ const LogRow: React.FC<{ log: Log, isLast: boolean }> = ({ log, isLast }) => {
                     <Text style={styles.iconText}>{getIcon(log.action)}</Text>
                 </View>
                 <View style={styles.textContainer}>
-                    <Text style={styles.actionText}>{log.action}</Text>
+                    {renderActionText(log.action)}
                     <Text style={styles.metadataText}>
                         Seal ID: {log.id.toString().padStart(4, '0')} • User ID: {log.user_id}
                     </Text>

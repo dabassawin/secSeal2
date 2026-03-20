@@ -510,7 +510,6 @@ export const SealInventoryScreen: React.FC = () => {
                                 />
                             </View>
                             <Text style={[styles.headerText, { flex: 2 }]}>หมายเลขซีล</Text>
-                            <Text style={[styles.headerText, { flex: 1.2 }]}>ประเภท</Text>
                             <Text style={[styles.headerText, { flex: 1.5 }]}>สังกัด (PEA CODE)</Text>
                             <Text style={[styles.headerText, { flex: 1.5 }]}>สถานะ</Text>
                             <Text style={[styles.headerText, { flex: 1.5 }]}>อัปเดตล่าสุด</Text>
@@ -547,11 +546,6 @@ export const SealInventoryScreen: React.FC = () => {
                                             <View style={[styles.cell, { flex: 2 }]}>
                                                 <Text style={styles.serialText}>{seal.seal_number}</Text>
                                                 <Text style={styles.batchText}>Batch: {seal.box_number || '-'}</Text>
-                                            </View>
-
-                                            {/* Seal Type */}
-                                            <View style={[styles.cell, { flex: 1.2 }]}>
-                                                <Text style={styles.cellText}>{(seal as any).seal_type || 'Plastic Seal'}</Text>
                                             </View>
 
                                             {/* PEA Code + Name */}
