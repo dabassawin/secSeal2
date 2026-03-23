@@ -12,7 +12,7 @@ export const useHomeViewModel = (specificTechId?: number) => {
     const [historySeals, setHistorySeals] = useState<Seal[]>([]);
     const [notifications, setNotifications] = useState<any[]>([]);
 
-    const [userInfo, setUserInfo] = useState<{ id?: number, username: string, role: string, first_name?: string, last_name?: string, is_center?: boolean, pea_code?: string, com_code?: string } | null>(null);
+    const [userInfo, setUserInfo] = useState<{ id?: number, username: string, role: string, first_name?: string, last_name?: string, is_center?: boolean, pea_code?: string, com_code?: string, profile_pic?: string } | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -33,7 +33,8 @@ export const useHomeViewModel = (specificTechId?: number) => {
                     last_name: me.last_name,
                     is_center: me.is_center,
                     pea_code: me.pea_code,
-                    com_code: me.com_code
+                    com_code: me.com_code,
+                    profile_pic: me.profile_pic
                 };
                 setUserInfo(currentUser);
             }
@@ -132,7 +133,8 @@ export const useHomeViewModel = (specificTechId?: number) => {
                 last_name: data.last_name,
                 is_center: data.is_center,
                 pea_code: data.pea_code,
-                com_code: data.com_code
+                com_code: data.com_code,
+                profile_pic: data.profile_pic
             });
         } catch (error) {
             const token = await AuthService.getToken();

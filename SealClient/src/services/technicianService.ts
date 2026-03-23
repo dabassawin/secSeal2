@@ -40,6 +40,16 @@ export const technicianService = {
         return await api.put(`/api/technician/update/${id}`, data);
     },
 
+    uploadProfilePic: async (id: number, file: File) => {
+        const formData = new FormData();
+        formData.append('profile_pic', file);
+        return await api.post(`/api/technician/${id}/profile-pic`, formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data',
+            },
+        });
+    },
+
     deleteTechnician: async (id: number) => {
         return await api.delete(`/api/technician/delete/${id}`);
     }
