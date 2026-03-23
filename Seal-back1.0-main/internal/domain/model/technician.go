@@ -13,6 +13,7 @@ type Technician struct {
 	LastName       string `json:"last_name"`
 	Email          string `gorm:"unique;not null" json:"email"`
 	PhoneNumber    string `gorm:"not null" json:"phone_number"` // ✅ เพิ่มเบอร์โทร
+	ProfilePic     string `json:"profile_pic"` // รูปโปรไฟล์ช่าง
 
 	// --- เพิ่มฟิลด์ใหม่ตามที่ต้องการ ---
 	CompanyName string `json:"company_name"` // ชื่อบริษัท

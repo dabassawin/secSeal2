@@ -223,7 +223,7 @@ export default function HomeScreen({ onLogout }: HomeScreenProps) {
                     <View style={styles.profileRow}>
                         <View style={styles.avatarContainer}>
                             <Image
-                                source={{ uri: getAvatarUrl(undefined) }}
+                                source={{ uri: getAvatarUrl((userInfo as any)?.profile_pic) }}
                                 style={styles.avatar}
                             />
                         </View>

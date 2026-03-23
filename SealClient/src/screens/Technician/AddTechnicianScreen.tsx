@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, ActivityIndicator, Modal, FlatList } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, ActivityIndicator, Modal, FlatList, Image, Platform } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { colors, sizes } from '@/constants';
 import { Header } from '@/components/dashboard';
@@ -21,6 +21,10 @@ export const AddTechnicianScreen: React.FC = () => {
     const [masComList, setMasComList] = useState<any[]>([]);
     const [searchComQuery, setSearchComQuery] = useState('');
     const [selectedComName, setSelectedComName] = useState(route.params?.center_name || '');
+
+    // Image Upload State
+    const [profileImage, setProfileImage] = useState<File | null>(null);
+    const [previewUri, setPreviewUri] = useState<string | null>(null);
 
     // Form State
     const [formData, setFormData] = useState({
@@ -55,11 +59,37 @@ export const AddTechnicianScreen: React.FC = () => {
         if (!formData.password) newErrors.password = 'กรุณากรอกรหัสผ่าน';
         if (!formData.firstName) newErrors.firstName = 'กรุณากรอกชื่อจริง';
         if (!formData.lastName) newErrors.lastName = 'กรุณากรอกนามสกุล';
-        if (!formData.phoneNumber) newErrors.phoneNumber = 'กรุณากรอกเบอร์โทรศัพท์';
+        if (!formData.phoneNumber) {
+            newErrors.phoneNumber = 'กรุณากรอกเบอร์โทรศัพท์';
+        } else if (formData.phoneNumber.length < 10) {
+            newErrors.phoneNumber = 'ต้องมี 10 หลัก';
+        }
         if (!formData.comCode) newErrors.comCode = 'กรุณาเลือกศูนย์งาน';
 
         setErrors(newErrors);
         return Object.keys(newErrors).length === 0;
+    };
+
+    const handlePickImage = () => {
+        if (Platform.OS === 'web') {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/png, image/jpeg';
+            input.onchange = (e: any) => {
+                const file = e.target.files?.[0];
+                if (file) {
+                    if (file.size > 2 * 1024 * 1024) {
+                        alert('ไฟล์ภาพมีขนาดใหญ่เกิน 2MB');
+                        return;
+                    }
+                    setProfileImage(file);
+                    setPreviewUri(URL.createObjectURL(file));
+                }
+            };
+            input.click();
+        } else {
+            alert('รองรับการอายัปโหลดบนเว็บเท่านั้นในขณะนี้');
+        }
     };
 
     const handleSave = async () => {
@@ -81,7 +111,17 @@ export const AddTechnicianScreen: React.FC = () => {
                 department: '-',
             };
 
-            await technicianService.registerTechnician(payload);
+            const res = await technicianService.registerTechnician(payload);
+            const newTechId = res.data?.id;
+
+            if (profileImage && newTechId) {
+                try {
+                    await technicianService.uploadProfilePic(newTechId, profileImage);
+                } catch (imgError) {
+                    console.error('Failed to upload profile picture:', imgError);
+                    alert('ลงทะเบียนสำเร็จ แต่ไม่สามารถอัปโหลดรูปภาพได้');
+                }
+            }
 
             setModalStatus('success');
             setModalMessage('ลงทะเบียนช่างเทคนิคเรียบร้อยแล้ว');
@@ -139,12 +179,16 @@ export const AddTechnicianScreen: React.FC = () => {
 
                     <View style={styles.row}>
                         <View style={styles.avatarSection}>
-                            <View style={styles.avatarCircle}>
-                                <Text style={styles.avatarIcon}>📷</Text>
-                                <TouchableOpacity style={styles.plusCircle}>
+                            <TouchableOpacity style={styles.avatarCircle} onPress={handlePickImage} activeOpacity={0.8}>
+                                {previewUri ? (
+                                    <Image source={{ uri: previewUri }} style={{ width: '100%', height: '100%', borderRadius: 60 }} />
+                                ) : (
+                                    <Text style={styles.avatarIcon}>📷</Text>
+                                )}
+                                <View style={styles.plusCircle}>
                                     <Text style={styles.plusText}>+</Text>
-                                </TouchableOpacity>
-                            </View>
+                                </View>
+                            </TouchableOpacity>
                             <Text style={styles.avatarHint}>อัปโหลดรูปโปรไฟล์</Text>
                             <Text style={styles.avatarSubHint}>(JPG, PNG ไม่เกิน 2MB)</Text>
                         </View>
@@ -182,8 +226,9 @@ export const AddTechnicianScreen: React.FC = () => {
                                             style={[styles.inputWithIcon, errors.phoneNumber && styles.inputError]}
                                             placeholder="08x-xxx-xxxx"
                                             value={formData.phoneNumber}
-                                            onChangeText={(text) => setFormData({ ...formData, phoneNumber: text })}
+                                            onChangeText={(text) => setFormData({ ...formData, phoneNumber: text.replace(/[^0-9]/g, '') })}
                                             keyboardType="phone-pad"
+                                            maxLength={10}
                                         />
                                     </View>
                                     {errors.phoneNumber && <Text style={styles.errorText}>{errors.phoneNumber}</Text>}

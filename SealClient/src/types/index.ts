@@ -77,6 +77,7 @@ export interface Technician {
     pea_code?: string; // Added field for PEA Code
     com_code?: string; // รหัสศูนย์งาน
     is_center?: boolean; // ✅ Flag to identify Center Accounts
+    profile_pic?: string; // รูปรหัสช่าง
     created_at?: string;
     updated_at?: string;
 }

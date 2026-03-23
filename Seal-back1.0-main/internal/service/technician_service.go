@@ -236,6 +236,16 @@ func (s *TechnicianService) UpdateTechnician(techID uint, req struct {
 	return nil
 }
 
+// UpdateProfilePic updates a technician's profile picture URL
+func (s *TechnicianService) UpdateProfilePic(techID uint, imageURL string) error {
+	tech, err := s.repo.FindByID(techID)
+	if err != nil {
+		return err
+	}
+	tech.ProfilePic = imageURL
+	return s.repo.UpdateTechnician(tech)
+}
+
 func (s *TechnicianService) GetAllTechnicians(peaCode string, isPrefix bool, comCode string) ([]model.Technician, error) {
 	return s.repo.GetAllTechnicians(peaCode, isPrefix, comCode)
 }
