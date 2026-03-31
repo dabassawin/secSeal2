@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Platform, Dimensions } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Platform, Dimensions, Image } from 'react-native';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { colors, sizes } from '@/constants';
 import { Technician } from '@/types';
@@ -7,6 +7,7 @@ import { userService } from '@/services/userService';
 import { technicianService } from '@/services/technicianService';
 import { useAuth } from '@/context/AuthContext';
 import { Header } from '@/components/dashboard';
+import api from '@/services/api';
 
 const { width } = Dimensions.get('window');
 
@@ -142,7 +143,15 @@ export const TechnicianDetailScreen: React.FC = () => {
                 <View style={styles.profileCard}>
                     <View style={styles.profileRow}>
                         <View style={styles.avatarLargeContainer}>
-                            <Text style={styles.avatarLargeText}>👨‍🔧</Text>
+                            {techData?.profile_pic ? (
+                                <Image
+                                    source={{ uri: techData.profile_pic.startsWith('http') ? techData.profile_pic : `${api.defaults.baseURL}${techData.profile_pic}` }}
+                                    style={styles.avatarImage}
+                                    resizeMode="cover"
+                                />
+                            ) : (
+                                <Text style={styles.avatarLargeText}>👨‍🔧</Text>
+                            )}
                             <View style={styles.statusBadgeOnImg}>
                                 <Text style={styles.statusBadgeDot}>●</Text>
                                 <Text style={styles.statusBadgeText}>ปกติ</Text>
@@ -349,6 +358,11 @@ const styles = StyleSheet.create({
     },
     avatarLargeText: {
         fontSize: 60,
+    },
+    avatarImage: {
+        width: '100%',
+        height: '100%',
+        borderRadius: 16,
     },
     statusBadgeOnImg: {
         position: 'absolute',
