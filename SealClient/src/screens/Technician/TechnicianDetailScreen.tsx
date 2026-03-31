@@ -165,9 +165,6 @@ export const TechnicianDetailScreen: React.FC = () => {
                                 <View style={styles.greyBadge}><Text style={styles.greyBadgeText}>Region 5</Text></View>
                             </View>
                         </View>
-                        <TouchableOpacity style={styles.editBtn}>
-                            <Text style={styles.editBtnText}>✏️ แก้ไขข้อมูล</Text>
-                        </TouchableOpacity>
                     </View>
                 </View>
 
