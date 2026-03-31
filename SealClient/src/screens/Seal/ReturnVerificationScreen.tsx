@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Platform, Modal, Pressable } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, TextInput, ActivityIndicator, Platform, Modal, Pressable, Image } from 'react-native';
 import { colors, sizes } from '@/constants';
 import { Header } from '@/components/dashboard';
 import { useAuth } from '@/context/AuthContext';
 import { sealService } from '@/services/sealService';
 import { SealStatus } from '../../constants/status';
+import api from '@/services/api';
 
 // ─── Status badge colors ────────────────────────────
 const REMARK_COLORS: Record<string, { bg: string; text: string; icon: string }> = {
@@ -21,7 +22,7 @@ interface PendingReturnItem {
     pea_code: string;
     return_remarks: string;
     returned_at: string | null;
-    image1?: string;
+    image2?: string;
     technician_id: number;
     technician_name: string;
     technician_code: string;
@@ -62,6 +63,16 @@ export const ReturnVerificationScreen: React.FC = () => {
     // ─── Confirmation modal state ────────────────────
     const [confirmItem, setConfirmItem] = useState<PendingReturnItem | null>(null);
     const [confirmed, setConfirmed] = useState(false);
+    const [selectedImageUri, setSelectedImageUri] = useState<string | null>(null);
+
+    // ─── Helper: get image url ───────────────────────
+    const getImageUrl = (imagePath: string | undefined) => {
+        if (!imagePath) return '';
+        let cleanPath = imagePath.replace(/\\/g, '/');
+        if (cleanPath.startsWith('/')) cleanPath = cleanPath.substring(1);
+        const baseURL = api.defaults.baseURL || 'http://localhost:3000';
+        return `${baseURL}/${cleanPath}`;
+    };
 
     // ─── Batch selection state ───────────────────────
     const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
@@ -221,6 +232,15 @@ export const ReturnVerificationScreen: React.FC = () => {
                             </View>
                         </View>
 
+                        {confirmItem.image2 && (
+                            <View style={styles.modalImageContainer}>
+                                <Text style={styles.modalRemarkTitle}>รูปภาพตอนคืน:</Text>
+                                <TouchableOpacity onPress={() => setSelectedImageUri(getImageUrl(confirmItem.image2))}>
+                                    <Image source={{ uri: getImageUrl(confirmItem.image2) }} style={styles.modalImagePreview} resizeMode="cover" />
+                                </TouchableOpacity>
+                            </View>
+                        )}
+
                         <Text style={styles.modalVerifyLabel}>⊘ เจ้าหน้าที่ตรวจสอบของจริง:</Text>
                         <TouchableOpacity
                             style={[styles.modalCheckboxRow, confirmed && styles.modalCheckboxRowChecked]}
@@ -254,6 +274,15 @@ export const ReturnVerificationScreen: React.FC = () => {
                         </View>
                     </Pressable>
                 </Pressable>
+
+                {!!selectedImageUri && (
+                    <View style={[StyleSheet.absoluteFill, styles.fullScreenOverlay]}>
+                        <TouchableOpacity style={styles.closeOverlayBtn} onPress={() => setSelectedImageUri(null)}>
+                            <Text style={styles.closeOverlayText}>✕ ปิดหน้าต่าง</Text>
+                        </TouchableOpacity>
+                        <Image source={{ uri: selectedImageUri }} style={styles.fullScreenImage} resizeMode="contain" />
+                    </View>
+                )}
             </Modal>
         );
     };
@@ -342,6 +371,8 @@ export const ReturnVerificationScreen: React.FC = () => {
             <Header />
             {renderConfirmModal()}
             {renderBatchModal()}
+            
+            
             <ScrollView style={styles.container} contentContainerStyle={styles.contentContainer}>
                 {/* ── Title ─────────────────── */}
                 <View style={styles.titleSection}>
@@ -653,4 +684,13 @@ const styles = StyleSheet.create({
     modalConfirmBtn: { backgroundColor: '#4caf50', paddingHorizontal: 20, paddingVertical: 12, borderRadius: 8 },
     modalConfirmBtnDisabled: { backgroundColor: '#c8e6c9', opacity: 0.7 },
     modalConfirmText: { color: 'white', fontSize: 14, fontWeight: 'bold' },
+
+    modalImageContainer: { marginHorizontal: 20, marginBottom: 16 },
+    modalImagePreview: { width: '100%', height: 180, borderRadius: 10, marginTop: 8, borderWidth: 1, borderColor: '#eee' },
+
+    // ── Fullscreen Image ───────────────────────────────────────
+    fullScreenOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.92)', justifyContent: 'center', alignItems: 'center', zIndex: 9999, elevation: 9999 },
+    fullScreenImage: { width: '100%', height: '80%', zIndex: 10000 },
+    closeOverlayBtn: { position: 'absolute', top: 40, right: 20, padding: 12, zIndex: 10001, backgroundColor: 'rgba(255,255,255,0.15)', borderRadius: 24, elevation: 10001 },
+    closeOverlayText: { color: '#FFF', fontSize: 15, fontWeight: 'bold' },
 });

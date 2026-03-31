@@ -1163,6 +1163,8 @@ type PendingReturnItem struct {
 	ReturnRemarks  string     `json:"return_remarks"`
 	ReturnedAt     *time.Time `json:"returned_at"`
 	Image1         string     `json:"image1,omitempty"`
+	Image2         string     `json:"image2,omitempty"`
+	Image3         string     `json:"image3,omitempty"`
 	TechnicianID   *uint      `json:"technician_id"`
 	TechnicianName string     `json:"technician_name"`
 	TechnicianCode string     `json:"technician_code"`
@@ -1174,7 +1176,7 @@ func (s *SealService) GetPendingReturns(peaCode string) ([]PendingReturnItem, er
 
 	query := s.db.Table("seals").
 		Select(`seals.id, seals.seal_number, seals.status, seals.pea_code,
-			seals.return_remarks, seals.returned_at, seals.image1,
+			seals.return_remarks, seals.returned_at, seals.image1, seals.image2, seals.image3,
 			seals.returned_by_technician as technician_id,
 			COALESCE(t.first_name || ' ' || t.last_name, '') as technician_name,
 			COALESCE(t.technician_code, '') as technician_code`).
