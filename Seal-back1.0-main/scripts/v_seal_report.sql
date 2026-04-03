@@ -23,8 +23,13 @@ SELECT
     s.used_at,
     s.returned_at,
     s.updated_at,
-    -- ผู้จ่าย (User ที่ issued) — issued_by เก็บ emp_id
-    COALESCE(u.first_name || ' ' || u.last_name, '') AS issued_by_name,
+    -- ผู้จ่าย: ถ้ามี transferred_by_technician (ศูนย์งานโอนต่อ) ให้ใช้ชื่อของ technician นั้น
+    -- มิฉะนั้นใช้ user (Admin) ที่ issued ซีลครั้งแรก
+    COALESCE(
+        NULLIF(t_trans.first_name || ' ' || t_trans.last_name, ' '),
+        NULLIF(u.first_name || ' ' || u.last_name, ' '),
+        ''
+    ) AS issued_by_name,
     -- ช่างที่รับ (Technician ที่ assigned)
     COALESCE(t.first_name || ' ' || t.last_name, '') AS technician_name,
     COALESCE(t.company_name, '') AS technician_company,
@@ -38,9 +43,11 @@ SELECT
     COALESCE(u_ret.first_name || ' ' || u_ret.last_name, '') AS returned_by_name
 FROM seals s
 LEFT JOIN users u ON u.emp_id = s.issued_by AND u.deleted_at IS NULL
+LEFT JOIN technicians t_trans ON t_trans.id = s.transferred_by_technician
 LEFT JOIN technicians t ON t.id = s.issued_to
 LEFT JOIN mas_coms mc ON mc.name_th = t.company_name AND mc.deleted_at IS NULL
 LEFT JOIN technicians t_used ON t_used.id = s.used_by
 LEFT JOIN technicians t_ret ON t_ret.id = s.returned_by_technician
 LEFT JOIN users u_ret ON u_ret.emp_id = s.returned_by AND u_ret.deleted_at IS NULL
 WHERE s.deleted_at IS NULL;
+

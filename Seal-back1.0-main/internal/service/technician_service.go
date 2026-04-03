@@ -336,6 +336,7 @@ func (s *TechnicianService) TransferSeals(centerID uint, targetTechID uint, seal
 		seal.AssignedToTechnician = &targetTechID
 		seal.IssuedTo = &targetTechID
 		seal.Status = string(constants.StatusWaitConfirmation)
+		seal.TransferredByTechnician = &centerID // ✅ บันทึกว่าศูนย์งานนี้เป็นผู้จ่ายซีล
 
 		if err := s.repo.UpdateSeal(seal); err != nil {
 			return fmt.Errorf("เกิดข้อผิดพลาดในการโอนซีล %s: %v", sealNum, err)
