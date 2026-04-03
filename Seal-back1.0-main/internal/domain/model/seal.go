@@ -26,9 +26,10 @@ type Seal struct {
 	ReturnRemarks        string         `json:"return_remarks,omitempty"`
 	EmployeeCode         string         `json:"employee_code,omitempty"`
 	IssueRemark          string         `json:"issue_remark,omitempty"`
-	AssignedToTechnician *uint          `json:"assigned_to_technician,omitempty"`
-	CreateRemarks        string         `json:"create_remarks,omitempty"`
-	PendingPeaCode       string         `gorm:"size:10" json:"pending_pea_code,omitempty"` // รหัสกฟฟ. ปลายทางที่รอการยืนยัน
+	AssignedToTechnician    *uint          `json:"assigned_to_technician,omitempty"`
+	CreateRemarks           string         `json:"create_remarks,omitempty"`
+	PendingPeaCode          string         `gorm:"size:10" json:"pending_pea_code,omitempty"` // รหัสกฟฟ. ปลายทางที่รอการยืนยัน
+	TransferredByTechnician *uint          `json:"transferred_by_technician,omitempty"` // ✅ เก็บ ID ของศูนย์งาน/ช่างที่โอนซีลต่อให้ช่างคนสุดท้าย
 
 	// ✅ เพิ่มฟิลด์เก็บลิงก์รูปภาพ
 	// image1 = รูปซีลที่ติดตั้ง, image2 = รูปซีลที่คืน, image3 = รูปมิเตอร์
