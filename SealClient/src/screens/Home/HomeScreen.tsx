@@ -58,22 +58,25 @@ export const HomeScreen: React.FC = () => {
                         title="ซีลทั้งหมดในคลัง"
                         count={stats ? stats.total_seals.toLocaleString() : "-"}
                         color={colors.primaryPurple}
-                        onPress={() => (navigation as any).navigate('Inventory', { screen: 'SealInventory' })}
+                        onPress={() => (navigation as any).navigate('Inventory', { screen: 'SealInventory', params: { filter: 'สถานะทั้งหมด' } })}
                     />
                     <StatusCard
                         title="พร้อมใช้งาน (ในคลัง)"
                         count={stats ? stats[SealStatus.READY].toLocaleString() : "-"}
                         color={colors.accentYellow}
+                        onPress={() => (navigation as any).navigate('Inventory', { screen: 'SealInventory', params: { filter: SealStatus.READY } })}
                     />
                     <StatusCard
                         title="อยู่ระหว่างปฏิบัติงาน"
                         count={stats ? stats[SealStatus.ISSUED].toLocaleString() : "-"}
                         color={colors.accentBlue}
+                        onPress={() => (navigation as any).navigate('Inventory', { screen: 'SealInventory', params: { filter: SealStatus.ISSUED } })}
                     />
                     <StatusCard
                         title="ติดตั้งเสร็จสิ้น (วันนี้)"
                         count={stats ? stats[SealStatus.INSTALLED].toLocaleString() : "-"}
                         color={colors.accentGreen}
+                        onPress={() => (navigation as any).navigate('Inventory', { screen: 'SealInventory', params: { filter: SealStatus.INSTALLED } })}
                     />
                     {stats && stats.pending_transfer_in > 0 && (
                         <StatusCard
