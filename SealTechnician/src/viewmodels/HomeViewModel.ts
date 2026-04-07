@@ -68,7 +68,7 @@ export const useHomeViewModel = (specificTechId?: number) => {
                     const sealPea = (s.pea_code || '').trim();
                     const isReadyInventory = s.status === SealStatus.READY && !s.assigned_to_technician;
                     const isDirectlyAssigned = s.status === SealStatus.ISSUED && s.assigned_to_technician === currentUserId;
-                    
+
                     return sealPea === userPea &&
                         (isReadyInventory || isDirectlyAssigned) &&
                         s.return_remarks !== 'ไม่ได้ใช้งาน (คืนคลัง)';

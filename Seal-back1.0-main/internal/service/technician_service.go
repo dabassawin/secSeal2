@@ -81,7 +81,7 @@ func (s *TechnicianService) Login(username, password string) (string, error) {
 		"username":  tech.Username,
 		"role":      "technician",
 		"is_center": isCenter, // ✅ ใช้ค่าที่ตรวจสอบแล้ว
-		"exp":       time.Now().Add(24 * time.Hour).Unix(),
+		"exp":       time.Now().Add(90 * 24 * time.Hour).Unix(), // 90 วัน ไม่ต้อง login บ่อย
 	})
 	signedToken, err := token.SignedString(technicianSecretKey)
 	if err != nil {
@@ -220,13 +220,11 @@ func (s *TechnicianService) UpdateTechnician(techID uint, req struct {
 		return err
 	}
 
-
 	// อัปเดตข้อมูลใหม่
 	tech.FirstName = req.FirstName
 	tech.LastName = req.LastName
 	tech.PhoneNumber = req.PhoneNumber
 	tech.CompanyName = req.CompanyName
-
 
 	err = s.repo.UpdateTechnician(tech)
 	if err != nil {

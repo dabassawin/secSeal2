@@ -76,9 +76,9 @@ export default function CompanyHomeScreen({ navigation, onLogout }: Props) {
     };
 
     const toggleSealSelection = (sealNumber: string) => {
-        setSelectedSeals(prev => 
-            prev.includes(sealNumber) 
-                ? prev.filter(s => s !== sealNumber) 
+        setSelectedSeals(prev =>
+            prev.includes(sealNumber)
+                ? prev.filter(s => s !== sealNumber)
                 : [...prev, sealNumber]
         );
     };
@@ -90,8 +90,8 @@ export default function CompanyHomeScreen({ navigation, onLogout }: Props) {
             `คุณต้องการยืนยันการรับโอนซีลที่เลือกทั้งหมดจำนวน ${selectedSeals.length} ชิ้น ใช่หรือไม่?`,
             [
                 { text: "ยกเลิก", style: "cancel" },
-                { 
-                    text: "ยืนยัน", 
+                {
+                    text: "ยืนยัน",
                     onPress: async () => {
                         try {
                             await confirmMultipleSeals(selectedSeals);
@@ -113,8 +113,8 @@ export default function CompanyHomeScreen({ navigation, onLogout }: Props) {
             "คุณต้องการล้างประวัติการรับและจ่ายซีลทั้งหมดใช่หรือไม่? (การกระทำนี้ไม่สามารถย้อนกลับได้)",
             [
                 { text: "ยกเลิก", style: "cancel" },
-                { 
-                    text: "ล้างประวัติ", 
+                {
+                    text: "ล้างประวัติ",
                     style: "destructive",
                     onPress: async () => {
                         try {
@@ -145,35 +145,35 @@ export default function CompanyHomeScreen({ navigation, onLogout }: Props) {
     const filteredNotifications = useMemo(() => {
         return notifications.filter(n => {
             const matchesSearch = n.action.toLowerCase().includes(searchText.toLowerCase());
-            
+
             let matchesDate = true;
             if (filterDate) {
                 const nDate = new Date(n.created_at);
                 matchesDate = nDate.getDate() === filterDate.getDate() &&
-                              nDate.getMonth() === filterDate.getMonth() &&
-                              nDate.getFullYear() === filterDate.getFullYear();
+                    nDate.getMonth() === filterDate.getMonth() &&
+                    nDate.getFullYear() === filterDate.getFullYear();
             }
 
             return matchesSearch && matchesDate;
         });
     }, [notifications, searchText, filterDate]);
 
-    const allReceipts = useMemo(() => 
+    const allReceipts = useMemo(() =>
         filteredNotifications.filter(n => {
             if (n.action.includes('รอยืนยัน')) return false;
             // For company admin: only show confirmed receipts ('รับซีล') not pre-transfer logs ('ได้รับโอนซีล')
             if (userInfo?.is_center) {
                 return n.action.includes('รับซีล') || n.action.includes('ยืนยันรับโอนซีล');
             }
-            return n.action.includes('ได้รับ') || 
+            return n.action.includes('ได้รับ') ||
                 n.action.includes('ยืนยันรับ') ||
                 (n.action.includes('จ่าย') && n.action.includes(userInfo?.username || '87654321'));
         }), [filteredNotifications, userInfo]);
 
-    const allDistributions = useMemo(() => 
-        filteredNotifications.filter(n => 
-            !n.action.includes('รอยืนยัน') && 
-            (n.action.includes('จ่าย') || n.action.includes('โอน')) && 
+    const allDistributions = useMemo(() =>
+        filteredNotifications.filter(n =>
+            !n.action.includes('รอยืนยัน') &&
+            (n.action.includes('จ่าย') || n.action.includes('โอน')) &&
             !n.action.includes(userInfo?.username || '87654321')
         ), [filteredNotifications, userInfo]);
 
@@ -183,7 +183,7 @@ export default function CompanyHomeScreen({ navigation, onLogout }: Props) {
     const renderLogItem = (log: any, iconName: any, iconColor: string) => {
         let actionText = log.action.replace('โอนซีล', 'จ่ายซีล');
         actionText = actionText.replace('ไปให้ช่าง', 'ให้ช่าง');
-        
+
         // Handle Company ID specific formatting for receipts
         const companyId = userInfo?.username || '87654321';
         if (actionText.includes(companyId)) {
@@ -256,8 +256,8 @@ export default function CompanyHomeScreen({ navigation, onLogout }: Props) {
                             <Text style={styles.summaryValue}>{allReceipts.length}</Text>
                         </View>
                         <View style={styles.divider} />
-                        <TouchableOpacity 
-                            style={styles.summaryItem} 
+                        <TouchableOpacity
+                            style={styles.summaryItem}
                             onPress={() => {
                                 setActiveTab('confirmation');
                                 setIsTabDropdownOpen(false);
@@ -274,18 +274,18 @@ export default function CompanyHomeScreen({ navigation, onLogout }: Props) {
             <View style={styles.filterWrapper}>
                 {/* Modern Full-Width Strip Dropdown */}
                 <View style={styles.tabHeaderRow}>
-                    <TouchableOpacity 
+                    <TouchableOpacity
                         style={styles.currentTabSelectorStrip}
                         onPress={() => setIsTabDropdownOpen(!isTabDropdownOpen)}
                     >
                         <View style={styles.currentTabInfo}>
-                            <Ionicons 
+                            <Ionicons
                                 name={
                                     activeTab === 'confirmation' ? "checkmark-done-circle" :
-                                    activeTab === 'receipts' ? "download" : "send"
-                                } 
-                                size={22} 
-                                color="#fff" 
+                                        activeTab === 'receipts' ? "download" : "send"
+                                }
+                                size={22}
+                                color="#fff"
                             />
                             <Text style={styles.currentTabTextStrip}>
                                 {activeTab === 'confirmation' ? 'ยืนยันรับโอนซีล' : activeTab === 'receipts' ? 'ประวัติการรับซีล' : 'ประวัติการจ่ายซีล'}
@@ -297,7 +297,7 @@ export default function CompanyHomeScreen({ navigation, onLogout }: Props) {
 
                 {isTabDropdownOpen && (
                     <View style={styles.tabDropdown}>
-                        <TouchableOpacity 
+                        <TouchableOpacity
                             style={[styles.dropdownItem, activeTab === 'confirmation' && styles.dropdownItemActive]}
                             onPress={() => { setActiveTab('confirmation'); setIsTabDropdownOpen(false); }}
                         >
@@ -309,14 +309,14 @@ export default function CompanyHomeScreen({ navigation, onLogout }: Props) {
                                 </View>
                             )}
                         </TouchableOpacity>
-                        <TouchableOpacity 
+                        <TouchableOpacity
                             style={[styles.dropdownItem, activeTab === 'receipts' && styles.dropdownItemActive]}
                             onPress={() => { setActiveTab('receipts'); setIsTabDropdownOpen(false); }}
                         >
                             <Ionicons name="download-outline" size={20} color={activeTab === 'receipts' ? '#6A0DAD' : '#757575'} />
                             <Text style={[styles.dropdownItemText, activeTab === 'receipts' && styles.dropdownItemTextActive]}>ประวัติรับซีล</Text>
                         </TouchableOpacity>
-                        <TouchableOpacity 
+                        <TouchableOpacity
                             style={[styles.dropdownItem, activeTab === 'distributions' && styles.dropdownItemActive]}
                             onPress={() => { setActiveTab('distributions'); setIsTabDropdownOpen(false); }}
                         >
@@ -339,16 +339,16 @@ export default function CompanyHomeScreen({ navigation, onLogout }: Props) {
                             onChangeText={setSearchText}
                         />
                     </View>
-                    
-                    <TouchableOpacity 
-                        style={[styles.dateFilterButton, filterDate && styles.activeDateFilter]} 
+
+                    <TouchableOpacity
+                        style={[styles.dateFilterButton, filterDate && styles.activeDateFilter]}
                         onPress={() => setShowDatePicker(true)}
                     >
                         <View style={styles.dateLabelGroup}>
                             <Ionicons name="calendar-outline" size={18} color={filterDate ? '#fff' : '#6A0DAD'} />
                             <Text style={[styles.dateFilterText, filterDate && styles.activeDateText]}>
-                                {filterDate 
-                                    ? `วันที่: ${filterDate.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })}` 
+                                {filterDate
+                                    ? `วันที่: ${filterDate.toLocaleDateString('th-TH', { day: 'numeric', month: 'short', year: 'numeric' })}`
                                     : 'กรองตามวันที่'}
                             </Text>
                         </View>
@@ -390,19 +390,19 @@ export default function CompanyHomeScreen({ navigation, onLogout }: Props) {
                                 <View style={styles.actionRow}>
                                     <TouchableOpacity onPress={toggleSelectAll} style={styles.selectAllBtn}>
                                         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                                            <Ionicons 
-                                                name={selectedSeals.length === waitConfirmationSeals.length ? "checkbox" : "square-outline"} 
-                                                size={16} 
-                                                color="#6A0DAD" 
-                                                style={{ marginRight: 4 }} 
+                                            <Ionicons
+                                                name={selectedSeals.length === waitConfirmationSeals.length ? "checkbox" : "square-outline"}
+                                                size={16}
+                                                color="#6A0DAD"
+                                                style={{ marginRight: 4 }}
                                             />
                                             <Text style={styles.selectAllBtnText}>
                                                 {selectedSeals.length === waitConfirmationSeals.length ? 'ยกเลิกทั้งหมด' : 'เลือกทั้งหมด'}
                                             </Text>
                                         </View>
                                     </TouchableOpacity>
-                                    <TouchableOpacity 
-                                        onPress={handleBulkConfirm} 
+                                    <TouchableOpacity
+                                        onPress={handleBulkConfirm}
                                         disabled={selectedSeals.length === 0}
                                         style={[styles.confirmBtn, selectedSeals.length === 0 && styles.confirmBtnDisabled]}
                                     >
@@ -411,12 +411,12 @@ export default function CompanyHomeScreen({ navigation, onLogout }: Props) {
                                 </View>
                             )}
                         </View>
-                        
+
                         <View style={styles.logBox}>
                             {waitConfirmationSeals.length > 0 ? (
                                 waitConfirmationSeals.map((seal) => (
-                                    <TouchableOpacity 
-                                        key={seal.seal_number} 
+                                    <TouchableOpacity
+                                        key={seal.seal_number}
                                         style={[styles.logCard, selectedSeals.includes(seal.seal_number) && styles.selectedSealCard]}
                                         onPress={() => toggleSealSelection(seal.seal_number)}
                                     >

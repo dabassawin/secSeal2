@@ -6,6 +6,7 @@ import LoginScreen from './src/views/LoginScreen';
 import AppNavigator from './src/navigation/AppNavigator';
 import CompanyNavigator from './src/navigation/CompanyNavigator';
 import { AuthService } from './src/services/AuthService';
+import { parseJwt } from './src/utils/jwt';
 
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -20,6 +21,12 @@ export default function App() {
     try {
       const token = await AuthService.getToken();
       if (token) {
+        // ✅ ถ้า token หมดอายุ (หลัง 90 วัน) → ล้างออกและให้ login ใหม่
+        // ป้องกัน error loop แทนที่จะเอา token หมดอายุไปเข้าแอป
+        if (isTokenExpired(token)) {
+          await AuthService.logout();
+          return; // isAuthenticated ยังเป็น false → แสดงหน้า Login
+        }
         const centerStatus = await AuthService.getIsCenter();
         setIsCenter(centerStatus);
         setIsAuthenticated(true);
@@ -27,6 +34,17 @@ export default function App() {
     } catch (error) {
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  // ✅ ตรวจสอบ JWT token expiry ฝั่ง client โดยไม่ต้องเรียก API
+  const isTokenExpired = (token: string): boolean => {
+    try {
+      const payload = parseJwt(token);
+      if (!payload || !payload.exp) return true;
+      return payload.exp < Math.floor(Date.now() / 1000);
+    } catch {
+      return true;
     }
   };
 
