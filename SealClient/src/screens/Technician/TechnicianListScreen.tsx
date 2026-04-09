@@ -29,7 +29,7 @@ export const TechnicianListScreen: React.FC = () => {
     const getImageUrl = (path?: string) => {
         if (!path) return null;
         if (path.startsWith('http')) return path;
-        const baseURL = api.defaults.baseURL || 'http://192.168.1.28:3000';
+        const baseURL = api.defaults.baseURL || 'http://172.22.1.40:3000';
         return `${baseURL.replace(/\/$/, '')}/${path.replace(/^\//, '')}`;
     };
 
