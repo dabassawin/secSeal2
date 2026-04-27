@@ -542,7 +542,7 @@ export const TechnicianListScreen: React.FC = () => {
                                             secureTextEntry={!showPassword}
                                         />
                                         <TouchableOpacity style={styles.eyeBtn} onPress={() => setShowPassword(!showPassword)}>
-                                            <Text style={{ fontSize: 18 }}>{showPassword ? '👁️' : '🙈'}</Text>
+                                            <Text style={{ fontSize: 18 }}>{showPassword ? '👁️' : '🔒'}</Text>
                                         </TouchableOpacity>
                                     </View>
                                 </View>
