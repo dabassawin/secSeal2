@@ -12,7 +12,7 @@ const getLocalServerIp = () => {
     return hostUri.split(':')[0];
   }
   // Fallback IP if not running in development or not via Expo Go
-  return '172.17.48.1';
+  return '192.168.1.35';
 };
 
 const SERVER_IP = getLocalServerIp();
