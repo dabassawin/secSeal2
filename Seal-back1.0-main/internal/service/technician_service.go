@@ -11,6 +11,7 @@ import (
 	"github.com/Kev2406/PEA/internal/domain/model"
 	"github.com/Kev2406/PEA/internal/domain/repository"
 	"github.com/Kev2406/PEA/internal/realtime"
+	"github.com/Kev2406/PEA/internal/utils"
 
 	//"github.com/Kev2406/PEA/internal/uploads"
 
@@ -20,17 +21,23 @@ import (
 
 var technicianSecretKey = []byte("your-technician-secret-key")
 
-// notifyTechnicianAsync is a helper to fire off push notifications without blocking responses
-/*
+// notifyTechnicianAsync fires notifications via two channels:
+// 1. WebSocket broadcast — instant, works when app is open (foreground)
+// 2. Expo Push API   — works when app is in background OR completely closed
 func (s *TechnicianService) notifyTechnicianAsync(techID uint, title, body string) {
+	// 1️⃣ WebSocket for foreground
+	msg := fmt.Sprintf("notification:%s:%s", title, body)
+	s.hub.Broadcast(fmt.Sprintf("tech_%d", techID), msg)
+
+	// 2️⃣ Expo Push for background / killed
 	go func() {
 		tech, err := s.repo.FindByID(techID)
-		if err == nil && tech.ExpoPushToken != "" {
-			utils.SendExpoPushNotification(tech.ExpoPushToken, title, body, nil)
+		if err != nil || tech.ExpoPushToken == "" {
+			return
 		}
+		_ = utils.SendExpoPushNotification(tech.ExpoPushToken, title, body, nil)
 	}()
 }
-*/
 
 // TechnicianService รับผิดชอบ business logic สำหรับการลงทะเบียนและล็อกอินของช่าง
 type TechnicianService struct {
@@ -359,6 +366,7 @@ func (s *TechnicianService) TransferSeals(centerID uint, targetTechID uint, seal
 		if err == nil {
 			s.hub.Broadcast(seal.PeaCode, "seal_updated")
 		}
+		s.notifyTechnicianAsync(targetTechID, "ได้รับซีลใหม่", fmt.Sprintf("มีซีลถูกส่งมาให้คุณยืนยันจำนวน %d อัน", len(sealNumbers)))
 	}
 
 	return nil

@@ -348,5 +348,24 @@ export const TechnicianService = {
             console.error('Confirm Receipt Error:', error);
             throw error;
         }
-    }
+    },
+
+    // ✅ ส่ง Expo Push Token ไปบันทึกที่ Backend เพื่อใช้แจ้งเตือนแม้แอปปิด
+    async updatePushToken(expoPushToken: string): Promise<void> {
+        try {
+            const token = await SecureStore.getItemAsync('userToken');
+            if (!token) throw new Error('No token found');
+
+            await fetch(getApiUrl('/technician/device-token'), {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ expo_push_token: expoPushToken }),
+            });
+        } catch (error) {
+            console.error('Update Push Token Error:', error);
+        }
+    },
 };
