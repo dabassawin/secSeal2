@@ -11,7 +11,6 @@ import (
 	"github.com/Kev2406/PEA/internal/domain/model"
 	"github.com/Kev2406/PEA/internal/domain/repository"
 	"github.com/Kev2406/PEA/internal/realtime"
-	"github.com/Kev2406/PEA/internal/utils"
 
 	//"github.com/Kev2406/PEA/internal/uploads"
 
@@ -22,6 +21,7 @@ import (
 var technicianSecretKey = []byte("your-technician-secret-key")
 
 // notifyTechnicianAsync is a helper to fire off push notifications without blocking responses
+/*
 func (s *TechnicianService) notifyTechnicianAsync(techID uint, title, body string) {
 	go func() {
 		tech, err := s.repo.FindByID(techID)
@@ -30,6 +30,7 @@ func (s *TechnicianService) notifyTechnicianAsync(techID uint, title, body strin
 		}
 	}()
 }
+*/
 
 // TechnicianService รับผิดชอบ business logic สำหรับการลงทะเบียนและล็อกอินของช่าง
 type TechnicianService struct {
@@ -358,7 +359,6 @@ func (s *TechnicianService) TransferSeals(centerID uint, targetTechID uint, seal
 		if err == nil {
 			s.hub.Broadcast(seal.PeaCode, "seal_updated")
 		}
-		s.notifyTechnicianAsync(targetTechID, "ได้รับซีลใหม่", fmt.Sprintf("มีซีลถูกส่งมาให้คุณยืนยันจำนวน %d อัน", len(sealNumbers)))
 	}
 
 	return nil
