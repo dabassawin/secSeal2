@@ -7,15 +7,26 @@ import AppNavigator from './src/navigation/AppNavigator';
 import CompanyNavigator from './src/navigation/CompanyNavigator';
 import { AuthService } from './src/services/AuthService';
 import { parseJwt } from './src/utils/jwt';
+import { usePushNotifications } from './src/hooks/usePushNotifications';
 
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isCenter, setIsCenter] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Push Notifications Setup
+  const { expoPushToken } = usePushNotifications();
+
   useEffect(() => {
     checkLoginStatus();
   }, []);
+
+  useEffect(() => {
+    // When both authenticated and push token is ready, send it to backend
+    if (isAuthenticated && expoPushToken) {
+      AuthService.updateDeviceToken(expoPushToken).catch(console.error);
+    }
+  }, [isAuthenticated, expoPushToken]);
 
   const checkLoginStatus = async () => {
     try {
