@@ -9,6 +9,7 @@ import { userService } from '@/services/userService';
 import { useAuth } from '@/context/AuthContext';
 import { Technician } from '@/types';
 import { SealStatus } from '../../constants/status';
+import { generateAssignPDF } from '@/utils/generateAssignPDF';
 
 type EntryMode = 'scan' | 'range';
 
@@ -317,6 +318,30 @@ export const AssignSealScreen: React.FC = () => {
                 undefined,
                 Object.keys(sealRemarksMap).length > 0 ? sealRemarksMap : undefined
             );
+
+            // เปิด PDF ใบจ่ายซีลอัตโนมัติ (web only)
+            try {
+                generateAssignPDF({
+                    sealNumbers: sealList,
+                    technician: {
+                        first_name: selectedTech.first_name,
+                        last_name: selectedTech.last_name,
+                        technician_code: selectedTech.technician_code,
+                        pea_code: selectedTech.pea_code,
+                        company_name: selectedTech.company_name,
+                        is_center: selectedTech.is_center,
+                    },
+                    issuer: {
+                        first_name: user?.first_name,
+                        last_name: user?.last_name,
+                        username: user?.username || '',
+                        pea_code: user?.pea_code,
+                    },
+                    peaName: getPeaName(user?.pea_code),
+                });
+            } catch (pdfErr) {
+                console.warn('PDF generation failed:', pdfErr);
+            }
 
             setModalStatus('success');
             setModalMessage(`มอบหมายซีลจำนวน ${sealList.length} รายการ เรียบร้อยแล้ว`);
