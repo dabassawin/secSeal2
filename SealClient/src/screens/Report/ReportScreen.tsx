@@ -163,9 +163,9 @@ const exportCSV = (items: SealReportItem[]) => {
         item.returned_by_technician_name || '-',
         item.returned_by_name || '-',
         item.installed_serial || '-',
-        formatDate(item.created_at),
-        formatDate(item.issued_at),
-        formatDate(item.used_at),
+        formatDate(item.created_at) + '\u200B',
+        formatDate(item.issued_at) + '\u200B',
+        formatDate(item.used_at) + '\u200B',
     ]);
     const csvContent = '\uFEFF' + [headers.join(','), ...rows.map(r => r.map(c => `"${c}"`).join(','))].join('\n');
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });

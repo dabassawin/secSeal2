@@ -14,22 +14,30 @@ import (
 	"github.com/Kev2406/PEA/internal/domain/model"
 	"github.com/Kev2406/PEA/internal/domain/repository"
 	"github.com/Kev2406/PEA/internal/dto"
+	"github.com/Kev2406/PEA/internal/utils"
 
 	"github.com/Kev2406/PEA/internal/realtime"
 	"gorm.io/gorm"
 )
 
-// notifyTechnicianAsync is a helper to fire off push notifications without blocking responses
+// notifyTechnicianAsync fires notifications via two channels:
+// 1. WebSocket broadcast — instant, works when app is open (foreground)
+// 2. Expo Push API   — works when app is in background OR completely closed
 func (s *SealService) notifyTechnicianAsync(techID uint, title, body string) {
-	/*
-		go func() {
-			tech, err := s.technicianRepo.FindByID(techID)
-			if err == nil && tech.ExpoPushToken != "" {
-				utils.SendExpoPushNotification(tech.ExpoPushToken, title, body, nil)
-			}
-		}()
-	*/
+	// 1️⃣ WebSocket for foreground
+	msg := fmt.Sprintf("notification:%s:%s", title, body)
+	s.hub.Broadcast(fmt.Sprintf("tech_%d", techID), msg)
+
+	// 2️⃣ Expo Push for background / killed
+	go func() {
+		tech, err := s.technicianRepo.FindByID(techID)
+		if err != nil || tech.ExpoPushToken == "" {
+			return
+		}
+		_ = utils.SendExpoPushNotification(tech.ExpoPushToken, title, body, nil)
+	}()
 }
+
 
 // SealService จัดการทุกอย่างฝั่ง Seal (รวมถึง AssignSealsToTechnicianCode ด้วย)
 type SealService struct {
@@ -365,6 +373,7 @@ func (s *SealService) IssueSealWithDetails(sealNumber string, issuedTo uint, emp
 
 	if err == nil {
 		s.hub.Broadcast(seal.PeaCode, "seal_updated")
+		s.notifyTechnicianAsync(issuedTo, "ได้รับซีลใหม่", fmt.Sprintf("มีซีลส่งมาให้คุณยืนยัน: %s", sealNumber))
 	}
 	return err
 }
@@ -575,6 +584,7 @@ func (s *SealService) AssignSealToTechnician(sealNumber string, techID uint, iss
 
 	if err == nil {
 		s.hub.Broadcast(seal.PeaCode, "seal_updated")
+		s.notifyTechnicianAsync(techID, "ได้รับซีลใหม่", fmt.Sprintf("มีซีลส่งมาให้คุณยืนยัน: %s", sealNumber))
 	}
 	return err
 }
@@ -693,6 +703,7 @@ func (s *SealService) IssueMultipleSeals(
 
 	if len(sealsToIssue) > 0 {
 		s.hub.Broadcast(sealsToIssue[0].PeaCode, "seal_updated")
+		s.notifyTechnicianAsync(issuedTo, "ได้รับซีลใหม่", fmt.Sprintf("มีซีลส่งมาให้คุณยืนยันจำนวน %d อัน", len(sealsToIssue)))
 	}
 
 	return sealsToIssue, nil
@@ -1163,6 +1174,8 @@ type PendingReturnItem struct {
 	ReturnRemarks  string     `json:"return_remarks"`
 	ReturnedAt     *time.Time `json:"returned_at"`
 	Image1         string     `json:"image1,omitempty"`
+	Image2         string     `json:"image2,omitempty"`
+	Image3         string     `json:"image3,omitempty"`
 	TechnicianID   *uint      `json:"technician_id"`
 	TechnicianName string     `json:"technician_name"`
 	TechnicianCode string     `json:"technician_code"`
@@ -1174,7 +1187,7 @@ func (s *SealService) GetPendingReturns(peaCode string) ([]PendingReturnItem, er
 
 	query := s.db.Table("seals").
 		Select(`seals.id, seals.seal_number, seals.status, seals.pea_code,
-			seals.return_remarks, seals.returned_at, seals.image1,
+			seals.return_remarks, seals.returned_at, seals.image1, seals.image2, seals.image3,
 			seals.returned_by_technician as technician_id,
 			COALESCE(t.first_name || ' ' || t.last_name, '') as technician_name,
 			COALESCE(t.technician_code, '') as technician_code`).

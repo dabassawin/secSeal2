@@ -5,7 +5,7 @@ import { Header } from '@/components/dashboard';
 import { sealService } from '@/services/sealService';
 import { userService } from '@/services/userService';
 import { Seal } from '@/types';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useNavigation, useFocusEffect, useRoute } from '@react-navigation/native';
 import { useAuth } from '@/context/AuthContext';
 import { SealStatus } from '../../constants/status';
 import { useRealtime } from '@/hooks/useRealtime';
@@ -98,8 +98,8 @@ const Checkbox: React.FC<{ checked: boolean; onPress: () => void; partial?: bool
 // ─── Main Screen ─────────────────────────────────────────────────────────
 export const SealInventoryScreen: React.FC = () => {
     const navigation = useNavigation();
+    const route = useRoute<any>();
     const { user } = useAuth();
-    const route = (navigation as any).getState().routes.find((r: any) => r.name === 'Inventory');
     const routeParams = route?.params as { filter?: string } | undefined;
     const userPeaCode = user?.pea_code as string | undefined;
 
@@ -170,20 +170,16 @@ export const SealInventoryScreen: React.FC = () => {
 
     useFocusEffect(
         useCallback(() => {
-            // Find the pending parameter either from direct Inventory params or nested
-            const invRoute = (navigation as any).getState().routes.find((r: any) => r.name === 'Inventory');
-            const invParams = invRoute?.params as any;
-            const filterValue = invParams?.filter || invParams?.params?.filter;
+            const filterValue = route.params?.filter;
 
             if (filterValue) {
                 setStatusFilter(filterValue);
                 // Clear the param after using it so it doesn't stick
                 navigation.setParams({ filter: undefined } as any);
-                navigation.getParent()?.setParams({ filter: undefined, params: undefined } as any);
             }
             fetchSeals();
             fetchMasPea();
-        }, [userPeaCode])
+        }, [userPeaCode, route.params?.filter])
     );
 
     // ✅ Real-time Updates

@@ -121,6 +121,7 @@ func (tc *TechnicianController) RegisterHandler(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{
 		"message":         "Technician registered successfully",
 		"technician_code": tech.TechnicianCode,
+		"id":              tech.ID,
 	})
 }
 
@@ -411,6 +412,35 @@ func (tc *TechnicianController) UpdateTechnicianHandler(c *fiber.Ctx) error {
 	}
 
 	return c.JSON(fiber.Map{"message": "Technician updated successfully"})
+}
+
+// UploadProfilePicHandler handles POST /api/technician/:id/profile-pic
+func (tc *TechnicianController) UploadProfilePicHandler(c *fiber.Ctx) error {
+	techIDStr := c.Params("id")
+	techID, err := strconv.Atoi(techIDStr)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid technician ID"})
+	}
+
+	file, err := c.FormFile("profile_pic")
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Profile picture is required"})
+	}
+
+	imageURL, err := uploads.SaveImage(file)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to save image"})
+	}
+
+	err = tc.technicianService.UpdateProfilePic(uint(techID), imageURL)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	return c.JSON(fiber.Map{
+		"message":     "Profile picture updated successfully",
+		"profile_pic": imageURL,
+	})
 }
 
 func (tc *TechnicianController) ImportTechniciansHandler(c *fiber.Ctx) error {

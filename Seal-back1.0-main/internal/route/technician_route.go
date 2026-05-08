@@ -20,6 +20,7 @@ func SetupTechnicianRoutes(router fiber.Router, techController *controller.Techn
 
 	tech.Put("/update/:id", techController.UpdateTechnicianHandler)    // อัปเดตข้อมูลช่าง
 	tech.Delete("/delete/:id", techController.DeleteTechnicianHandler) // ลบข้อมูลช่าง
+	tech.Post("/:id/profile-pic", techController.UploadProfilePicHandler) // อัปโหลดรูปโปรไฟล์ช่าง
 
 	// 🔹 Protected Routes สำหรับ User ปกติ (ใช้ regular JWT)
 	// สมัครก่อนที่จะมีการ Use TechnicianJWTMiddleware เพื่อป้องกัน middleware ตีกัน

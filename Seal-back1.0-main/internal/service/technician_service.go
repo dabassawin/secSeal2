@@ -11,6 +11,7 @@ import (
 	"github.com/Kev2406/PEA/internal/domain/model"
 	"github.com/Kev2406/PEA/internal/domain/repository"
 	"github.com/Kev2406/PEA/internal/realtime"
+	"github.com/Kev2406/PEA/internal/utils"
 
 	//"github.com/Kev2406/PEA/internal/uploads"
 
@@ -20,18 +21,23 @@ import (
 
 var technicianSecretKey = []byte("your-technician-secret-key")
 
-// notifyTechnicianAsync is a helper to fire off push notifications without blocking responses
-/*
+// notifyTechnicianAsync fires notifications via two channels:
+// 1. WebSocket broadcast — instant, works when app is open (foreground)
+// 2. Expo Push API   — works when app is in background OR completely closed
 func (s *TechnicianService) notifyTechnicianAsync(techID uint, title, body string) {
+	// 1️⃣ WebSocket for foreground
+	msg := fmt.Sprintf("notification:%s:%s", title, body)
+	s.hub.Broadcast(fmt.Sprintf("tech_%d", techID), msg)
+
+	// 2️⃣ Expo Push for background / killed
 	go func() {
 		tech, err := s.repo.FindByID(techID)
-		if err == nil && tech.ExpoPushToken != "" {
-			// Assuming utils.SendExpoPushNotification exists and is imported
-			// utils.SendExpoPushNotification(tech.ExpoPushToken, title, body, nil)
+		if err != nil || tech.ExpoPushToken == "" {
+			return
 		}
+		_ = utils.SendExpoPushNotification(tech.ExpoPushToken, title, body, nil)
 	}()
 }
-*/
 
 // TechnicianService รับผิดชอบ business logic สำหรับการลงทะเบียนและล็อกอินของช่าง
 type TechnicianService struct {
@@ -81,7 +87,7 @@ func (s *TechnicianService) Login(username, password string) (string, error) {
 		"username":  tech.Username,
 		"role":      "technician",
 		"is_center": isCenter, // ✅ ใช้ค่าที่ตรวจสอบแล้ว
-		"exp":       time.Now().Add(24 * time.Hour).Unix(),
+		"exp":       time.Now().Add(90 * 24 * time.Hour).Unix(), // 90 วัน ไม่ต้อง login บ่อย
 	})
 	signedToken, err := token.SignedString(technicianSecretKey)
 	if err != nil {
@@ -220,13 +226,11 @@ func (s *TechnicianService) UpdateTechnician(techID uint, req struct {
 		return err
 	}
 
-
 	// อัปเดตข้อมูลใหม่
 	tech.FirstName = req.FirstName
 	tech.LastName = req.LastName
 	tech.PhoneNumber = req.PhoneNumber
 	tech.CompanyName = req.CompanyName
-
 
 	err = s.repo.UpdateTechnician(tech)
 	if err != nil {
@@ -234,6 +238,16 @@ func (s *TechnicianService) UpdateTechnician(techID uint, req struct {
 	}
 
 	return nil
+}
+
+// UpdateProfilePic updates a technician's profile picture URL
+func (s *TechnicianService) UpdateProfilePic(techID uint, imageURL string) error {
+	tech, err := s.repo.FindByID(techID)
+	if err != nil {
+		return err
+	}
+	tech.ProfilePic = imageURL
+	return s.repo.UpdateTechnician(tech)
 }
 
 func (s *TechnicianService) GetAllTechnicians(peaCode string, isPrefix bool, comCode string) ([]model.Technician, error) {
@@ -326,6 +340,7 @@ func (s *TechnicianService) TransferSeals(centerID uint, targetTechID uint, seal
 		seal.AssignedToTechnician = &targetTechID
 		seal.IssuedTo = &targetTechID
 		seal.Status = string(constants.StatusWaitConfirmation)
+		seal.TransferredByTechnician = &centerID // ✅ บันทึกว่าศูนย์งานนี้เป็นผู้จ่ายซีล
 
 		if err := s.repo.UpdateSeal(seal); err != nil {
 			return fmt.Errorf("เกิดข้อผิดพลาดในการโอนซีล %s: %v", sealNum, err)
@@ -351,6 +366,7 @@ func (s *TechnicianService) TransferSeals(centerID uint, targetTechID uint, seal
 		if err == nil {
 			s.hub.Broadcast(seal.PeaCode, "seal_updated")
 		}
+		s.notifyTechnicianAsync(targetTechID, "ได้รับซีลใหม่", fmt.Sprintf("มีซีลถูกส่งมาให้คุณยืนยันจำนวน %d อัน", len(sealNumbers)))
 	}
 
 	return nil

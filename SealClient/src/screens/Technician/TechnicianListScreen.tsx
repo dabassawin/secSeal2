@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
     View, Text, StyleSheet, TouchableOpacity, ScrollView, TextInput,
-    ActivityIndicator, Modal, FlatList, Platform
+    ActivityIndicator, Modal, FlatList, Platform, Image
 } from 'react-native';
 import { useNavigation, useFocusEffect, useRoute } from '@react-navigation/native';
 import { colors, sizes } from '@/constants';
@@ -11,6 +11,7 @@ import { userService } from '@/services/userService';
 import { masComService } from '@/services/masComService';
 import { useAuth } from '@/context/AuthContext';
 import { Technician } from '@/types';
+import api from '@/services/api';
 
 export const TechnicianListScreen: React.FC = () => {
     const navigation = useNavigation();
@@ -24,6 +25,13 @@ export const TechnicianListScreen: React.FC = () => {
     const [deptFilter, setDeptFilter] = useState('');
 
     const [masPeaList, setMasPeaList] = useState<any[]>([]);
+
+    const getImageUrl = (path?: string) => {
+        if (!path) return null;
+        if (path.startsWith('http')) return path;
+        const baseURL = api.defaults.baseURL || 'http://172.22.1.40:3000';
+        return `${baseURL.replace(/\/$/, '')}/${path.replace(/^\//, '')}`;
+    };
 
     // ──────────── Edit Modal State ────────────
     const [editModalVisible, setEditModalVisible] = useState(false);
@@ -43,6 +51,8 @@ export const TechnicianListScreen: React.FC = () => {
     };
     const [formData, setFormData] = useState(emptyForm);
     const [formErrors, setFormErrors] = useState<Record<string, string>>({});
+    const [editProfileImage, setEditProfileImage] = useState<File | null>(null);
+    const [editPreviewUri, setEditPreviewUri] = useState<string | null>(null);
 
     // MasCom selection for edit modal
     const [showComModal, setShowComModal] = useState(false);
@@ -159,14 +169,42 @@ export const TechnicianListScreen: React.FC = () => {
         );
         setFormErrors({});
         setShowPassword(false);
+        setEditProfileImage(null);
+        setEditPreviewUri(tech.profile_pic ? getImageUrl(tech.profile_pic) : null);
         setEditModalVisible(true);
+    };
+
+    const handlePickEditImage = () => {
+        if (Platform.OS === 'web') {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/png, image/jpeg';
+            input.onchange = (e: any) => {
+                const file = e.target.files?.[0];
+                if (file) {
+                    if (file.size > 2 * 1024 * 1024) {
+                        alert('ไฟล์ภาพมีขนาดใหญ่เกิน 2MB');
+                        return;
+                    }
+                    setEditProfileImage(file);
+                    setEditPreviewUri(URL.createObjectURL(file));
+                }
+            };
+            input.click();
+        } else {
+            alert('รองรับการอัปโหลดบนเว็บเท่านั้นในขณะนี้');
+        }
     };
 
     const validateForm = () => {
         const errs: Record<string, string> = {};
         if (!formData.firstName.trim()) errs.firstName = 'กรุณากรอกชื่อจริง';
         if (!formData.lastName.trim()) errs.lastName = 'กรุณากรอกนามสกุล';
-        if (!formData.phoneNumber.trim()) errs.phoneNumber = 'กรุณากรอกเบอร์โทรศัพท์';
+        if (!formData.phoneNumber.trim()) {
+            errs.phoneNumber = 'กรุณากรอกเบอร์โทรศัพท์';
+        } else if (formData.phoneNumber.trim().length < 10) {
+            errs.phoneNumber = 'ต้องมี 10 หลัก';
+        }
         setFormErrors(errs);
         return Object.keys(errs).length === 0;
     };
@@ -187,6 +225,15 @@ export const TechnicianListScreen: React.FC = () => {
                 payload.password = formData.password;
             }
             await technicianService.updateTechnician(editTarget.id, payload);
+
+            if (editProfileImage) {
+                try {
+                    await technicianService.uploadProfilePic(editTarget.id, editProfileImage);
+                } catch (imgErr) {
+                    console.error('Failed to update profile picture', imgErr);
+                }
+            }
+
             showStatusModal('success', 'แก้ไขข้อมูลช่างเทคนิคเรียบร้อยแล้ว');
             setEditModalVisible(false);
             fetchData();
@@ -348,7 +395,11 @@ export const TechnicianListScreen: React.FC = () => {
                                     <View style={[styles.cell, { width: 80, flexDirection: 'row', alignItems: 'center' }]}>
                                         <Text style={[styles.cellText, { width: 30 }]}>{index + 1}</Text>
                                         <View style={styles.avatar}>
-                                            <Text style={styles.avatarText}>👤</Text>
+                                            {tech.profile_pic ? (
+                                                <Image source={{ uri: getImageUrl(tech.profile_pic) || '' }} style={{ width: 36, height: 36, borderRadius: 18 }} />
+                                            ) : (
+                                                <Text style={styles.avatarText}>👤</Text>
+                                            )}
                                         </View>
                                     </View>
 
@@ -435,6 +486,27 @@ export const TechnicianListScreen: React.FC = () => {
                         </View>
 
                         <ScrollView style={{ flex: 1 }} contentContainerStyle={{ overflow: 'visible' }}>
+                            <View style={{ alignItems: 'center', marginBottom: 20 }}>
+                                <TouchableOpacity style={{
+                                    width: 100, height: 100, borderRadius: 50, backgroundColor: '#f8f9fa',
+                                    borderWidth: 2, borderColor: '#eee', borderStyle: 'dashed',
+                                    justifyContent: 'center', alignItems: 'center', position: 'relative'
+                                }} onPress={handlePickEditImage} activeOpacity={0.8}>
+                                    {editPreviewUri ? (
+                                        <Image source={{ uri: editPreviewUri }} style={{ width: '100%', height: '100%', borderRadius: 50 }} />
+                                    ) : (
+                                        <Text style={{ fontSize: 32, opacity: 0.2 }}>📷</Text>
+                                    )}
+                                    <View style={{
+                                        position: 'absolute', bottom: 0, right: 0, width: 28, height: 28,
+                                        borderRadius: 14, backgroundColor: '#c0a060', justifyContent: 'center',
+                                        alignItems: 'center', borderWidth: 2, borderColor: 'white'
+                                    }}>
+                                        <Text style={{ color: 'white', fontSize: 16, fontWeight: 'bold', marginTop: -2 }}>+</Text>
+                                    </View>
+                                </TouchableOpacity>
+                            </View>
+
                             {/* Technician Code (read-only) */}
                             <View style={[styles.formRow, { zIndex: 50 }]}>
                                 <View style={styles.formField}>
@@ -490,8 +562,9 @@ export const TechnicianListScreen: React.FC = () => {
                                         placeholder="08x-xxx-xxxx"
                                         placeholderTextColor="#bbb"
                                         value={formData.phoneNumber}
-                                        onChangeText={t => setFormData(p => ({ ...p, phoneNumber: t }))}
+                                        onChangeText={t => setFormData(p => ({ ...p, phoneNumber: t.replace(/[^0-9]/g, '') }))}
                                         keyboardType="phone-pad"
+                                        maxLength={10}
                                     />
                                     {formErrors.phoneNumber && <Text style={styles.formError}>{formErrors.phoneNumber}</Text>}
                                 </View>
