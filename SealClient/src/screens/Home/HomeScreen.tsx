@@ -117,7 +117,7 @@ export const HomeScreen: React.FC = () => {
                     />
                     {/* Action Cards Grid - Row 2 (Left Aligned) */}
                     <ActionCard
-                        title="มอบหมายซีล (Assign)"
+                        title={`ใบจ่ายซีล(${new Date().toLocaleDateString('th-TH')})`}
                         subtitle="จ่ายซีลให้ช่างเทคนิค"
                         icon="📦"
                         iconColor="#8d6e63"
