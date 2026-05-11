@@ -72,12 +72,7 @@ func NewSealService(
 	}
 }
 
-func (s *SealService) TransferSealsToUser(targetUsername string, sealNumbers []string, issuedBy uint) error {
-	targetUser, err := s.userRepo.GetByUsername(targetUsername)
-	if err != nil {
-		return fmt.Errorf("ไม่พบผู้รับปลายทาง")
-	}
-
+func (s *SealService) TransferSealsToUser(sealNumbers []string, issuedBy uint) error {
 	now := time.Now()
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		for _, sn := range sealNumbers {
@@ -96,25 +91,20 @@ func (s *SealService) TransferSealsToUser(targetUsername string, sealNumbers []s
 				return fmt.Errorf("ซีล %s ไม่ได้อยู่ในคลังมิเตอร์", sn)
 			}
 
-			// Same PEA only
-			if seal.PeaCode != targetUser.PeaCode {
-				return fmt.Errorf("ซีล %s ต้นสังกัดไม่ตรงกับผู้รับปลายทาง", sn)
-			}
-
-			seal.Status = string(constants.StatusWaitConfirmation)
+			seal.Status = string(constants.StatusReady)
 			seal.IssuedAt = &now
 			seal.IssuedBy = &issuedBy
-			// reuse IssuedTo to store receiving staff user id (users.id)
-			targetID := targetUser.ID
-			seal.IssuedTo = &targetID
-			seal.PendingPeaCode = seal.PeaCode
+			seal.IssuedTo = nil
+			seal.PendingPeaCode = ""
+			seal.InventoryDepartment = "accounting"
+			seal.AssignedToTechnician = nil
 			seal.UpdatedAt = now
 
 			if err := s.repo.Update(seal); err != nil {
 				return err
 			}
 
-			logEntry := model.Log{UserID: issuedBy, Action: fmt.Sprintf("โอนซีล %s ไปให้บัญชี (%s)", sn, targetUsername)}
+			logEntry := model.Log{UserID: issuedBy, Action: fmt.Sprintf("โอนซีล %s เข้าคลังแผนกบัญชี", sn)}
 			if err := s.logRepo.Create(&logEntry); err != nil {
 				return err
 			}
@@ -563,12 +553,15 @@ func GenerateNextSealNumbers(latest string, count int) ([]string, error) {
 // -------------------------------------------------------------------
 // GetSealReport (4 statuses)
 // -------------------------------------------------------------------
-func (s *SealService) GetSealReport(peaCode string) (map[string]interface{}, error) {
+func (s *SealService) GetSealReport(peaCode string, inventoryDepartment string) (map[string]interface{}, error) {
 	var total, ready, paid, waitConfirm, installed, used, damaged, pendingReturn, pendingTransferIn int64
 
 	query := s.db.Model(&model.Seal{})
 	if peaCode != "" {
 		query = query.Where("pea_code = ?", peaCode)
+	}
+	if inventoryDepartment != "" {
+		query = query.Where("inventory_department = ?", inventoryDepartment)
 	}
 
 	// Count all seals for total_seals
@@ -599,7 +592,11 @@ func (s *SealService) GetSealReport(peaCode string) (map[string]interface{}, err
 
 	// Count incoming transfers (pending_pea_code matches current pea_code)
 	if peaCode != "" {
-		if err := s.db.Model(&model.Seal{}).Where("pending_pea_code = ? AND status = ?", peaCode, string(constants.StatusWaitConfirmation)).Count(&pendingTransferIn).Error; err != nil {
+		pendingQuery := s.db.Model(&model.Seal{}).Where("pending_pea_code = ? AND status = ?", peaCode, string(constants.StatusWaitConfirmation))
+		if inventoryDepartment != "" {
+			pendingQuery = pendingQuery.Where("inventory_department = ?", inventoryDepartment)
+		}
+		if err := pendingQuery.Count(&pendingTransferIn).Error; err != nil {
 			return nil, err
 		}
 	}

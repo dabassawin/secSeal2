@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, View, ActivityIndicator } from 'react-native';
 import { NavigationContainer } from '@react-navigation/native';
+import * as Updates from 'expo-updates';
 import LoginScreen from './src/views/LoginScreen';
 import AppNavigator from './src/navigation/AppNavigator';
 import CompanyNavigator from './src/navigation/CompanyNavigator';
@@ -10,6 +11,7 @@ import { TechnicianService } from './src/services/TechnicianService';
 import { parseJwt } from './src/utils/jwt';
 import { useInAppNotification } from './src/hooks/useInAppNotification';
 import { usePushNotifications } from './src/hooks/usePushNotifications';
+import Constants from 'expo-constants';
 
 
 export default function App() {
@@ -26,6 +28,9 @@ export default function App() {
 
   useEffect(() => {
     checkLoginStatus();
+    // #region agent log
+    fetch('http://127.0.0.1:7289/ingest/e24b5a4a-ad88-4125-a895-9696b8cf2e75',{method:'POST',headers:{'Content-Type':'application/json','X-Debug-Session-Id':'4307f1'},body:JSON.stringify({sessionId:'4307f1',runId:'pre-fix',hypothesisId:'H_remote_update_source',location:'SealTechnician/App.tsx:31',message:'App startup update context',data:{executionEnvironment:Constants.executionEnvironment,platform:Constants.platform,expoRuntimeVersion:Updates.runtimeVersion,expoChannel:Updates.channel,expoUpdateId:Updates.updateId,isEmbeddedLaunch:Updates.isEmbeddedLaunch,isUsingEmbeddedAssets:Updates.isUsingEmbeddedAssets},timestamp:Date.now()})}).catch(()=>{});
+    // #endregion
   }, []);
 
   // ✅ เมื่อได้ push token และล็อกอินแล้ว → ส่ง token ไปอัปเดตที่ backend

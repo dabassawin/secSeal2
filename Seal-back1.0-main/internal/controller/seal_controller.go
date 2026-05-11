@@ -24,7 +24,7 @@ func NewSealController(sealService *service.SealService) *SealController {
 
 // TransferSealsToUserHandler
 // POST /api/seals/transfer-to-user
-// Body: { "target_username": "...", "seal_numbers": ["..."] }
+// Body: { "seal_numbers": ["..."] }
 func (sc *SealController) TransferSealsToUserHandler(c *fiber.Ctx) error {
 	userID, ok := c.Locals("user_id").(uint)
 	if !ok {
@@ -36,20 +36,19 @@ func (sc *SealController) TransferSealsToUserHandler(c *fiber.Ctx) error {
 	}
 
 	var req struct {
-		TargetUsername string   `json:"target_username"`
-		SealNumbers    []string `json:"seal_numbers"`
+		SealNumbers []string `json:"seal_numbers"`
 	}
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
 	}
-	if req.TargetUsername == "" || len(req.SealNumbers) == 0 {
-		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "target_username and seal_numbers are required"})
+	if len(req.SealNumbers) == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "seal_numbers are required"})
 	}
 
-	if err := sc.sealService.TransferSealsToUser(req.TargetUsername, req.SealNumbers, userID); err != nil {
+	if err := sc.sealService.TransferSealsToUser(req.SealNumbers, userID); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
 	}
-	return c.JSON(fiber.Map{"message": "โอนซีลสำเร็จ"})
+	return c.JSON(fiber.Map{"message": "โอนซีลเข้าคลังบัญชีสำเร็จ"})
 }
 
 // ConfirmSealsReceiptUserHandler
@@ -269,7 +268,8 @@ func (sc *SealController) ScanSealHandler(c *fiber.Ctx) error {
 // -------------------------------------------------------------------
 func (sc *SealController) GetSealReportHandler(c *fiber.Ctx) error {
 	peaCode := c.Query("pea_code", "")
-	report, err := sc.sealService.GetSealReport(peaCode)
+	inventoryDepartment := c.Query("inventory_department", "")
+	report, err := sc.sealService.GetSealReport(peaCode, inventoryDepartment)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Failed to generate report"})
 	}

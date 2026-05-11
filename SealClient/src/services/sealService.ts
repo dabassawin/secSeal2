@@ -9,9 +9,12 @@ export interface SealCheckResult {
 }
 
 export const sealService = {
-    getReport: async (peaCode?: string): Promise<SealReport | null> => {
+    getReport: async (peaCode?: string, inventoryDepartment?: string): Promise<SealReport | null> => {
         try {
-            const url = peaCode ? `/api/seals/report?pea_code=${encodeURIComponent(peaCode)}` : '/api/seals/report';
+            const params: string[] = [];
+            if (peaCode) params.push(`pea_code=${encodeURIComponent(peaCode)}`);
+            if (inventoryDepartment) params.push(`inventory_department=${encodeURIComponent(inventoryDepartment)}`);
+            const url = params.length > 0 ? `/api/seals/report?${params.join('&')}` : '/api/seals/report';
             const response = await api.get(url);
             return response.data;
         } catch (error) {
@@ -137,8 +140,13 @@ export const sealService = {
         return await api.post('/api/seals/bulk-confirm-transfer', { seal_numbers: sealNumbers, pea_code: peaCode });
     },
 
+    transferToAccounting: async (sealNumbers: string[]) => {
+        return await api.post('/api/seals/transfer-to-user', { seal_numbers: sealNumbers });
+    },
+
     transferToUser: async (targetUsername: string, sealNumbers: string[]) => {
-        return await api.post('/api/seals/transfer-to-user', { target_username: targetUsername, seal_numbers: sealNumbers });
+        void targetUsername;
+        return await api.post('/api/seals/transfer-to-user', { seal_numbers: sealNumbers });
     },
 
     confirmUserReceipt: async (sealNumbers: string[]) => {

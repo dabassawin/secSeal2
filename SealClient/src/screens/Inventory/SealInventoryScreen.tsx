@@ -22,7 +22,7 @@ const StatusBadge: React.FC<{ status: string; seal?: Seal }> = ({ status, seal }
             case SealStatus.READY: return 'พร้อมใช้งาน';
             case SealStatus.WAIT_CONFIRMATION: 
                 if (seal && seal.pending_pea_code === user?.pea_code) {
-                    return 'รอยืนยันรับโอน';
+                    return 'รอยืนยันรับโอนข้ามหน่วย';
                 }
                 return 'รอยืนยัน';
             case SealStatus.ISSUED: return 'จ่าย';
@@ -128,9 +128,7 @@ export const SealInventoryScreen: React.FC = () => {
 
     const statuses = [
         'สถานะทั้งหมด',
-        'รอยืนยันรับโอน',
         SealStatus.READY,
-        SealStatus.WAIT_CONFIRMATION,
         SealStatus.ISSUED,
         SealStatus.INSTALLED,
         SealStatus.USED,
@@ -141,7 +139,6 @@ export const SealInventoryScreen: React.FC = () => {
 
     const statusOptions = [
         SealStatus.READY,
-        SealStatus.WAIT_CONFIRMATION,
         SealStatus.ISSUED,
         SealStatus.INSTALLED,
         SealStatus.USED,
@@ -155,7 +152,7 @@ export const SealInventoryScreen: React.FC = () => {
             case SealStatus.READY: return 'พร้อมใช้งาน';
             case SealStatus.WAIT_CONFIRMATION: 
                 if (seal && seal.pending_pea_code === user?.pea_code) {
-                    return 'รอยืนยันรับโอน';
+                    return 'รอยืนยันรับโอนข้ามหน่วย';
                 }
                 return 'รอยืนยัน';
             case SealStatus.ISSUED: return 'จ่าย';
@@ -266,11 +263,7 @@ export const SealInventoryScreen: React.FC = () => {
             
             let matchesStatus = true;
             if (statusFilter !== 'สถานะทั้งหมด') {
-                if (statusFilter === 'รอยืนยันรับโอน') {
-                    matchesStatus = seal.status === SealStatus.WAIT_CONFIRMATION && seal.pending_pea_code === user?.pea_code;
-                } else {
-                    matchesStatus = seal.status === statusFilter;
-                }
+                matchesStatus = seal.status === statusFilter;
             }
             return matchesSearch && matchesStatus;
         });

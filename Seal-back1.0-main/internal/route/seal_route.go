@@ -23,7 +23,7 @@ func SetupSealRoutes(router fiber.Router, sealController *controller.SealControl
 	// -- 2.1) POST /api/seals/generate-batches : admin can generate multiple batches
 	seal.Post("/generate-batches", middleware.JWTMiddleware(), sealController.GenerateSealsMultipleBatchesHandler)
 
-	// -- 2.2) POST /api/seals/transfer-to-user : meter transfers seals to accounting user
+	// -- 2.2) POST /api/seals/transfer-to-user : meter transfers seals to accounting department
 	seal.Post("/transfer-to-user", middleware.JWTMiddleware(), sealController.TransferSealsToUserHandler)
 
 	// -- 2.3) POST /api/seals/confirm-user : accounting user confirms receipt

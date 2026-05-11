@@ -4,10 +4,10 @@ import { useNavigation } from '@react-navigation/native';
 import { colors } from '@/constants';
 import { Header } from '@/components/dashboard';
 import { sealService } from '@/services/sealService';
-import { userService, UserResponse } from '@/services/userService';
 import { useAuth } from '@/context/AuthContext';
+import { Seal } from '@/types';
 
-type EntryMode = 'scan' | 'range';
+type EntryMode = 'scan' | 'range' | 'existing';
 
 interface StagedSeal {
     id: string;
@@ -22,17 +22,14 @@ export const TransferToAccountingScreen: React.FC = () => {
 
     const [loading, setLoading] = useState(false);
 
-    // Receiver user selection
-    const [users, setUsers] = useState<UserResponse[]>([]);
-    const [selectedUser, setSelectedUser] = useState<UserResponse | null>(null);
-    const [searchUserQuery, setSearchUserQuery] = useState('');
-    const [showUserDropdown, setShowUserDropdown] = useState(false);
-
     // Seal entry
     const [entryMode, setEntryMode] = useState<EntryMode>('scan');
     const [singleSealInput, setSingleSealInput] = useState('');
     const [rangeStartInput, setRangeStartInput] = useState('');
     const [rangeCountInput, setRangeCountInput] = useState('');
+    const [existingSearchQuery, setExistingSearchQuery] = useState('');
+    const [existingSeals, setExistingSeals] = useState<Seal[]>([]);
+    const [loadingExisting, setLoadingExisting] = useState(false);
 
     const [stagedSeals, setStagedSeals] = useState<StagedSeal[]>([]);
 
@@ -41,35 +38,38 @@ export const TransferToAccountingScreen: React.FC = () => {
     const [modalMessage, setModalMessage] = useState('');
 
     useEffect(() => {
-        fetchUsers();
-    }, [user?.pea_code, user?.username]);
+        if (entryMode !== 'existing') return;
+        fetchExistingSeals();
+    }, [entryMode, user?.pea_code]);
 
-    const fetchUsers = async () => {
+    const fetchExistingSeals = async () => {
         try {
-            const all = await userService.getAllUsers();
-            const pea = user?.pea_code;
-            const filtered = all.filter(u => {
-                if (!pea) return false;
-                if (u.pea_code !== pea) return false;
-                if (u.username === user?.username) return false;
-                // accounting user = staff user, not meter
-                if (u.role === 'meter') return false;
-                return true;
-            });
-            setUsers(filtered);
-        } catch (e) {
-            console.error('Failed to fetch users', e);
+            setLoadingExisting(true);
+            const rows = await sealService.getSeals(user?.pea_code);
+            const readyInMeter = rows.filter(
+                (s) => s.status === 'พร้อมใช้งาน' && s.inventory_department === 'meter'
+            );
+            setExistingSeals(readyInMeter);
+        } catch (error) {
+            setModalStatus('error');
+            setModalMessage('ไม่สามารถดึงรายการซีลในคลังได้');
+            setModalVisible(true);
+        } finally {
+            setLoadingExisting(false);
         }
     };
 
-    const filteredUsers = useMemo(() => {
-        const q = searchUserQuery.trim().toLowerCase();
-        if (!q) return users;
-        return users.filter(u =>
-            (u.first_name + ' ' + u.last_name).toLowerCase().includes(q) ||
-            u.username.toLowerCase().includes(q)
-        );
-    }, [users, searchUserQuery]);
+    const filteredExistingSeals = useMemo(() => {
+        const q = existingSearchQuery.trim().toLowerCase();
+        return existingSeals
+            .filter((s) => {
+                if (!s.seal_number) return false;
+                if (stagedSeals.some((st) => st.sealNumber === s.seal_number)) return false;
+                if (!q) return true;
+                return s.seal_number.toLowerCase().includes(q);
+            })
+            .slice(0, 100);
+    }, [existingSeals, existingSearchQuery, stagedSeals]);
 
     const generateSealRange = (start: string, count: number): string[] => {
         const seals: string[] = [];
@@ -188,13 +188,6 @@ export const TransferToAccountingScreen: React.FC = () => {
             return;
         }
 
-        if (!selectedUser) {
-            setModalStatus('error');
-            setModalMessage('กรุณาเลือกผู้รับ (แผนกบัญชี)');
-            setModalVisible(true);
-            return;
-        }
-
         const sealList = stagedSeals.filter(s => s.status === 'available').map(s => s.sealNumber);
         if (sealList.length === 0) {
             setModalStatus('error');
@@ -205,9 +198,9 @@ export const TransferToAccountingScreen: React.FC = () => {
 
         setLoading(true);
         try {
-            await sealService.transferToUser(selectedUser.username, sealList);
+            await sealService.transferToUser('', sealList);
             setModalStatus('success');
-            setModalMessage(`โอนซีลจำนวน ${sealList.length} รายการ เรียบร้อยแล้ว`);
+            setModalMessage(`โอนซีลจำนวน ${sealList.length} รายการ เข้าคลังแผนกบัญชีเรียบร้อยแล้ว`);
             setModalVisible(true);
             setStagedSeals([]);
         } catch (e: any) {
@@ -231,31 +224,8 @@ export const TransferToAccountingScreen: React.FC = () => {
             <Header />
             <View style={styles.contentContainer}>
                 <View style={styles.leftPanel}>
-                    <View style={styles.sectionCard}>
-                        <Text style={styles.sectionTitle}>1. ระบุผู้รับ (แผนกบัญชี)</Text>
-                        <View style={styles.formGroup}>
-                            <TouchableOpacity
-                                style={styles.selector}
-                                onPress={() => {
-                                    setSearchUserQuery('');
-                                    setShowUserDropdown(true);
-                                }}
-                            >
-                                {selectedUser ? (
-                                    <View>
-                                        <Text style={styles.selectorMain}>{selectedUser.first_name} {selectedUser.last_name}</Text>
-                                        <Text style={styles.selectorSub}>{selectedUser.username}</Text>
-                                    </View>
-                                ) : (
-                                    <Text style={styles.selectorPlaceholder}>เลือกผู้รับ...</Text>
-                                )}
-                                <Text style={styles.dropdownIcon}>▼</Text>
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-
                     <View style={[styles.sectionCard, { flex: 1 }]}>
-                        <Text style={styles.sectionTitle}>2. เลือกรายการซีลที่จะโอน</Text>
+                        <Text style={styles.sectionTitle}>1. เลือกรายการซีลที่จะโอนเข้าคลังบัญชี</Text>
 
                         <View style={styles.tabContainer}>
                             <TouchableOpacity
@@ -269,6 +239,12 @@ export const TransferToAccountingScreen: React.FC = () => {
                                 onPress={() => setEntryMode('range')}
                             >
                                 <Text style={[styles.tabText, entryMode === 'range' && styles.activeTabText]}>Batch / Range</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[styles.tab, entryMode === 'existing' && styles.activeTab]}
+                                onPress={() => setEntryMode('existing')}
+                            >
+                                <Text style={[styles.tabText, entryMode === 'existing' && styles.activeTabText]}>Find Existing</Text>
                             </TouchableOpacity>
                         </View>
 
@@ -284,7 +260,7 @@ export const TransferToAccountingScreen: React.FC = () => {
                                 />
                                 <Text style={styles.helperText}>กด Enter เพื่อเพิ่มรายการลงตะกร้าทันที</Text>
                             </View>
-                        ) : (
+                        ) : entryMode === 'range' ? (
                             <View style={styles.inputArea}>
                                 <View style={styles.rangeRow}>
                                     <View style={{ flex: 1, marginRight: 10 }}>
@@ -310,6 +286,38 @@ export const TransferToAccountingScreen: React.FC = () => {
                                 <TouchableOpacity style={styles.addRangeBtn} onPress={handleAddRangeSeals}>
                                     <Text style={styles.addRangeBtnText}>เพิ่มรายการ (Add Range)</Text>
                                 </TouchableOpacity>
+                            </View>
+                        ) : (
+                            <View style={styles.inputArea}>
+                                <TextInput
+                                    style={styles.rangeInput}
+                                    placeholder="ค้นหา Serial ที่มีอยู่ในคลัง..."
+                                    value={existingSearchQuery}
+                                    onChangeText={(text) => setExistingSearchQuery(text.replace(/^PEA\s+/i, ''))}
+                                />
+                                {loadingExisting ? (
+                                    <View style={styles.existingLoading}>
+                                        <ActivityIndicator color={colors.primaryPurple} />
+                                    </View>
+                                ) : (
+                                    <ScrollView style={styles.existingList}>
+                                        {filteredExistingSeals.map((item) => (
+                                            <TouchableOpacity
+                                                key={item.id}
+                                                style={styles.existingItem}
+                                                onPress={() => handleAddSeal(item.seal_number)}
+                                            >
+                                                <Text style={styles.existingMain}>{item.seal_number}</Text>
+                                                <Text style={styles.existingSub}>แตะเพื่อเพิ่มรายการโอน</Text>
+                                            </TouchableOpacity>
+                                        ))}
+                                        {filteredExistingSeals.length === 0 && (
+                                            <View style={styles.emptyState}>
+                                                <Text style={styles.emptyText}>ไม่พบซีลที่พร้อมโอน</Text>
+                                            </View>
+                                        )}
+                                    </ScrollView>
+                                )}
                             </View>
                         )}
                     </View>
@@ -356,45 +364,6 @@ export const TransferToAccountingScreen: React.FC = () => {
                 </View>
             </View>
 
-            <Modal visible={showUserDropdown} transparent animationType="slide" onRequestClose={() => setShowUserDropdown(false)}>
-                <View style={styles.modalOverlay}>
-                    <View style={styles.modalContent}>
-                        <View style={styles.modalHeader}>
-                            <Text style={styles.modalTitle}>เลือกผู้รับ</Text>
-                            <TouchableOpacity onPress={() => setShowUserDropdown(false)}>
-                                <Text style={styles.closeBtn}>✕</Text>
-                            </TouchableOpacity>
-                        </View>
-                        <TextInput
-                            style={styles.searchInput}
-                            placeholder="ค้นหา (ชื่อ หรือ username)..."
-                            value={searchUserQuery}
-                            onChangeText={setSearchUserQuery}
-                        />
-                        <ScrollView style={{ flex: 1 }}>
-                            {filteredUsers.map(u => (
-                                <TouchableOpacity
-                                    key={u.id}
-                                    style={styles.userItem}
-                                    onPress={() => {
-                                        setSelectedUser(u);
-                                        setShowUserDropdown(false);
-                                    }}
-                                >
-                                    <Text style={styles.userMain}>{u.first_name} {u.last_name}</Text>
-                                    <Text style={styles.userSub}>{u.username}</Text>
-                                </TouchableOpacity>
-                            ))}
-                            {filteredUsers.length === 0 && (
-                                <View style={styles.emptyState}>
-                                    <Text style={styles.emptyText}>ไม่พบผู้ใช้</Text>
-                                </View>
-                            )}
-                        </ScrollView>
-                    </View>
-                </View>
-            </Modal>
-
             <Modal transparent={true} visible={modalVisible} animationType="fade" onRequestClose={handleModalClose}>
                 <View style={styles.modalOverlay2}>
                     <View style={styles.modalContent2}>
@@ -419,23 +388,6 @@ const styles = StyleSheet.create({
     sectionCard: { backgroundColor: 'white', borderRadius: 12, padding: 20, marginBottom: 20, elevation: 1 },
     sectionTitle: { fontSize: 16, fontWeight: 'bold', color: colors.primaryPurple, marginBottom: 15 },
 
-    formGroup: { marginBottom: 15 },
-    selector: {
-        borderWidth: 1,
-        borderColor: '#ddd',
-        borderRadius: 8,
-        padding: 12,
-        backgroundColor: '#fafafa',
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        minHeight: 50,
-    },
-    selectorMain: { fontSize: 15, fontWeight: 'bold', color: colors.primaryPurple },
-    selectorSub: { fontSize: 12, color: '#666', marginTop: 2 },
-    selectorPlaceholder: { fontSize: 14, color: '#aaa' },
-    dropdownIcon: { color: '#999', fontSize: 14 },
-
     tabContainer: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: '#eee', marginBottom: 20 },
     tab: { paddingVertical: 10, paddingHorizontal: 15, marginRight: 15 },
     activeTab: { borderBottomWidth: 2, borderBottomColor: colors.primaryPurple },
@@ -451,6 +403,11 @@ const styles = StyleSheet.create({
     rangeInput: { borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 10, fontSize: 14 },
     addRangeBtn: { backgroundColor: '#f0f0f0', borderRadius: 8, padding: 12, alignItems: 'center', marginTop: 15 },
     addRangeBtnText: { color: '#333', fontWeight: 'bold' },
+    existingLoading: { padding: 16, alignItems: 'center' },
+    existingList: { marginTop: 12, maxHeight: 250, borderWidth: 1, borderColor: '#eee', borderRadius: 8 },
+    existingItem: { paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#f2f2f2' },
+    existingMain: { fontSize: 14, fontWeight: 'bold', color: '#333' },
+    existingSub: { fontSize: 12, color: '#888', marginTop: 2 },
 
     listHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
     listTitle: { fontSize: 18, fontWeight: 'bold', color: colors.primaryPurple },
@@ -470,16 +427,6 @@ const styles = StyleSheet.create({
     footer: { paddingTop: 15, borderTopWidth: 1, borderTopColor: '#eee' },
     confirmBtn: { backgroundColor: colors.primaryPurple, borderRadius: 8, padding: 14, alignItems: 'center' },
     confirmBtnText: { color: 'white', fontWeight: 'bold' },
-
-    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
-    modalContent: { width: '90%', height: '80%', backgroundColor: 'white', borderRadius: 12, padding: 20 },
-    modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
-    modalTitle: { fontSize: 18, fontWeight: 'bold', color: colors.primaryPurple },
-    closeBtn: { fontSize: 22, color: '#999' },
-    searchInput: { height: 48, borderWidth: 1, borderColor: '#e0e0e0', borderRadius: 8, paddingHorizontal: 12, backgroundColor: '#fafafa', marginBottom: 10 },
-    userItem: { paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
-    userMain: { fontSize: 14, fontWeight: 'bold', color: '#333' },
-    userSub: { fontSize: 12, color: '#666', marginTop: 2 },
 
     modalOverlay2: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
     modalContent2: { width: '85%', backgroundColor: 'white', borderRadius: 12, padding: 20, alignItems: 'center' },

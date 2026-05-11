@@ -10,7 +10,10 @@ import { Platform } from 'react-native';
 
 // For web/emulator use localhost. For physical device use LAN IP (e.g. 172.22.1.40)
 
-const BASE_URL = (process.env.EXPO_PUBLIC_API_URL as string | undefined) || 'http://192.168.1.41:3000';
+const BASE_URL =
+    (typeof process !== 'undefined' && (process as any)?.env
+        ? ((process as any).env.EXPO_PUBLIC_API_URL as string | undefined)
+        : undefined) || 'http://192.168.1.41:3000';
 
 // Alternative for Android Emulator: 'http://10.0.2.2:3000'
 
