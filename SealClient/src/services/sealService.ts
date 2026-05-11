@@ -137,6 +137,14 @@ export const sealService = {
         return await api.post('/api/seals/bulk-confirm-transfer', { seal_numbers: sealNumbers, pea_code: peaCode });
     },
 
+    transferToUser: async (targetUsername: string, sealNumbers: string[]) => {
+        return await api.post('/api/seals/transfer-to-user', { target_username: targetUsername, seal_numbers: sealNumbers });
+    },
+
+    confirmUserReceipt: async (sealNumbers: string[]) => {
+        return await api.post('/api/seals/confirm-user', { seal_numbers: sealNumbers });
+    },
+
     getIssuedLogs: async (): Promise<any[]> => {
         try {
             const response = await api.get('/api/logs/issued');

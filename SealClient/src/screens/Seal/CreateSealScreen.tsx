@@ -24,6 +24,8 @@ export const CreateSealScreen: React.FC = () => {
     const navigation = useNavigation();
     const { user } = useAuth();
 
+    const canSelectPea = user?.role === 'admin';
+
     // Data & Loading
     const [loading, setLoading] = useState(false);
 
@@ -273,7 +275,7 @@ export const CreateSealScreen: React.FC = () => {
     };
 
     const handleConfirmCreation = async () => {
-        if (!selectedPea) {
+        if (!selectedPea && !user?.pea_code) {
             setModalStatus('error');
             setModalMessage('กรุณาระบุสังกัดการไฟฟ้า (PEA Code)');
             setModalVisible(true);
@@ -288,7 +290,9 @@ export const CreateSealScreen: React.FC = () => {
             return;
         }
 
-        const code = selectedPea.pea_code || selectedPea.PeaCode || selectedPea.code || '';
+        const code = canSelectPea
+            ? (selectedPea?.pea_code || selectedPea?.PeaCode || selectedPea?.code || '')
+            : (user?.pea_code || '');
 
         setLoading(true);
         try {
@@ -320,6 +324,10 @@ export const CreateSealScreen: React.FC = () => {
     const handleModalClose = () => {
         setModalVisible(false);
         if (modalStatus === 'success') {
+            if (user?.role === 'meter') {
+                (navigation as any).navigate('TransferToAccounting');
+                return;
+            }
             navigation.goBack();
         }
     };
@@ -336,19 +344,31 @@ export const CreateSealScreen: React.FC = () => {
                         <Text style={styles.sectionTitle}>1. ระบุสังกัดการไฟฟ้า (PEA Code)</Text>
 
                         <View style={styles.formGroup}>
-                            <TouchableOpacity style={styles.peaSelector} onPress={() => {
-                                setSearchPeaQuery('');
-                                setShowPeaDropdown(true);
-                            }}>
-                                {selectedPea ? (
-                                    <View>
-                                        <Text style={styles.peaCode}>{selectedPea.pea_code || selectedPea.PeaCode || selectedPea.code}</Text>
-                                        <Text style={styles.peaName}>{selectedPea.name_th || selectedPea.NameTh}</Text>
-                                    </View>
+                            <TouchableOpacity
+                                style={[styles.peaSelector, !canSelectPea && { opacity: 0.8 }]}
+                                onPress={() => {
+                                    if (!canSelectPea) return;
+                                    setSearchPeaQuery('');
+                                    setShowPeaDropdown(true);
+                                }}
+                                activeOpacity={canSelectPea ? 0.7 : 1}
+                            >
+                                {canSelectPea ? (
+                                    selectedPea ? (
+                                        <View>
+                                            <Text style={styles.peaCode}>{selectedPea.pea_code || selectedPea.PeaCode || selectedPea.code}</Text>
+                                            <Text style={styles.peaName}>{selectedPea.name_th || selectedPea.NameTh}</Text>
+                                        </View>
+                                    ) : (
+                                        <Text style={styles.peaPlaceholder}>เลือกการไฟฟ้า...</Text>
+                                    )
                                 ) : (
-                                    <Text style={styles.peaPlaceholder}>เลือกการไฟฟ้า...</Text>
+                                    <View>
+                                        <Text style={styles.peaCode}>{user?.pea_code || '-'}</Text>
+                                        <Text style={styles.peaName}>สร้างเข้าคลังของสังกัดผู้ใช้งาน</Text>
+                                    </View>
                                 )}
-                                <Text style={styles.dropdownIcon}>▼</Text>
+                                <Text style={styles.dropdownIcon}>{canSelectPea ? '▼' : ''}</Text>
                             </TouchableOpacity>
                         </View>
                     </View>

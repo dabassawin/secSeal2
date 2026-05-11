@@ -22,15 +22,100 @@ func NewSealController(sealService *service.SealService) *SealController {
 	return &SealController{sealService: sealService}
 }
 
+// TransferSealsToUserHandler
+// POST /api/seals/transfer-to-user
+// Body: { "target_username": "...", "seal_numbers": ["..."] }
+func (sc *SealController) TransferSealsToUserHandler(c *fiber.Ctx) error {
+	userID, ok := c.Locals("user_id").(uint)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Unauthorized"})
+	}
+	role, _ := c.Locals("role").(string)
+	if role != "meter" {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Access denied"})
+	}
+
+	var req struct {
+		TargetUsername string   `json:"target_username"`
+		SealNumbers    []string `json:"seal_numbers"`
+	}
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
+	}
+	if req.TargetUsername == "" || len(req.SealNumbers) == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "target_username and seal_numbers are required"})
+	}
+
+	if err := sc.sealService.TransferSealsToUser(req.TargetUsername, req.SealNumbers, userID); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+	}
+	return c.JSON(fiber.Map{"message": "โอนซีลสำเร็จ"})
+}
+
+// ConfirmSealsReceiptUserHandler
+// POST /api/seals/confirm-user
+// Body: { "seal_numbers": ["..."] }
+func (sc *SealController) ConfirmSealsReceiptUserHandler(c *fiber.Ctx) error {
+	userID, ok := c.Locals("user_id").(uint)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Unauthorized"})
+	}
+	role, _ := c.Locals("role").(string)
+	if role == "meter" {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Access denied"})
+	}
+
+	var req struct {
+		SealNumbers []string `json:"seal_numbers"`
+	}
+	if err := c.BodyParser(&req); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
+	}
+	if len(req.SealNumbers) == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "seal_numbers are required"})
+	}
+
+	if err := sc.sealService.ConfirmSealsReceiptUser(req.SealNumbers, userID); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+	}
+	return c.JSON(fiber.Map{"message": "ยืนยันการรับซีลสำเร็จ"})
+}
+
 // -------------------------------------------------------------------
 // 0) GetAllSealsHandler - Get all seals
 // -------------------------------------------------------------------
 func (sc *SealController) GetAllSealsHandler(c *fiber.Ctx) error {
-	seals, err := sc.sealService.GetAllSeals(c.Query("pea_code", ""), c.Query("pending_pea_code", ""))
+	role, _ := c.Locals("role").(string)
+	userID, _ := c.Locals("user_id").(uint)
+	inventoryDepartment := c.Query("inventory_department", "")
+	if inventoryDepartment == "" {
+		if role == "meter" {
+			inventoryDepartment = "meter"
+		} else {
+			inventoryDepartment = "accounting"
+		}
+	}
+	seals, err := sc.sealService.GetAllSeals(c.Query("pea_code", ""), c.Query("pending_pea_code", ""), inventoryDepartment)
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error": err.Error(),
 		})
+	}
+
+	if role != "meter" {
+		pending, pendingErr := sc.sealService.GetPendingReceiptsByUser(userID)
+		if pendingErr == nil && len(pending) > 0 {
+			seen := make(map[uint]bool)
+			for _, s := range seals {
+				seen[s.ID] = true
+			}
+			for _, s := range pending {
+				if !seen[s.ID] {
+					seals = append(seals, s)
+					seen[s.ID] = true
+				}
+			}
+		}
 	}
 	return c.JSON(seals)
 }
@@ -78,7 +163,6 @@ func (sc *SealController) GetSealByIDAndStatusHandler(c *fiber.Ctx) error {
 		})
 	}
 
-
 	seal, err := sc.sealService.GetSealByIDAndStatus(uint(sealID), status)
 	if err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "Seal not found"})
@@ -102,7 +186,7 @@ func (sc *SealController) GetSealByIDAndStatusHandler(c *fiber.Ctx) error {
 func (sc *SealController) GenerateSealsMultipleBatchesHandler(c *fiber.Ctx) error {
 	userID, ok := c.Locals("user_id").(uint)
 	role, roleOk := c.Locals("role").(string)
-	if !ok || !roleOk || (role != "admin" && role != "user") {
+	if !ok || !roleOk || (role != "admin" && role != "user" && role != "meter") {
 		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{
 			"error": "Access denied",
 		})
@@ -143,7 +227,7 @@ func (sc *SealController) GenerateSealsMultipleBatchesHandler(c *fiber.Ctx) erro
 			})
 		}
 
-		seals, err := sc.sealService.GenerateAndCreateSealsFromNumber(batch.SealNumber, batch.Count, userID, batch.PeaCode, batch.Status, batch.CreateRemarks)
+		seals, err := sc.sealService.GenerateAndCreateSealsFromNumber(batch.SealNumber, batch.Count, userID, role, batch.PeaCode, batch.Status, batch.CreateRemarks)
 		if err != nil {
 			return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 		}
@@ -346,7 +430,7 @@ func (sc *SealController) GenerateSealsHandler(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Seal number is required"})
 	}
 
-	seals, err := sc.sealService.GenerateAndCreateSealsFromNumber(request.SealNumber, request.Count, userID, request.PeaCode, request.Status, "")
+	seals, err := sc.sealService.GenerateAndCreateSealsFromNumber(request.SealNumber, request.Count, userID, role, request.PeaCode, request.Status, "")
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
@@ -362,6 +446,7 @@ func (sc *SealController) CreateSealHandler(c *fiber.Ctx) error {
 	if !ok {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Unauthorized"})
 	}
+	role, _ := c.Locals("role").(string)
 
 	var request struct {
 		SealNumber string `json:"seal_number"`
@@ -379,7 +464,7 @@ func (sc *SealController) CreateSealHandler(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Count must be greater than zero"})
 	}
 
-	seals, err := sc.sealService.GenerateAndCreateSealsFromNumber(request.SealNumber, request.Count, userID, request.PeaCode, request.Status, "")
+	seals, err := sc.sealService.GenerateAndCreateSealsFromNumber(request.SealNumber, request.Count, userID, role, request.PeaCode, request.Status, "")
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": err.Error()})
 	}
@@ -574,6 +659,8 @@ func (sc *SealController) CheckMultipleSealsHandler(c *fiber.Ctx) error {
 }
 
 func (sc *SealController) CheckSealsHandler(c *fiber.Ctx) error {
+	role, _ := c.Locals("role").(string)
+
 	var request struct {
 		SealNumbers []string `json:"seal_numbers"`
 		PeaCode     string   `json:"pea_code"`
@@ -585,12 +672,16 @@ func (sc *SealController) CheckSealsHandler(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "seal_numbers is required"})
 	}
 
-	results, err := sc.sealService.CheckSealAvailability(request.SealNumbers, request.PeaCode)
-	if err != nil {
-		return c.Status(500).JSON(fiber.Map{"error": "Database query failed"})
+	inventoryDepartment := "accounting"
+	if role == "meter" {
+		inventoryDepartment = "meter"
 	}
 
-	// Return the results directly
+	results, err := sc.sealService.CheckSealAvailability(request.SealNumbers, request.PeaCode, inventoryDepartment)
+	if err != nil {
+		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{"error": "Database query failed"})
+	}
+
 	return c.JSON(fiber.Map{
 		"results": results,
 	})
@@ -605,6 +696,11 @@ func (sc *SealController) AssignSealsByTechCodeHandler(c *fiber.Ctx) error {
 	userID, ok := c.Locals("user_id").(uint)
 	if !ok {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Unauthorized"})
+	}
+
+	role, roleOk := c.Locals("role").(string)
+	if roleOk && role == "meter" {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Access denied"})
 	}
 
 	var req struct {
@@ -895,9 +991,9 @@ func (sc *SealController) CheckSealOwnershipHandler(c *fiber.Ctx) error {
 	}
 
 	ownershipInfo := fiber.Map{
-		"is_owner":     seal.AssignedToTechnician != nil && *seal.AssignedToTechnician == techID,
-		"tech_id":      techID,
-		"assigned_to":  seal.AssignedToTechnician,
+		"is_owner":    seal.AssignedToTechnician != nil && *seal.AssignedToTechnician == techID,
+		"tech_id":     techID,
+		"assigned_to": seal.AssignedToTechnician,
 	}
 
 	return c.JSON(fiber.Map{
@@ -1015,4 +1111,3 @@ func (sc *SealController) BulkConfirmCompanyTransferHandler(c *fiber.Ctx) error 
 		"confirmed": confirmed,
 	})
 }
-

@@ -15,9 +15,9 @@ import (
 	"github.com/Kev2406/PEA/internal/domain/repository"
 	migration "github.com/Kev2406/PEA/internal/infrastructure/database"
 	"github.com/Kev2406/PEA/internal/middleware"
+	"github.com/Kev2406/PEA/internal/realtime"
 	"github.com/Kev2406/PEA/internal/route"
 	"github.com/Kev2406/PEA/internal/service"
-	"github.com/Kev2406/PEA/internal/realtime"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/websocket/v2"
@@ -151,7 +151,7 @@ func main() {
 
 	// services
 	userService := service.NewUserService(userRepo)
-	sealService := service.NewSealService(sealRepo, transactionRepo, logRepo, config.DB, technicianRepo, hub)
+	sealService := service.NewSealService(sealRepo, transactionRepo, logRepo, userRepo, config.DB, technicianRepo, hub)
 	logService := service.NewLogService(logRepo)
 	technicianService := service.NewTechnicianService(technicianRepo, hub)
 	masPeaService := service.NewMasPeaService(masPeaRepo)
@@ -315,7 +315,7 @@ func main() {
 				existingUser.PeaShort = targetUser.PeaShort
 				existingUser.PeaName = targetUser.PeaName
 				existingUser.IsActive = true
-				
+
 				// Restore if it was soft-deleted
 				existingUser.DeletedAt = gorm.DeletedAt{Valid: false}
 
