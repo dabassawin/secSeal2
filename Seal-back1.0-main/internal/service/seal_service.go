@@ -72,7 +72,28 @@ func NewSealService(
 	}
 }
 
-func (s *SealService) TransferSealsToUser(sealNumbers []string, issuedBy uint) error {
+func (s *SealService) TransferSealsToUser(sealNumbers []string, issuedBy uint, receiverUsername string) error {
+	receiver, err := s.userRepo.GetByUsername(receiverUsername)
+	if err != nil {
+		return fmt.Errorf("ไม่พบผู้รับที่เลือกในระบบ")
+	}
+	if !receiver.IsActive {
+		return fmt.Errorf("ผู้รับที่เลือกไม่อยู่ในสถานะใช้งาน")
+	}
+	if !strings.EqualFold(receiver.Role, "user") {
+		return fmt.Errorf("ผู้รับต้องเป็นผู้ใช้ role user เท่านั้น")
+	}
+
+	issuer, issuerErr := s.userRepo.GetByID(issuedBy)
+	if issuerErr == nil && issuer != nil && issuer.PeaCode != "" && receiver.PeaCode != "" && issuer.PeaCode != receiver.PeaCode {
+		return fmt.Errorf("ผู้รับที่เลือกไม่อยู่ในสังกัดเดียวกัน")
+	}
+
+	receiverDisplayName := strings.TrimSpace(fmt.Sprintf("%s %s", receiver.FirstName, receiver.LastName))
+	if receiverDisplayName == "" {
+		receiverDisplayName = receiver.Username
+	}
+
 	now := time.Now()
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		for _, sn := range sealNumbers {
@@ -104,7 +125,10 @@ func (s *SealService) TransferSealsToUser(sealNumbers []string, issuedBy uint) e
 				return err
 			}
 
-			logEntry := model.Log{UserID: issuedBy, Action: fmt.Sprintf("โอนซีล %s เข้าคลังแผนกบัญชี", sn)}
+			logEntry := model.Log{
+				UserID: issuedBy,
+				Action: fmt.Sprintf("โอนซีล %s เข้าคลังแผนกบัญชี (ผู้รับ: %s @%s)", sn, receiverDisplayName, receiver.Username),
+			}
 			if err := s.logRepo.Create(&logEntry); err != nil {
 				return err
 			}

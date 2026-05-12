@@ -4,6 +4,7 @@ import { useNavigation } from '@react-navigation/native';
 import { colors } from '@/constants';
 import { Header } from '@/components/dashboard';
 import { sealService } from '@/services/sealService';
+import { userService, UserResponse } from '@/services/userService';
 import { useAuth } from '@/context/AuthContext';
 import { Seal } from '@/types';
 
@@ -22,6 +23,7 @@ export const TransferToAccountingScreen: React.FC = () => {
     const { user } = useAuth();
 
     const [loading, setLoading] = useState(false);
+    const [loadingAccountingUsers, setLoadingAccountingUsers] = useState(false);
 
     // Seal entry
     const [entryMode, setEntryMode] = useState<EntryMode>('scan');
@@ -33,6 +35,10 @@ export const TransferToAccountingScreen: React.FC = () => {
     const [loadingExisting, setLoadingExisting] = useState(false);
 
     const [stagedSeals, setStagedSeals] = useState<StagedSeal[]>([]);
+    const [accountingUsers, setAccountingUsers] = useState<UserResponse[]>([]);
+    const [selectedReceiverUsername, setSelectedReceiverUsername] = useState('');
+    const [showReceiverDropdown, setShowReceiverDropdown] = useState(false);
+    const [receiverSearchQuery, setReceiverSearchQuery] = useState('');
 
     const [modalVisible, setModalVisible] = useState(false);
     const [modalStatus, setModalStatus] = useState<'success' | 'error'>('success');
@@ -42,6 +48,10 @@ export const TransferToAccountingScreen: React.FC = () => {
         if (entryMode !== 'existing') return;
         fetchExistingSeals();
     }, [entryMode, user?.pea_code]);
+
+    useEffect(() => {
+        fetchAccountingUsers();
+    }, [user?.pea_code]);
 
     const fetchExistingSeals = async () => {
         try {
@@ -59,6 +69,48 @@ export const TransferToAccountingScreen: React.FC = () => {
             setLoadingExisting(false);
         }
     };
+
+    const fetchAccountingUsers = async () => {
+        try {
+            setLoadingAccountingUsers(true);
+            const allUsers = await userService.getAllUsers();
+            const candidates = allUsers
+                .filter((u) =>
+                    u.is_active !== false &&
+                    (u.role || '').toLowerCase() === 'user' &&
+                    (!user?.pea_code || u.pea_code === user.pea_code)
+                )
+                .sort((a, b) => {
+                    const aName = `${a.first_name || ''} ${a.last_name || ''}`.trim() || a.username;
+                    const bName = `${b.first_name || ''} ${b.last_name || ''}`.trim() || b.username;
+                    return aName.localeCompare(bName);
+                });
+            setAccountingUsers(candidates);
+            if (candidates.length > 0 && !selectedReceiverUsername) {
+                setSelectedReceiverUsername(candidates[0].username);
+            }
+        } catch (error) {
+            setModalStatus('error');
+            setModalMessage('ไม่สามารถดึงรายชื่อผู้รับบัญชีได้');
+            setModalVisible(true);
+        } finally {
+            setLoadingAccountingUsers(false);
+        }
+    };
+
+    const selectedReceiver = useMemo(
+        () => accountingUsers.find((u) => u.username === selectedReceiverUsername),
+        [accountingUsers, selectedReceiverUsername]
+    );
+
+    const filteredReceiverUsers = useMemo(() => {
+        const q = receiverSearchQuery.trim().toLowerCase();
+        if (!q) return accountingUsers;
+        return accountingUsers.filter((u) => {
+            const fullName = `${u.first_name || ''} ${u.last_name || ''}`.trim().toLowerCase();
+            return fullName.includes(q) || (u.username || '').toLowerCase().includes(q);
+        });
+    }, [accountingUsers, receiverSearchQuery]);
 
     const filteredExistingSeals = useMemo(() => {
         const q = existingSearchQuery.trim().toLowerCase();
@@ -201,12 +253,21 @@ export const TransferToAccountingScreen: React.FC = () => {
             setModalVisible(true);
             return;
         }
+        if (!selectedReceiverUsername) {
+            setModalStatus('error');
+            setModalMessage('กรุณาเลือกผู้รับบัญชีก่อนยืนยันโอน');
+            setModalVisible(true);
+            return;
+        }
 
         setLoading(true);
         try {
-            await sealService.transferToUser('', sealList);
+            await sealService.transferToUser(selectedReceiverUsername, sealList);
+            const receiverDisplay = selectedReceiver
+                ? `${selectedReceiver.first_name || ''} ${selectedReceiver.last_name || ''}`.trim() || selectedReceiver.username
+                : selectedReceiverUsername;
             setModalStatus('success');
-            setModalMessage(`โอนซีลจำนวน ${sealList.length} รายการ เข้าคลังแผนกบัญชีเรียบร้อยแล้ว`);
+            setModalMessage(`โอนซีลจำนวน ${sealList.length} รายการ เข้าคลังแผนกบัญชีเรียบร้อยแล้ว\nผู้รับ: ${receiverDisplay}`);
             setModalVisible(true);
             setStagedSeals([]);
         } catch (e: any) {
@@ -245,6 +306,32 @@ export const TransferToAccountingScreen: React.FC = () => {
                                 </View>
                             </View>
                         </View>
+                    </View>
+
+                    <View style={styles.sectionCard}>
+                        <Text style={styles.sectionTitle}>ผู้รับ (Accounting Receiver)</Text>
+                        <Text style={styles.label}>เลือกผู้รับซีลเข้าคลังบัญชี</Text>
+                        <TouchableOpacity
+                            style={styles.receiverDropdownBtn}
+                            onPress={() => {
+                                setReceiverSearchQuery('');
+                                setShowReceiverDropdown(true);
+                            }}
+                            disabled={loadingAccountingUsers}
+                        >
+                            {loadingAccountingUsers ? (
+                                <ActivityIndicator color={colors.primaryPurple} />
+                            ) : (
+                                <>
+                                    <Text style={styles.receiverDropdownText}>
+                                        {selectedReceiver
+                                            ? `${(`${selectedReceiver.first_name || ''} ${selectedReceiver.last_name || ''}`.trim() || selectedReceiver.username)} (${selectedReceiver.username})`
+                                            : 'กรุณาเลือกผู้รับบัญชี'}
+                                    </Text>
+                                    <Text style={styles.receiverDropdownArrow}>▼</Text>
+                                </>
+                            )}
+                        </TouchableOpacity>
                     </View>
 
                     <View style={[styles.sectionCard, { flex: 1 }]}>
@@ -432,6 +519,58 @@ export const TransferToAccountingScreen: React.FC = () => {
                     </View>
                 </View>
             </Modal>
+
+            <Modal
+                transparent={true}
+                visible={showReceiverDropdown}
+                animationType="fade"
+                onRequestClose={() => setShowReceiverDropdown(false)}
+            >
+                <View style={styles.modalOverlay2}>
+                    <View style={styles.receiverModalContent}>
+                        <Text style={styles.modalTitle2}>เลือกผู้รับบัญชี</Text>
+                        <TextInput
+                            style={styles.receiverSearchInput}
+                            placeholder="ค้นหาชื่อหรือ username..."
+                            value={receiverSearchQuery}
+                            onChangeText={setReceiverSearchQuery}
+                            autoFocus={showReceiverDropdown}
+                        />
+                        <ScrollView style={styles.receiverList}>
+                            {filteredReceiverUsers.map((item) => {
+                                const fullName = `${item.first_name || ''} ${item.last_name || ''}`.trim() || item.username;
+                                const selected = item.username === selectedReceiverUsername;
+                                return (
+                                    <TouchableOpacity
+                                        key={item.username}
+                                        style={[styles.receiverItem, selected && styles.receiverItemSelected]}
+                                        onPress={() => {
+                                            setSelectedReceiverUsername(item.username);
+                                            setShowReceiverDropdown(false);
+                                        }}
+                                    >
+                                        <Text style={styles.receiverItemName}>{fullName}</Text>
+                                        <Text style={styles.receiverItemSub}>{item.username}</Text>
+                                    </TouchableOpacity>
+                                );
+                            })}
+                            {filteredReceiverUsers.length === 0 && (
+                                <View style={styles.emptyState}>
+                                    <Text style={styles.emptyText}>
+                                        {accountingUsers.length === 0 ? 'ไม่พบผู้รับบัญชีที่ใช้งานได้' : 'ไม่พบผู้รับตามคำค้นหา'}
+                                    </Text>
+                                </View>
+                            )}
+                        </ScrollView>
+                        <TouchableOpacity
+                            style={[styles.modalBtn, { backgroundColor: '#999', marginTop: 12 }]}
+                            onPress={() => setShowReceiverDropdown(false)}
+                        >
+                            <Text style={styles.modalBtnText}>ปิด</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
         </View>
     );
 };
@@ -470,6 +609,20 @@ const styles = StyleSheet.create({
     rangeInput: { borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 10, fontSize: 14 },
     addRangeBtn: { backgroundColor: '#f0f0f0', borderRadius: 8, padding: 12, alignItems: 'center', marginTop: 15 },
     addRangeBtnText: { color: '#333', fontWeight: 'bold' },
+    receiverDropdownBtn: {
+        borderWidth: 1,
+        borderColor: '#ddd',
+        borderRadius: 8,
+        paddingHorizontal: 12,
+        paddingVertical: 12,
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        backgroundColor: '#fff',
+        marginTop: 4,
+    },
+    receiverDropdownText: { flex: 1, color: '#333', fontSize: 14, marginRight: 8 },
+    receiverDropdownArrow: { color: '#999', fontSize: 14 },
     existingLoading: { padding: 16, alignItems: 'center' },
     existingList: { marginTop: 12, maxHeight: 250, borderWidth: 1, borderColor: '#eee', borderRadius: 8 },
     existingItem: { paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#f2f2f2' },
@@ -510,6 +663,21 @@ const styles = StyleSheet.create({
 
     modalOverlay2: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
     modalContent2: { width: '85%', backgroundColor: 'white', borderRadius: 12, padding: 20, alignItems: 'center' },
+    receiverModalContent: { width: '88%', maxHeight: '70%', backgroundColor: 'white', borderRadius: 12, padding: 16 },
+    receiverSearchInput: {
+        borderWidth: 1,
+        borderColor: '#ddd',
+        borderRadius: 8,
+        paddingHorizontal: 10,
+        paddingVertical: 10,
+        fontSize: 14,
+        marginBottom: 10,
+    },
+    receiverList: { marginTop: 10, borderWidth: 1, borderColor: '#eee', borderRadius: 8, maxHeight: 320 },
+    receiverItem: { paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#f2f2f2' },
+    receiverItemSelected: { backgroundColor: '#f3e5f5' },
+    receiverItemName: { fontSize: 14, fontWeight: 'bold', color: '#333' },
+    receiverItemSub: { fontSize: 12, color: '#777', marginTop: 2 },
     modalTitle2: { fontSize: 18, fontWeight: 'bold', marginBottom: 10 },
     modalMessage2: { color: '#444', textAlign: 'center', marginBottom: 15 },
     modalBtn: { borderRadius: 8, paddingVertical: 10, paddingHorizontal: 20 },
