@@ -37,7 +37,8 @@ func (sc *SealController) TransferSealsToUserHandler(c *fiber.Ctx) error {
 	}
 
 	var req struct {
-		SealNumbers []string `json:"seal_numbers"`
+		SealNumbers    []string `json:"seal_numbers"`
+		TargetUsername string   `json:"target_username,omitempty"`
 	}
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
@@ -46,7 +47,7 @@ func (sc *SealController) TransferSealsToUserHandler(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "seal_numbers are required"})
 	}
 
-	if err := sc.sealService.TransferSealsToUser(req.SealNumbers, userID); err != nil {
+	if err := sc.sealService.TransferSealsToUser(req.SealNumbers, userID, req.TargetUsername); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
 	}
 	return c.JSON(fiber.Map{"message": "โอนซีลเข้าคลังบัญชีสำเร็จ"})

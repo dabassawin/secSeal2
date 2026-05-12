@@ -145,8 +145,10 @@ export const sealService = {
     },
 
     transferToUser: async (targetUsername: string, sealNumbers: string[]) => {
-        void targetUsername;
-        return await api.post('/api/seals/transfer-to-user', { seal_numbers: sealNumbers });
+        return await api.post('/api/seals/transfer-to-user', { 
+            seal_numbers: sealNumbers,
+            target_username: targetUsername 
+        });
     },
 
     confirmUserReceipt: async (sealNumbers: string[]) => {

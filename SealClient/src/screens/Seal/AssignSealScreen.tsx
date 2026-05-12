@@ -40,6 +40,9 @@ export const AssignSealScreen: React.FC = () => {
     const [singleSealInput, setSingleSealInput] = useState('');
     const [rangeStartInput, setRangeStartInput] = useState('');
     const [rangeCountInput, setRangeCountInput] = useState('');
+    const [recipientType, setRecipientType] = useState<'technician' | 'user'>('technician');
+    const [usersList, setUsersList] = useState<any[]>([]);
+    const [selectedUser, setSelectedUser] = useState<any | null>(null);
 
     const [stagedSeals, setStagedSeals] = useState<StagedSeal[]>([]);
 
@@ -56,6 +59,7 @@ export const AssignSealScreen: React.FC = () => {
 
     const [historyDateFilter, setHistoryDateFilter] = useState('');
     const [historySearchQuery, setHistorySearchQuery] = useState('');
+    const [historyTypeFilter, setHistoryTypeFilter] = useState<'all' | 'technician' | 'user'>('all');
 
     useFocusEffect(
         React.useCallback(() => {
@@ -67,8 +71,24 @@ export const AssignSealScreen: React.FC = () => {
         if (user?.pea_code) {
             fetchTechnicians();
             fetchMasPea();
+            if (user?.role === 'meter') {
+                fetchUsers();
+            }
         }
-    }, [user?.pea_code]);
+    }, [user?.pea_code, user?.role]);
+
+    const fetchUsers = async () => {
+        try {
+            const data = await userService.getAllUsers();
+            // Filter users to only those in the same PEA or based on requirements
+            const filteredUsers = data.filter((u: any) => 
+                u.pea_code === user?.pea_code && u.role === 'user'
+            );
+            setUsersList(filteredUsers);
+        } catch (error) {
+            console.error('Failed to fetch users:', error);
+        }
+    };
 
     const fetchMasPea = async () => {
         try {
@@ -108,12 +128,21 @@ export const AssignSealScreen: React.FC = () => {
 
     const handleSelectTechnician = (tech: Technician) => {
         setSelectedTech(tech);
+        setSelectedUser(null);
         setSearchTechQuery(`${tech.first_name} ${tech.last_name}`);
         setShowTechDropdown(false);
     };
 
-    const handleClearTechnician = () => {
+    const handleSelectUser = (userData: any) => {
+        setSelectedUser(userData);
         setSelectedTech(null);
+        setSearchTechQuery(`${userData.first_name} ${userData.last_name}`);
+        setShowTechDropdown(false);
+    };
+
+    const handleClearRecipient = () => {
+        setSelectedTech(null);
+        setSelectedUser(null);
         setSearchTechQuery('');
     };
 
@@ -260,9 +289,9 @@ export const AssignSealScreen: React.FC = () => {
     };
 
     const handleConfirmAssignment = async () => {
-        if (!selectedTech) {
+        if (!selectedTech && !selectedUser) {
             setModalStatus('error');
-            setModalMessage('กรุณาระบุตัวผู้รับ (Technician)');
+            setModalMessage(recipientType === 'user' ? 'กรุณาระบุตัวผู้รับ (User)' : 'กรุณาระบุตัวผู้รับ (Technician)');
             setModalVisible(true);
             return;
         }
@@ -296,15 +325,37 @@ export const AssignSealScreen: React.FC = () => {
                 }
             });
 
-            const response = await sealService.assignSealsByTechCode(
-                selectedTech.technician_code,
-                sealList,
-                undefined,
-                Object.keys(sealRemarksMap).length > 0 ? sealRemarksMap : undefined
-            );
+            let response;
+            if (recipientType === 'technician' && selectedTech) {
+                response = await sealService.assignSealsByTechCode(
+                    selectedTech.technician_code,
+                    sealList,
+                    undefined,
+                    Object.keys(sealRemarksMap).length > 0 ? sealRemarksMap : undefined
+                );
+            } else if (recipientType === 'user' && selectedUser) {
+                // สำหรับการส่งให้ User (ฝ่าย User) จะเป็นการโอนเข้าคลังบัญชี
+                // ตาม requirement: "meter สามารถส่งซีลให้ทั้งช่างและ user ได้"
+                response = await sealService.transferToUser(selectedUser.username, sealList);
+            }
 
             // เปิด PDF ใบจ่ายซีลอัตโนมัติ (web only)
             try {
+                const recipientData = selectedTech ? {
+                    first_name: selectedTech.first_name,
+                    last_name: selectedTech.last_name,
+                    technician_code: selectedTech.technician_code,
+                    pea_code: selectedTech.pea_code,
+                    company_name: selectedTech.company_name,
+                    is_center: selectedTech.is_center,
+                } : {
+                    first_name: selectedUser.first_name,
+                    last_name: selectedUser.last_name,
+                    technician_code: selectedUser.username, // ใช้ username แทนสำหรับ User
+                    pea_code: selectedUser.pea_code,
+                    company_name: 'ฝ่ายผู้ใช้ (User)',
+                    is_center: false,
+                };
                 // Fetch current user details to ensure we have first_name and last_name
                 let issuerData = {
                     first_name: user?.first_name,
@@ -332,17 +383,11 @@ export const AssignSealScreen: React.FC = () => {
 
                 generateAssignPDF({
                     sealNumbers: sealList,
-                    technician: {
-                        first_name: selectedTech.first_name,
-                        last_name: selectedTech.last_name,
-                        technician_code: selectedTech.technician_code,
-                        pea_code: selectedTech.pea_code,
-                        company_name: selectedTech.company_name,
-                        is_center: selectedTech.is_center,
-                    },
+                    technician: recipientData as any,
                     issuer: issuerData,
                     peaName: getPeaName(user?.pea_code),
                     timestamp: assignmentTimestamp, // ใช้ timestamp จาก backend
+                    isToUser: recipientType === 'user',
                 });
             } catch (pdfErr) {
                 console.warn('PDF generation failed:', pdfErr);
@@ -399,7 +444,7 @@ export const AssignSealScreen: React.FC = () => {
                     Math.abs(new Date(g.timestamp).getTime() - logTime) < 5000
                 );
 
-                const sealMatch = log.action.match(/จ่ายซีล\s+(\S+)\s+ให้ช่าง/);
+                const sealMatch = log.action.match(/จ่ายซีล\s+(\S+)\s+ให้(ช่าง|ฝ่ายผู้ใช้)/);
                 const sealNum = sealMatch ? sealMatch[1] : null;
 
                 const issuerMatch = log.action.match(/ผู้จ่าย:\s*([^)]+)/);
@@ -423,6 +468,8 @@ export const AssignSealScreen: React.FC = () => {
                     if (sealNum) group.seals.push(sealNum);
                 } else {
                     const techMatch = log.action.match(/ให้ช่าง\s+(\S+)/);
+                    const userMatch = log.action.match(/ให้ฝ่ายผู้ใช้\s+\(([^)]+)\)/);
+                    
                     groups.push({
                         id: log.id,
                         timestamp: log.timestamp,
@@ -430,7 +477,8 @@ export const AssignSealScreen: React.FC = () => {
                         first_name: firstName,
                         last_name: lastName,
                         username: log.username,
-                        techCode: techMatch ? techMatch[1] : 'Unknown',
+                        techCode: techMatch ? techMatch[1] : (userMatch ? userMatch[1] : 'Unknown'),
+                        isToUser: !!userMatch,
                         seals: sealNum ? [sealNum] : [],
                         originalLogs: [log]
                     });
@@ -489,6 +537,10 @@ export const AssignSealScreen: React.FC = () => {
                 match = false;
             }
         }
+        if (historyTypeFilter !== 'all' && match) {
+            if (historyTypeFilter === 'technician' && group.isToUser) match = false;
+            if (historyTypeFilter === 'user' && !group.isToUser) match = false;
+        }
         return match;
     });
 
@@ -501,8 +553,32 @@ export const AssignSealScreen: React.FC = () => {
         if (!group.seals || group.seals.length === 0) return;
 
         const tech = technicians.find(t => t.technician_code === group.techCode);
+        const issuerData = {
+            first_name: group.first_name,
+            last_name: group.last_name,
+            username: '',
+            pea_code: user?.pea_code,
+        };
 
-        if (tech) {
+        if (group.isToUser) {
+            // กรณีเป็นฝ่าย User
+            generateAssignPDF({
+                sealNumbers: group.seals,
+                technician: {
+                    first_name: group.first_name_recipient || group.techCode, // ถ้ามีชื่อผู้รับใน group ให้ใช้ (ถ้าไม่มีใช้ username)
+                    last_name: group.last_name_recipient || '',
+                    technician_code: group.techCode,
+                    pea_code: user?.pea_code,
+                    company_name: 'ฝ่ายผู้ใช้ (User)',
+                    is_center: false,
+                },
+                issuer: issuerData,
+                peaName: getPeaName(user?.pea_code),
+                timestamp: new Date(group.timestamp),
+                isToUser: true,
+            });
+        } else if (tech) {
+            // กรณีเป็นช่าง
             generateAssignPDF({
                 sealNumbers: group.seals,
                 technician: {
@@ -513,17 +589,28 @@ export const AssignSealScreen: React.FC = () => {
                     company_name: tech.company_name,
                     is_center: tech.is_center,
                 },
-                issuer: {
-                    first_name: group.first_name,
-                    last_name: group.last_name,
-                    username: '',
-                    pea_code: user?.pea_code,
-                },
+                issuer: issuerData,
                 peaName: getPeaName(user?.pea_code),
-                timestamp: new Date(group.timestamp), // ใช้ timestamp จาก log (browser จะแปลง timezone ให้อัตโนมัติ)
+                timestamp: new Date(group.timestamp),
+                isToUser: false,
             });
         } else {
-            alert('ไม่สามารถดึงข้อมูลช่างได้ (อาจเป็นช่างที่ถูกลบไปแล้ว)');
+            // กรณีหาช่างไม่เจอ แต่มี techCode (อาจเป็นช่างที่ถูกลบ)
+            generateAssignPDF({
+                sealNumbers: group.seals,
+                technician: {
+                    first_name: group.techCode,
+                    last_name: '',
+                    technician_code: group.techCode,
+                    pea_code: user?.pea_code,
+                    company_name: '-',
+                    is_center: false,
+                },
+                issuer: issuerData,
+                peaName: getPeaName(user?.pea_code),
+                timestamp: new Date(group.timestamp),
+                isToUser: false,
+            });
         }
     };
 
@@ -534,35 +621,67 @@ export const AssignSealScreen: React.FC = () => {
 
                 {/* LEFT PANEL: Inputs */}
                 <View style={styles.leftPanel}>
-                    {/* 1. Technician Selection */}
+                    {/* 1. Recipient Selection */}
                     <View style={styles.sectionCard}>
-                        <Text style={styles.sectionTitle}>1. ระบุตัวผู้รับ (Technician)</Text>
+                        <View style={styles.sectionHeaderRow}>
+                            <Text style={styles.sectionTitle}>1. ระบุตัวผู้รับ</Text>
+                            {user?.role === 'meter' && (
+                                <View style={styles.recipientToggle}>
+                                    <TouchableOpacity 
+                                        style={[styles.toggleBtn, recipientType === 'technician' && styles.toggleBtnActive]}
+                                        onPress={() => {
+                                            setRecipientType('technician');
+                                            handleClearRecipient();
+                                        }}
+                                    >
+                                        <Text style={[styles.toggleText, recipientType === 'technician' && styles.toggleTextActive]}>ช่าง</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity 
+                                        style={[styles.toggleBtn, recipientType === 'user' && styles.toggleBtnActive]}
+                                        onPress={() => {
+                                            setRecipientType('user');
+                                            handleClearRecipient();
+                                        }}
+                                    >
+                                        <Text style={[styles.toggleText, recipientType === 'user' && styles.toggleTextActive]}>ฝ่าย User</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            )}
+                        </View>
 
-                        {!selectedTech ? (
+                        {!selectedTech && !selectedUser ? (
                             <View style={styles.formGroup}>
                                 <TouchableOpacity style={styles.techSelector} onPress={() => {
                                     setSearchTechQuery('');
                                     setShowTechDropdown(true);
                                 }}>
-                                    <Text style={styles.techPlaceholder}>เลือกช่างรับซีล...</Text>
+                                    <Text style={styles.techPlaceholder}>
+                                        {recipientType === 'user' ? 'เลือกฝ่าย User รับซีล...' : 'เลือกช่างรับซีล...'}
+                                    </Text>
                                     <Text style={styles.dropdownIcon}>▼</Text>
                                 </TouchableOpacity>
                             </View>
                         ) : (
                             <View style={styles.selectedTechCard}>
                                 <View style={styles.techAvatar}>
-                                    <Text style={styles.techAvatarText}>{selectedTech.is_center ? '🏢' : selectedTech.first_name.charAt(0)}</Text>
+                                    <Text style={styles.techAvatarText}>
+                                        {selectedTech ? (selectedTech.is_center ? '🏢' : selectedTech.first_name.charAt(0)) : '👤'}
+                                    </Text>
                                 </View>
                                 <View style={styles.techInfo}>
-                                    <Text style={styles.techName}>{selectedTech.first_name} {selectedTech.is_center ? '' : selectedTech.last_name}</Text>
-                                    <Text style={styles.techDetail}>รหัส: {selectedTech.technician_code} • สังกัด: {getPeaName(selectedTech.pea_code)}</Text>
-                                    <View style={[styles.techBadge, selectedTech.is_center && { backgroundColor: '#e3f2fd' }]}>
-                                        <Text style={[styles.techBadgeText, selectedTech.is_center && { color: '#1976d2' }]}>
-                                            {selectedTech.is_center ? 'Center Account' : 'Active'}
+                                    <Text style={styles.techName}>
+                                        {selectedTech ? `${selectedTech.first_name} ${selectedTech.is_center ? '' : selectedTech.last_name}` : `${selectedUser.first_name} ${selectedUser.last_name}`}
+                                    </Text>
+                                    <Text style={styles.techDetail}>
+                                        {selectedTech ? `รหัส: ${selectedTech.technician_code}` : `Username: ${selectedUser.username}`} • สังกัด: {getPeaName(selectedTech ? selectedTech.pea_code : selectedUser.pea_code)}
+                                    </Text>
+                                    <View style={[styles.techBadge, (selectedTech?.is_center || selectedUser) && { backgroundColor: '#e3f2fd' }]}>
+                                        <Text style={[styles.techBadgeText, (selectedTech?.is_center || selectedUser) && { color: '#1976d2' }]}>
+                                            {selectedTech ? (selectedTech.is_center ? 'Center Account' : 'Active') : 'User Account'}
                                         </Text>
                                     </View>
                                 </View>
-                                <TouchableOpacity onPress={handleClearTechnician} style={styles.removeTechBtn}>
+                                <TouchableOpacity onPress={handleClearRecipient} style={styles.removeTechBtn}>
                                     <Text style={styles.removeTechText}>✕</Text>
                                 </TouchableOpacity>
                             </View>
@@ -725,42 +844,65 @@ export const AssignSealScreen: React.FC = () => {
                 <View style={styles.techModalOverlay}>
                     <View style={styles.techModalContent}>
                         <View style={styles.techModalHeader}>
-                            <Text style={styles.techModalTitle}>เลือกช่าง</Text>
+                            <Text style={styles.techModalTitle}>เลือกตัวผู้รับ</Text>
                             <TouchableOpacity onPress={() => setShowTechDropdown(false)}>
                                 <Text style={styles.closeBtn}>✕</Text>
                             </TouchableOpacity>
                         </View>
                         <TextInput
                             style={styles.techSearchInput}
-                            placeholder="🔍 พิมพ์ชื่อ หรือรหัสช่าง..."
+                            placeholder="🔍 พิมพ์ชื่อ หรือรหัส..."
                             value={searchTechQuery}
                             onChangeText={setSearchTechQuery}
                         />
 
-                        <ScrollView style={styles.techList}>
-                            {filterTechnicians().map(tech => (
-                                <TouchableOpacity
-                                    key={tech.id}
-                                    style={styles.techItem}
-                                    onPress={() => handleSelectTechnician(tech)}
-                                >
-                                    <View style={styles.techAvatarSmall}>
-                                        <Text style={styles.techAvatarTextSmall}>{tech.is_center ? '🏢' : tech.first_name.charAt(0)}</Text>
-                                    </View>
-                                    <View style={{ flex: 1 }}>
-                                        <Text style={styles.techItemName}>
-                                            {tech.first_name} {tech.is_center ? '' : tech.last_name} {tech.is_center ? '(ศูนย์งาน)' : ''}
-                                        </Text>
-                                        <Text style={styles.techItemSub}>รหัส: {tech.technician_code} • สังกัด: {getPeaName(tech.pea_code)}</Text>
-                                    </View>
-                                </TouchableOpacity>
-                            ))}
-                            {filterTechnicians().length === 0 && (
+                        <View style={styles.techList}>
+                            {recipientType === 'technician' ? (
+                                filterTechnicians().map(tech => (
+                                    <TouchableOpacity
+                                        key={tech.id}
+                                        style={styles.techItem}
+                                        onPress={() => handleSelectTechnician(tech)}
+                                    >
+                                        <View style={styles.techAvatarSmall}>
+                                            <Text style={styles.techAvatarTextSmall}>{tech.is_center ? '🏢' : tech.first_name.charAt(0)}</Text>
+                                        </View>
+                                        <View style={{ flex: 1 }}>
+                                            <Text style={styles.techItemName}>
+                                                {tech.first_name} {tech.is_center ? '' : tech.last_name} {tech.is_center ? '(ศูนย์งาน)' : ''}
+                                            </Text>
+                                            <Text style={styles.techItemSub}>รหัส: {tech.technician_code} • สังกัด: {getPeaName(tech.pea_code)}</Text>
+                                        </View>
+                                    </TouchableOpacity>
+                                ))
+                            ) : (
+                                usersList.filter(u => 
+                                    (u.first_name + ' ' + u.last_name).toLowerCase().includes(searchTechQuery.toLowerCase()) ||
+                                    u.username.toLowerCase().includes(searchTechQuery.toLowerCase())
+                                ).map(u => (
+                                    <TouchableOpacity
+                                        key={u.id}
+                                        style={styles.techItem}
+                                        onPress={() => handleSelectUser(u)}
+                                    >
+                                        <View style={styles.techAvatarSmall}>
+                                            <Text style={styles.techAvatarTextSmall}>{u.first_name.charAt(0)}</Text>
+                                        </View>
+                                        <View style={{ flex: 1 }}>
+                                            <Text style={styles.techItemName}>
+                                                {u.first_name} {u.last_name} (User)
+                                            </Text>
+                                            <Text style={styles.techItemSub}>Username: {u.username} • สังกัด: {getPeaName(u.pea_code)}</Text>
+                                        </View>
+                                    </TouchableOpacity>
+                                ))
+                            )}
+                            {(recipientType === 'technician' ? filterTechnicians().length : usersList.length) === 0 && (
                                 <View style={styles.emptyTechList}>
-                                    <Text style={styles.emptyTechText}>ไม่พบข้อมูลช่าง</Text>
+                                    <Text style={styles.emptyTechText}>ไม่พบข้อมูล</Text>
                                 </View>
                             )}
-                        </ScrollView>
+                        </View>
                     </View>
                 </View>
             </Modal>
@@ -796,6 +938,29 @@ export const AssignSealScreen: React.FC = () => {
                         </View>
 
                         <View style={styles.historyFilterContainer}>
+                            <View style={styles.historyFilterItem}>
+                                <Text style={styles.historyFilterLabel}>ประเภทผู้รับ</Text>
+                                <View style={styles.recipientToggle}>
+                                    <TouchableOpacity 
+                                        style={[styles.toggleBtn, historyTypeFilter === 'all' && styles.toggleBtnActive]}
+                                        onPress={() => setHistoryTypeFilter('all')}
+                                    >
+                                        <Text style={[styles.toggleText, historyTypeFilter === 'all' && styles.toggleTextActive]}>ทั้งหมด</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity 
+                                        style={[styles.toggleBtn, historyTypeFilter === 'technician' && styles.toggleBtnActive]}
+                                        onPress={() => setHistoryTypeFilter('technician')}
+                                    >
+                                        <Text style={[styles.toggleText, historyTypeFilter === 'technician' && styles.toggleTextActive]}>ช่าง</Text>
+                                    </TouchableOpacity>
+                                    <TouchableOpacity 
+                                        style={[styles.toggleBtn, historyTypeFilter === 'user' && styles.toggleBtnActive]}
+                                        onPress={() => setHistoryTypeFilter('user')}
+                                    >
+                                        <Text style={[styles.toggleText, historyTypeFilter === 'user' && styles.toggleTextActive]}>ฝ่าย User</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            </View>
                             <View style={styles.historyFilterItem}>
                                 <Text style={styles.historyFilterLabel}>ค้นหาวันที่</Text>
                                 {Platform.OS === 'web' ? (
@@ -865,7 +1030,7 @@ export const AssignSealScreen: React.FC = () => {
                                         <Text style={styles.historyTime}>{new Date(group.timestamp).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} น.</Text>
                                     </View>
                                     <View style={{ flex: 4 }}>
-                                        <Text style={styles.historyAction}>จ่ายให้ช่าง: <Text style={{ fontWeight: 'bold', color: colors.primaryPurple }}>{group.techCode}</Text></Text>
+                                        <Text style={styles.historyAction}>{group.isToUser ? 'จ่ายให้ฝ่ายผู้ใช้: ' : 'จ่ายให้ช่าง: '}<Text style={{ fontWeight: 'bold', color: colors.primaryPurple }}>{group.techCode}</Text></Text>
                                         <Text style={styles.historyUser}>ผู้ออกใบ: {group.first_name || 'Admin'} {group.last_name || ''}</Text>
                                     </View>
                                     <View style={{ flex: 1.5, alignItems: 'center' }}>
@@ -901,7 +1066,7 @@ export const AssignSealScreen: React.FC = () => {
                                 {selectedGroup && (
                                     <View>
                                         <Text style={styles.detailSub}>
-                                            ช่างผู้รับ: {selectedGroup.techCode}
+                                            {selectedGroup.isToUser ? 'ฝ่ายผู้รับ: ' : 'ช่างผู้รับ: '} {selectedGroup.techCode}
                                         </Text>
                                         <Text style={styles.detailSub}>
                                             ผู้จ่าย: {selectedGroup.first_name || 'Admin'} {selectedGroup.last_name || ''}
@@ -963,7 +1128,41 @@ const styles = StyleSheet.create({
     rightPanel: { flex: 2, backgroundColor: 'white', borderRadius: 12, padding: 20, elevation: 2, flexDirection: 'column', overflow: 'hidden' },
 
     sectionCard: { backgroundColor: 'white', borderRadius: 12, padding: 20, marginBottom: 20, elevation: 1 },
-    sectionTitle: { fontSize: 16, fontWeight: 'bold', color: colors.primaryPurple, marginBottom: 15 },
+    sectionTitle: { fontSize: 16, fontWeight: 'bold', color: colors.primaryPurple },
+    sectionHeaderRow: { 
+        flexDirection: 'row', 
+        justifyContent: 'space-between', 
+        alignItems: 'center',
+        marginBottom: 15 
+    },
+    recipientToggle: { 
+        flexDirection: 'row', 
+        backgroundColor: '#f0f0f0', 
+        borderRadius: 8, 
+        padding: 2 
+    },
+    toggleBtn: { 
+        paddingHorizontal: 12, 
+        paddingVertical: 6, 
+        borderRadius: 6 
+    },
+    toggleBtnActive: { 
+        backgroundColor: 'white', 
+        elevation: 2,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.1,
+        shadowRadius: 2
+    },
+    toggleText: { 
+        fontSize: 12, 
+        color: '#666',
+        fontWeight: '500'
+    },
+    toggleTextActive: { 
+        color: colors.primaryPurple,
+        fontWeight: 'bold'
+    },
 
     formGroup: { marginBottom: 15 },
     techSelector: {

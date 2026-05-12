@@ -72,8 +72,18 @@ func NewSealService(
 	}
 }
 
-func (s *SealService) TransferSealsToUser(sealNumbers []string, issuedBy uint) error {
+func (s *SealService) TransferSealsToUser(sealNumbers []string, issuedBy uint, targetUsername string) error {
 	now := time.Now()
+
+	var targetUser *model.User
+	if targetUsername != "" {
+		u, err := s.userRepo.FindByUsername(targetUsername)
+		if err != nil {
+			return fmt.Errorf("ไม่พบผู้ใช้ %s", targetUsername)
+		}
+		targetUser = u
+	}
+
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		for _, sn := range sealNumbers {
 			seal, err := s.repo.FindByNumber(sn)
@@ -91,10 +101,18 @@ func (s *SealService) TransferSealsToUser(sealNumbers []string, issuedBy uint) e
 				return fmt.Errorf("ซีล %s ไม่ได้อยู่ในคลังมิเตอร์", sn)
 			}
 
-			seal.Status = string(constants.StatusReady)
+			if targetUser != nil {
+				// ส่งให้ User เฉพาะเจาะจง -> รอยืนยัน
+				seal.Status = string(constants.StatusWaitConfirmation)
+				seal.IssuedTo = &targetUser.ID
+			} else {
+				// ส่งเข้าคลังส่วนกลาง -> พร้อมใช้งานทันที
+				seal.Status = string(constants.StatusReady)
+				seal.IssuedTo = nil
+			}
+
 			seal.IssuedAt = &now
 			seal.IssuedBy = &issuedBy
-			seal.IssuedTo = nil
 			seal.PendingPeaCode = ""
 			seal.InventoryDepartment = "accounting"
 			seal.AssignedToTechnician = nil
@@ -104,7 +122,12 @@ func (s *SealService) TransferSealsToUser(sealNumbers []string, issuedBy uint) e
 				return err
 			}
 
-			logEntry := model.Log{UserID: issuedBy, Action: fmt.Sprintf("โอนซีล %s เข้าคลังแผนกบัญชี", sn)}
+			action := fmt.Sprintf("โอนซีล %s เข้าคลังแผนกบัญชี", sn)
+			if targetUser != nil {
+				action = fmt.Sprintf("จ่ายซีล %s ให้ฝ่ายผู้ใช้ (%s %s)", sn, targetUser.FirstName, targetUser.LastName)
+			}
+
+			logEntry := model.Log{UserID: issuedBy, Action: action}
 			if err := s.logRepo.Create(&logEntry); err != nil {
 				return err
 			}
