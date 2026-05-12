@@ -31,6 +31,12 @@ function toBuddhistDate(date: Date): string {
   return `${day}/${month}/${year}`;
 }
 
+function toThaiTime(date: Date): string {
+  const hours = date.getHours().toString().padStart(2, '0');
+  const minutes = date.getMinutes().toString().padStart(2, '0');
+  return `${hours}:${minutes}`;
+}
+
 function getThaiMonth(date: Date): string {
   const months = [
     'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
@@ -43,6 +49,7 @@ export function generateAssignPDF(options: AssignPDFOptions): void {
   const { sealNumbers, technician, issuer, peaName, timestamp } = options;
   const now = timestamp || new Date(); // ใช้ timestamp ที่ส่งมา ถ้ามี ไม่งั้นใช้เวลาปัจจุบัน
   const thaiDate = toBuddhistDate(now);
+  const thaiTime = toThaiTime(now);
   const thaiMonth = getThaiMonth(now);
   const buddhistYear = (now.getFullYear() + 543).toString();
 
@@ -84,10 +91,11 @@ export function generateAssignPDF(options: AssignPDFOptions): void {
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Sarabun:wght@400;600;700&display=swap');
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    @page { size: A4 landscape; margin: 10mm 12mm; }
+    @page { size: A4 landscape; margin: 0; }
     body {
       font-family: 'Sarabun', 'TH Sarabun New', sans-serif;
       font-size: 12px; color: #000; background: #fff;
+      padding: 10mm 12mm;
     }
     .gff-line { font-size: 13px; margin-bottom: 6px; }
     .gff-line u { display: inline-block; min-width: 120px; }
@@ -115,6 +123,12 @@ export function generateAssignPDF(options: AssignPDFOptions): void {
 </head>
 <body>
 <div>
+  <div style="text-align: center; margin-bottom: 15px; position: relative;">
+    <h2 style="font-size: 18px; margin: 0;">ใบเบิกจ่ายซีล</h2>
+    <div style="position: absolute; right: 0; bottom: 0; font-size: 12px; color: #333;">
+      พิมพ์เมื่อ/เวลาที่ทำรายการ: ${thaiDate} ${thaiTime} น.
+    </div>
+  </div>
   <div class="gff-line">
     กฟภ. <u>${peaName || issuer.pea_code || ''}</u>
     &nbsp;&nbsp; เดือน <u>${thaiMonth}</u>
