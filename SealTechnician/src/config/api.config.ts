@@ -12,7 +12,7 @@ const getLocalServerIp = () => {
     return hostUri.split(':')[0];
   }
   // Fallback IP if not running in development or not via Expo Go
-  return '192.168.1.32';
+  return '192.168.1.41';
 };
 
 const SERVER_IP = getLocalServerIp();
@@ -23,7 +23,7 @@ const BASE_URL = `http://${SERVER_IP}:${SERVER_PORT}/api`;
 
 export const API_CONFIG = {
   SERVER_IP,
-  SERVER_PORT: '3000',
+  SERVER_PORT,
 
   // API endpoints
   BASE_URL: BASE_URL,
