@@ -434,7 +434,21 @@ export const AssignSealScreen: React.FC = () => {
                 }
             });
 
-            setHistoryGroups(groups);
+            let filteredGroups = groups;
+            if (user?.pea_code) {
+                const userPeaPrefix = user.pea_code.substring(0, 4);
+                filteredGroups = groups.filter(g => {
+                    // 1. เช็คว่าช่างผู้รับอยู่ในสังกัดเราหรือไม่ (เทียบล็อกรหัสช่างใน state ที่โหลดเฉพาะช่างสังกัดเรามาแล้ว)
+                    const isTechInPea = technicians.some(t => t.technician_code === g.techCode);
+                    // 2. เช็คว่าผู้จ่ายอยู่ในสังกัดเราหรือไม่
+                    const groupPea = userMap[g.user_id]?.pea_code;
+                    const isIssuerInPea = groupPea && groupPea.startsWith(userPeaPrefix);
+                    
+                    return isTechInPea || isIssuerInPea;
+                });
+            }
+
+            setHistoryGroups(filteredGroups);
             setHistoryModalVisible(true);
         } catch (error) {
             console.error('Failed to fetch history:', error);
