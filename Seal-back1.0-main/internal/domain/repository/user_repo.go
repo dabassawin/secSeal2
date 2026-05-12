@@ -78,6 +78,18 @@ func (r *UserRepository) GetAll() ([]model.User, error) {
 	return users, nil
 }
 
+// ✅ ค้นหาผู้ใช้ตาม ID
+func (r *UserRepository) GetByID(id uint) (*model.User, error) {
+
+	var user model.User
+	err := r.db.Where("id = ?", id).First(&user).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return &user, nil
+}
+
 // ✅ ลบผู้ใช้ (Soft Delete)
 func (r *UserRepository) Delete(username string) error {
 

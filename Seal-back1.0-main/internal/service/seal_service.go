@@ -906,9 +906,19 @@ func (s *SealService) AssignSealsByTechCode(techCode string, sealNumbers []strin
 		return fmt.Errorf("ไม่พบช่างที่มีรหัส %s", techCode)
 	}
 
+	// 2) หาผู้จ่าย (Issuer) - ถ้าไม่พบให้ใช้ ID แทน
+	issuerName := fmt.Sprintf("ID: %d", issuedBy)
+	if issuedBy > 0 {
+		issuer, err := s.userRepo.GetByID(issuedBy)
+		if err == nil && issuer != nil {
+			issuerName = fmt.Sprintf("%s %s", issuer.FirstName, issuer.LastName)
+		}
+		// ถ้าไม่พบ user ให้ใช้ ID เป็น fallback ไม่ต้อง return error
+	}
+
 	now := time.Now()
 
-	// 2) วนลูปซีล
+	// 3) วนลูปซีล
 	for _, sn := range sealNumbers {
 		seal, err := s.repo.FindByNumber(sn)
 		if err != nil {
@@ -918,7 +928,7 @@ func (s *SealService) AssignSealsByTechCode(techCode string, sealNumbers []strin
 		if seal.Status != string(constants.StatusReady) && seal.Status != string(constants.StatusIssued) {
 			return fmt.Errorf("ซีล %s ไม่ได้อยู่ในสถานะที่อนุญาตให้ assign", sn)
 		}
-		// ถ้าเป็น “พร้อมใช้งาน” -> เปลี่ยนเป็น “จ่าย”
+		// ถ้าเป็น "พร้อมใช้งาน" -> เปลี่ยนเป็น "จ่าย"
 		if seal.Status == string(constants.StatusReady) {
 			seal.Status = string(constants.StatusWaitConfirmation)
 			seal.IssuedAt = &now
@@ -952,10 +962,11 @@ func (s *SealService) AssignSealsByTechCode(techCode string, sealNumbers []strin
 		if err := s.repo.Update(seal); err != nil {
 			return err
 		}
-		// log
+		// log - บันทึกด้วย UserID ของผู้จ่าย และรวมชื่อผู้จ่ายใน action
 		logEntry := model.Log{
-			UserID: technician.ID,
-			Action: fmt.Sprintf("จ่ายซีล %s ให้ช่าง %s", sn, techCode),
+			UserID:    issuedBy,
+			Action:    fmt.Sprintf("จ่ายซีล %s ให้ช่าง %s (ผู้จ่าย: %s)", sn, techCode, issuerName),
+			Timestamp: now,
 		}
 		if err := s.logRepo.Create(&logEntry); err != nil {
 			return err

@@ -14,6 +14,7 @@ interface StagedSeal {
     sealNumber: string;
     type: 'Single';
     status: 'available' | 'unavailable' | 'duplicate';
+    issueRemark: string;
 }
 
 export const TransferToAccountingScreen: React.FC = () => {
@@ -129,7 +130,8 @@ export const TransferToAccountingScreen: React.FC = () => {
             id: Date.now().toString(),
             sealNumber: sealNum,
             type: 'Single',
-            status: 'available'
+            status: 'available',
+            issueRemark: ''
         };
         setStagedSeals(prev => [entry, ...prev]);
     };
@@ -165,7 +167,7 @@ export const TransferToAccountingScreen: React.FC = () => {
                 if (stagedSeals.some(s => s.sealNumber === sn)) continue;
                 const check = await checkSealAvailabilityForTransfer(sn);
                 if (check.ok) {
-                    setStagedSeals(prev => [{ id: Date.now().toString() + sn, sealNumber: sn, type: 'Single', status: 'available' }, ...prev]);
+                    setStagedSeals(prev => [{ id: Date.now().toString() + sn, sealNumber: sn, type: 'Single', status: 'available', issueRemark: '' }, ...prev]);
                 }
             }
 
@@ -178,6 +180,10 @@ export const TransferToAccountingScreen: React.FC = () => {
 
     const handleRemove = (id: string) => {
         setStagedSeals(prev => prev.filter(s => s.id !== id));
+    };
+
+    const handleUpdateIssueRemark = (id: string, remark: string) => {
+        setStagedSeals(prev => prev.map(s => s.id === id ? { ...s, issueRemark: remark } : s));
     };
 
     const handleConfirmTransfer = async () => {
@@ -224,8 +230,25 @@ export const TransferToAccountingScreen: React.FC = () => {
             <Header />
             <View style={styles.contentContainer}>
                 <View style={styles.leftPanel}>
+                    {/* Issuer Information */}
+                    <View style={styles.sectionCard}>
+                        <Text style={styles.sectionTitle}>ผู้จ่าย (Issuer)</Text>
+                        <View style={styles.issuerCard}>
+                            <View style={styles.issuerAvatar}>
+                                <Text style={styles.issuerAvatarText}>{user?.first_name?.charAt(0) || 'U'}</Text>
+                            </View>
+                            <View style={styles.issuerInfo}>
+                                <Text style={styles.issuerName}>{user?.first_name} {user?.last_name}</Text>
+                                <Text style={styles.issuerDetail}>Username: {user?.username} • แผนก: {user?.role || '-'}</Text>
+                                <View style={styles.issuerBadge}>
+                                    <Text style={styles.issuerBadgeText}>Active</Text>
+                                </View>
+                            </View>
+                        </View>
+                    </View>
+
                     <View style={[styles.sectionCard, { flex: 1 }]}>
-                        <Text style={styles.sectionTitle}>1. เลือกรายการซีลที่จะโอนเข้าคลังบัญชี</Text>
+                        <Text style={styles.sectionTitle}>2. เลือกรายการซีลที่จะโอนเข้าคลังบัญชี</Text>
 
                         <View style={styles.tabContainer}>
                             <TouchableOpacity
@@ -325,22 +348,47 @@ export const TransferToAccountingScreen: React.FC = () => {
 
                 <View style={styles.rightPanel}>
                     <View style={styles.listHeader}>
-                        <Text style={styles.listTitle}>รายการที่จะโอน</Text>
-                        <Text style={styles.countText}>Total: {stagedSeals.length}</Text>
+                        <Text style={styles.listTitle}>รายการที่จะโอน (Staging List)</Text>
+                        <View style={styles.countBadge}>
+                            <Text style={styles.countText}>Total: {stagedSeals.length} รายการ</Text>
+                        </View>
                     </View>
 
                     <View style={styles.tableHead}>
                         <Text style={[styles.th, { flex: 0.5 }]}>#</Text>
                         <Text style={[styles.th, { flex: 3 }]}>SERIAL NUMBER</Text>
+                        <Text style={[styles.th, { flex: 1.5 }]}>หมายเหตุ</Text>
+                        <Text style={[styles.th, { flex: 2 }]}>STATUS CHECK</Text>
                         <Text style={[styles.th, { flex: 1, textAlign: 'center' }]}>ACTION</Text>
                     </View>
 
                     <ScrollView style={styles.listContainer}>
                         {stagedSeals.map((item, index) => (
-                            <View key={item.id} style={styles.tableRow}>
+                            <View key={item.id} style={[
+                                styles.tableRow,
+                                item.status === 'unavailable' && styles.rowError,
+                                item.status === 'duplicate' && styles.rowWarning
+                            ]}>
                                 <Text style={[styles.td, { flex: 0.5 }]}>{index + 1}</Text>
-                                <Text style={[styles.td, { flex: 3 }]}>{item.sealNumber}</Text>
-                                <TouchableOpacity style={{ flex: 1, alignItems: 'center' }} onPress={() => handleRemove(item.id)}>
+                                <View style={{ flex: 3 }}>
+                                    <Text style={styles.serialText}>{item.sealNumber}</Text>
+                                </View>
+                                <View style={{ flex: 1.5 }}>
+                                    <TextInput
+                                        style={styles.remarkInput}
+                                        placeholder="พิมพ์หมายเหตุ..."
+                                        value={item.issueRemark}
+                                        onChangeText={(text) => handleUpdateIssueRemark(item.id, text)}
+                                    />
+                                </View>
+                                <View style={{ flex: 2 }}>
+                                    {item.status === 'available' && <Text style={styles.statusOk}>✅ Available</Text>}
+                                    {item.status === 'unavailable' && <Text style={styles.statusError}>⛔ Unavailable</Text>}
+                                </View>
+                                <TouchableOpacity
+                                    style={{ flex: 1, alignItems: 'center' }}
+                                    onPress={() => handleRemove(item.id)}
+                                >
                                     <Text style={styles.deleteIcon}>🗑</Text>
                                 </TouchableOpacity>
                             </View>
@@ -353,13 +401,22 @@ export const TransferToAccountingScreen: React.FC = () => {
                     </ScrollView>
 
                     <View style={styles.footer}>
-                        <TouchableOpacity
-                            style={[styles.confirmBtn, loading && { opacity: 0.7 }]}
-                            onPress={handleConfirmTransfer}
-                            disabled={loading}
-                        >
-                            {loading ? <ActivityIndicator color="white" /> : <Text style={styles.confirmBtnText}>💾 ยืนยันการโอน</Text>}
-                        </TouchableOpacity>
+                        <View style={styles.totalRow}>
+                            <Text style={styles.totalLabel}>รวมทั้งหมด:</Text>
+                            <Text style={styles.totalValue}>{stagedSeals.length} <Text style={{ fontSize: 16, fontWeight: 'normal' }}>ชิ้น/Seals</Text></Text>
+                        </View>
+                        <View style={styles.actionButtons}>
+                            <TouchableOpacity style={styles.cancelBtn} onPress={() => setStagedSeals([])}>
+                                <Text style={styles.cancelBtnText}>ยกเลิก</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity
+                                style={[styles.confirmBtn, loading && { opacity: 0.7 }]}
+                                onPress={handleConfirmTransfer}
+                                disabled={loading}
+                            >
+                                {loading ? <ActivityIndicator color="white" /> : <Text style={styles.confirmBtnText}>💾 ยืนยันการโอน (Confirm)</Text>}
+                            </TouchableOpacity>
+                        </View>
                     </View>
                 </View>
             </View>
@@ -388,6 +445,16 @@ const styles = StyleSheet.create({
     sectionCard: { backgroundColor: 'white', borderRadius: 12, padding: 20, marginBottom: 20, elevation: 1 },
     sectionTitle: { fontSize: 16, fontWeight: 'bold', color: colors.primaryPurple, marginBottom: 15 },
 
+    // Issuer Card
+    issuerCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f9f9f9', padding: 12, borderRadius: 10, borderWidth: 1, borderColor: '#eee' },
+    issuerAvatar: { width: 45, height: 45, borderRadius: 25, backgroundColor: colors.primaryPurple, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+    issuerAvatarText: { color: 'white', fontSize: 18, fontWeight: 'bold' },
+    issuerInfo: { flex: 1 },
+    issuerName: { fontSize: 15, fontWeight: 'bold', color: '#333' },
+    issuerDetail: { fontSize: 12, color: '#666' },
+    issuerBadge: { backgroundColor: '#e8f5e9', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, alignSelf: 'flex-start', marginTop: 4 },
+    issuerBadgeText: { fontSize: 10, color: '#4caf50', fontWeight: 'bold' },
+
     tabContainer: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: '#eee', marginBottom: 20 },
     tab: { paddingVertical: 10, paddingHorizontal: 15, marginRight: 15 },
     activeTab: { borderBottomWidth: 2, borderBottomColor: colors.primaryPurple },
@@ -410,22 +477,35 @@ const styles = StyleSheet.create({
     existingSub: { fontSize: 12, color: '#888', marginTop: 2 },
 
     listHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
-    listTitle: { fontSize: 18, fontWeight: 'bold', color: colors.primaryPurple },
-    countText: { color: '#666' },
+    listTitle: { fontSize: 18, fontWeight: 'bold', color: '#333' },
+    countBadge: { backgroundColor: '#f3e5f5', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
+    countText: { color: colors.primaryPurple, fontWeight: 'bold', fontSize: 13 },
 
-    tableHead: { flexDirection: 'row', paddingBottom: 10, borderBottomWidth: 1, borderBottomColor: '#eee' },
-    th: { fontWeight: 'bold', color: '#666', fontSize: 12 },
+    tableHead: { flexDirection: 'row', backgroundColor: '#f8f9fa', padding: 12, borderRadius: 8, marginBottom: 10 },
+    th: { fontSize: 12, fontWeight: 'bold', color: '#999' },
     listContainer: { flex: 1 },
-    tableRow: { flexDirection: 'row', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#f0f0f0', alignItems: 'center' },
-    td: { color: '#333' },
+    tableRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#f5f5f5' },
+    rowError: { backgroundColor: '#fff0f0' },
+    rowWarning: { backgroundColor: '#fff8e1' },
+    td: { fontSize: 14, color: '#333' },
+    serialText: { fontWeight: 'bold', fontSize: 14, color: colors.primaryPurple },
+    statusOk: { color: '#4caf50', fontWeight: 'bold', fontSize: 13 },
+    statusError: { color: '#f44336', fontWeight: 'bold', fontSize: 13 },
+    deleteIcon: { fontSize: 16, color: '#ccc' },
+    remarkInput: { borderWidth: 1, borderColor: '#e0e0e0', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4, fontSize: 12, backgroundColor: '#fafafa', minHeight: 32 },
 
-    deleteIcon: { fontSize: 16 },
+    emptyState: { padding: 40, alignItems: 'center' },
+    emptyText: { color: '#ccc', fontSize: 16 },
 
-    emptyState: { padding: 30, alignItems: 'center' },
-    emptyText: { color: '#999' },
+    footer: { marginTop: 20, borderTopWidth: 1, borderTopColor: '#eee', paddingTop: 20 },
+    totalRow: { flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'baseline', marginBottom: 15 },
+    totalLabel: { fontSize: 16, color: '#666', marginRight: 10 },
+    totalValue: { fontSize: 24, fontWeight: 'bold', color: '#333' },
 
-    footer: { paddingTop: 15, borderTopWidth: 1, borderTopColor: '#eee' },
-    confirmBtn: { backgroundColor: colors.primaryPurple, borderRadius: 8, padding: 14, alignItems: 'center' },
+    actionButtons: { flexDirection: 'row', justifyContent: 'flex-end' },
+    cancelBtn: { paddingVertical: 12, paddingHorizontal: 25, borderRadius: 8, borderWidth: 1, borderColor: '#ddd', marginRight: 10 },
+    cancelBtnText: { color: '#666' },
+    confirmBtn: { backgroundColor: colors.primaryPurple, paddingVertical: 12, paddingHorizontal: 30, borderRadius: 8 },
     confirmBtnText: { color: 'white', fontWeight: 'bold' },
 
     modalOverlay2: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },

@@ -8,6 +8,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/Kev2406/PEA/internal/domain/constants"
 	"github.com/Kev2406/PEA/internal/service"
@@ -723,10 +724,13 @@ func (sc *SealController) AssignSealsByTechCodeHandler(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
 	}
 
+	// ใช้ Thailand timezone (UTC+7) สำหรับ timestamp
+	thaiLocation, _ := time.LoadLocation("Asia/Bangkok")
 	return c.JSON(fiber.Map{
 		"message":         "Assigned seals successfully",
 		"technician_code": req.TechnicianCode,
 		"seals_assigned":  req.SealNumbers,
+		"timestamp":       time.Now().In(thaiLocation).Format(time.RFC3339),
 	})
 }
 func (sc *SealController) CancelSealHandler(c *fiber.Ctx) error {

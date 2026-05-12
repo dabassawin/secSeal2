@@ -21,6 +21,7 @@ interface AssignPDFOptions {
     pea_code?: string;
   };
   peaName?: string;
+  timestamp?: Date; // เพิ่ม timestamp ของเวลาจริงที่จ่ายซีล
 }
 
 function toBuddhistDate(date: Date): string {
@@ -39,8 +40,8 @@ function getThaiMonth(date: Date): string {
 }
 
 export function generateAssignPDF(options: AssignPDFOptions): void {
-  const { sealNumbers, technician, issuer, peaName } = options;
-  const now = new Date();
+  const { sealNumbers, technician, issuer, peaName, timestamp } = options;
+  const now = timestamp || new Date(); // ใช้ timestamp ที่ส่งมา ถ้ามี ไม่งั้นใช้เวลาปัจจุบัน
   const thaiDate = toBuddhistDate(now);
   const thaiMonth = getThaiMonth(now);
   const buddhistYear = (now.getFullYear() + 543).toString();
