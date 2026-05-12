@@ -290,28 +290,28 @@ func (s *SealService) UpdateSealStatus(sealNumber string, newStatus string, user
 	switch newStatus {
 	case string(constants.StatusIssued):
 		if seal.Status != string(constants.StatusReady) {
-			return errors.New("ซิลต้องอยู่ในสถานะ 'พร้อมใช้งาน' เท่านั้นจึงจะจ่ายได้")
+			return errors.New("ซีลต้องอยู่ในสถานะ 'พร้อมใช้งาน' เท่านั้นจึงจะจ่ายได้")
 		}
 		seal.Status = string(constants.StatusIssued)
 		seal.IssuedBy = &userID
 		seal.IssuedAt = &now
-		logAction = fmt.Sprintf("จ่ายซิล %s", sealNumber)
+		logAction = fmt.Sprintf("จ่ายซีล %s", sealNumber)
 	case string(constants.StatusInstalled):
 		if seal.Status != string(constants.StatusIssued) {
-			return errors.New("ซิลต้องอยู่ในสถานะ 'จ่าย' เท่านั้นจึงจะติดตั้งได้")
+			return errors.New("ซีลต้องอยู่ในสถานะ 'จ่าย' เท่านั้นจึงจะติดตั้งได้")
 		}
 		seal.Status = string(constants.StatusInstalled)
 		seal.UsedBy = &userID
 		seal.UsedAt = &now
-		logAction = fmt.Sprintf("ติดตั้งซิล %s", sealNumber)
+		logAction = fmt.Sprintf("ติดตั้งซีล %s", sealNumber)
 	case string(constants.StatusUsed):
 		if seal.Status != string(constants.StatusInstalled) {
-			return errors.New("ซิลต้องอยู่ในสถานะ 'ติดตั้งแล้ว' เท่านั้นจึงจะใช้งานได้")
+			return errors.New("ซีลต้องอยู่ในสถานะ 'ติดตั้งแล้ว' เท่านั้นจึงจะใช้งานได้")
 		}
 		seal.Status = string(constants.StatusUsed)
 		seal.ReturnedBy = &userID
 		seal.ReturnedAt = &now
-		logAction = fmt.Sprintf("ซิล %s ถูกตั้งค่าว่าใช้งานแล้ว", sealNumber)
+		logAction = fmt.Sprintf("ซีล %s ถูกตั้งค่าว่าใช้งานแล้ว", sealNumber)
 	default:
 		return errors.New("สถานะไม่ถูกต้อง")
 	}
@@ -682,9 +682,9 @@ func (s *SealService) IssueMultipleSeals(
 			}
 
 			logEntry := model.Log{
-				UserID: issuedTo,
+				UserID: issuedBy,
 				Action: fmt.Sprintf(
-					"จ่ายซิล %s ให้พนักงาน %d (รหัส: %s) - หมายเหตุ: %s",
+					"จ่ายซีล %s ให้ช่าง %d (รหัส: %s) - หมายเหตุ: %s",
 					sealsToIssue[i].SealNumber,
 					issuedTo,
 					employeeCode,
@@ -837,8 +837,8 @@ func (s *SealService) AssignSealsByTechCode(techCode string, sealNumbers []strin
 		}
 		// log
 		logEntry := model.Log{
-			UserID: technician.ID,
-			Action: fmt.Sprintf("จ่ายซีล %s ให้ช่าง %s", sn, techCode),
+			UserID: issuedBy,
+			Action: fmt.Sprintf("จ่ายซีล %s ให้ช่าง %d (รหัส: %s) - หมายเหตุ: %s", sn, technician.ID, techCode, remark),
 		}
 		if err := s.logRepo.Create(&logEntry); err != nil {
 			return err
