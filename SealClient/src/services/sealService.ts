@@ -136,4 +136,14 @@ export const sealService = {
     bulkConfirmCompanyTransfer: async (sealNumbers: string[], peaCode: string) => {
         return await api.post('/api/seals/bulk-confirm-transfer', { seal_numbers: sealNumbers, pea_code: peaCode });
     },
+
+    getIssuedLogs: async (): Promise<any[]> => {
+        try {
+            const response = await api.get('/api/logs/issued');
+            return response.data.logs || [];
+        } catch (error) {
+            console.error('Error fetching issued logs:', error);
+            return [];
+        }
+    },
 };

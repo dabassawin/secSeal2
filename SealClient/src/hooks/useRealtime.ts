@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 
 // Use the same base IP as your API
-const WS_BASE_URL = 'ws://192.168.137.1:3000';
+const WS_BASE_URL = 'ws://172.22.1.40:3000';
 
 export const useRealtime = (peaCode: string | undefined, onMessage: (msg: string) => void) => {
     const ws = useRef<WebSocket | null>(null);

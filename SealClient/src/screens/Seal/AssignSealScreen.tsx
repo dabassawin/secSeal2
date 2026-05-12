@@ -9,6 +9,7 @@ import { userService } from '@/services/userService';
 import { useAuth } from '@/context/AuthContext';
 import { Technician } from '@/types';
 import { SealStatus } from '../../constants/status';
+import { generateAssignPDF } from '@/utils/generateAssignPDF';
 
 type EntryMode = 'scan' | 'range';
 
@@ -50,6 +51,15 @@ export const AssignSealScreen: React.FC = () => {
     const [modalVisible, setModalVisible] = useState(false);
     const [modalStatus, setModalStatus] = useState<'success' | 'error'>('success');
     const [modalMessage, setModalMessage] = useState('');
+
+    // History Modal
+    const [historyModalVisible, setHistoryModalVisible] = useState(false);
+    const [historyGroups, setHistoryGroups] = useState<any[]>([]);
+    const [loadingHistory, setLoadingHistory] = useState(false);
+
+    // History Detail Modal
+    const [detailModalVisible, setDetailModalVisible] = useState(false);
+    const [selectedGroup, setSelectedGroup] = useState<any>(null);
 
     useFocusEffect(
         React.useCallback(() => {
@@ -318,6 +328,30 @@ export const AssignSealScreen: React.FC = () => {
                 Object.keys(sealRemarksMap).length > 0 ? sealRemarksMap : undefined
             );
 
+            // เปิด PDF ใบจ่ายซีลอัตโนมัติ (web only)
+            try {
+                generateAssignPDF({
+                    sealNumbers: sealList,
+                    technician: {
+                        first_name: selectedTech.first_name,
+                        last_name: selectedTech.last_name,
+                        technician_code: selectedTech.technician_code,
+                        pea_code: selectedTech.pea_code,
+                        company_name: selectedTech.company_name,
+                        is_center: selectedTech.is_center,
+                    },
+                    issuer: {
+                        first_name: user?.first_name,
+                        last_name: user?.last_name,
+                        username: user?.username || '',
+                        pea_code: user?.pea_code,
+                    },
+                    peaName: getPeaName(user?.pea_code),
+                });
+            } catch (pdfErr) {
+                console.warn('PDF generation failed:', pdfErr);
+            }
+
             setModalStatus('success');
             setModalMessage(`มอบหมายซีลจำนวน ${sealList.length} รายการ เรียบร้อยแล้ว`);
             setModalVisible(true);
@@ -339,6 +373,94 @@ export const AssignSealScreen: React.FC = () => {
             // Optional: navigate back or stays
             // navigation.goBack(); 
         }
+    };
+
+    const fetchHistory = async () => {
+        setLoadingHistory(true);
+        try {
+            const logs = await (sealService as any).getIssuedLogs();
+            
+            // Group logs by user and time (approx 5 seconds apart to account for batch latency)
+            const sortedLogs = logs.sort((a: any, b: any) => 
+                new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
+            );
+
+            const groups: any[] = [];
+            sortedLogs.forEach((log: any) => {
+                const logTime = new Date(log.timestamp).getTime();
+                // Find a group with same user and within 5 seconds
+                const group = groups.find(g => 
+                    g.user_id === log.user_id && 
+                    Math.abs(new Date(g.timestamp).getTime() - logTime) < 5000
+                );
+
+                const sealMatch = log.action.match(/จ่ายซีล\s+(\S+)\s+ให้ช่าง/);
+                const sealNum = sealMatch ? sealMatch[1] : null;
+
+                if (group) {
+                    if (sealNum) group.seals.push(sealNum);
+                } else {
+                    const techMatch = log.action.match(/ให้ช่าง\s+(\S+)/);
+                    groups.push({
+                        id: log.id,
+                        timestamp: log.timestamp,
+                        user_id: log.user_id,
+                        first_name: log.first_name,
+                        last_name: log.last_name,
+                        techCode: techMatch ? techMatch[1] : 'Unknown',
+                        seals: sealNum ? [sealNum] : [],
+                        originalLogs: [log]
+                    });
+                }
+            });
+
+            setHistoryGroups(groups);
+            setHistoryModalVisible(true);
+        } catch (error) {
+            console.error('Failed to fetch history:', error);
+        } finally {
+            setLoadingHistory(false);
+        }
+    };
+
+    const handleShowDetails = (group: any) => {
+        setSelectedGroup(group);
+        setDetailModalVisible(true);
+    };
+
+    const handleReDownloadPDFFromGroup = (group: any) => {
+        if (!group.seals || group.seals.length === 0) return;
+
+        // We need technician details. We can try to find them in our current technicians list
+        const tech = technicians.find(t => t.technician_code === group.techCode);
+
+        if (tech) {
+            generateAssignPDF({
+                sealNumbers: group.seals,
+                technician: {
+                    first_name: tech.first_name,
+                    last_name: tech.last_name,
+                    technician_code: tech.technician_code,
+                    pea_code: tech.pea_code,
+                    company_name: tech.company_name,
+                    is_center: tech.is_center,
+                },
+                issuer: {
+                    first_name: group.first_name,
+                    last_name: group.last_name,
+                    username: '', // Not critical for display if names exist
+                    pea_code: user?.pea_code,
+                },
+                peaName: getPeaName(user?.pea_code),
+            });
+        } else {
+            alert('ไม่สามารถดึงข้อมูลช่างได้ (อาจเป็นช่างที่ถูกลบไปแล้ว)');
+        }
+    };
+
+    const handleReDownloadPDF = (log: any) => {
+        // This is legacy from previous turn, now we use handleReDownloadPDFFromGroup
+        // but let's keep it just in case or replace it.
     };
 
     return (
@@ -509,6 +631,14 @@ export const AssignSealScreen: React.FC = () => {
                         <View style={styles.totalRow}>
                             <Text style={styles.totalLabel}>รวมทั้งหมด:</Text>
                             <Text style={styles.totalValue}>{stagedSeals.reduce((sum, item) => sum + (item.type === 'Range' ? (item.rangeCount || 0) : 1), 0)} <Text style={{ fontSize: 16, fontWeight: 'normal' }}>ชิ้น/Seals</Text></Text>
+                            
+                            <TouchableOpacity 
+                                style={styles.historyBtn} 
+                                onPress={fetchHistory}
+                                disabled={loadingHistory}
+                            >
+                                {loadingHistory ? <ActivityIndicator size="small" color={colors.primaryPurple} /> : <Text style={styles.historyBtnText}>📜 ประวัติการจ่าย</Text>}
+                            </TouchableOpacity>
                         </View>
                         <View style={styles.actionButtons}>
                             <TouchableOpacity style={styles.cancelBtn} onPress={() => setStagedSeals([])}>
@@ -583,6 +713,115 @@ export const AssignSealScreen: React.FC = () => {
                         <Text style={styles.modalTitle}>{modalStatus === 'success' ? 'สำเร็จ' : 'เกิดข้อผิดพลาด'}</Text>
                         <Text style={styles.modalMessage}>{modalMessage}</Text>
                         <TouchableOpacity style={[styles.modalBtn, { backgroundColor: modalStatus === 'success' ? colors.primaryPurple : '#f44336' }]} onPress={handleModalClose}><Text style={styles.modalBtnText}>ตกลง</Text></TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
+
+            {/* History Modal */}
+            <Modal visible={historyModalVisible} transparent animationType="fade" onRequestClose={() => setHistoryModalVisible(false)}>
+                <View style={styles.historyModalOverlay}>
+                    <View style={styles.historyModalContent}>
+                        <View style={styles.historyModalHeader}>
+                            <View>
+                                <Text style={styles.historyModalTitle}>ประวัติการจ่ายซีล</Text>
+                                <Text style={styles.historyModalSub}>แสดงเป็นกลุ่มตามรอบการจ่าย (คลิกที่รายการเพื่อดูรายละเอียด)</Text>
+                            </View>
+                            <TouchableOpacity onPress={() => setHistoryModalVisible(false)} style={styles.historyCloseBtn}>
+                                <Text style={styles.historyCloseText}>✕</Text>
+                            </TouchableOpacity>
+                        </View>
+
+                        <View style={styles.historyTableHead}>
+                            <Text style={[styles.historyTh, { flex: 2 }]}>วัน-เวลา</Text>
+                            <Text style={[styles.historyTh, { flex: 4 }]}>รายละเอียด (ช่างผู้รับ)</Text>
+                            <Text style={[styles.historyTh, { flex: 1.5, textAlign: 'center' }]}>จำนวน</Text>
+                            <Text style={[styles.historyTh, { flex: 1.5, textAlign: 'center' }]}>PDF</Text>
+                        </View>
+
+                        <ScrollView style={styles.historyList}>
+                            {historyGroups.map((group, index) => (
+                                <TouchableOpacity key={group.id || index} style={styles.historyRow} onPress={() => handleShowDetails(group)}>
+                                    <View style={{ flex: 2 }}>
+                                        <Text style={styles.historyDate}>{new Date(group.timestamp).toLocaleDateString('th-TH')}</Text>
+                                        <Text style={styles.historyTime}>{new Date(group.timestamp).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} น.</Text>
+                                    </View>
+                                    <View style={{ flex: 4 }}>
+                                        <Text style={styles.historyAction}>จ่ายให้ช่าง: <Text style={{ fontWeight: 'bold', color: colors.primaryPurple }}>{group.techCode}</Text></Text>
+                                        <Text style={styles.historyUser}>ผู้ออกใบ: {group.first_name || 'Admin'} {group.last_name || ''}</Text>
+                                    </View>
+                                    <View style={{ flex: 1.5, alignItems: 'center' }}>
+                                        <View style={styles.countBadgeSmall}>
+                                            <Text style={styles.countTextSmall}>{group.seals.length}</Text>
+                                        </View>
+                                    </View>
+                                    <TouchableOpacity 
+                                        style={styles.reDownloadBtn} 
+                                        onPress={() => handleReDownloadPDFFromGroup(group)}
+                                    >
+                                        <Text style={styles.reDownloadText}>📥</Text>
+                                    </TouchableOpacity>
+                                </TouchableOpacity>
+                            ))}
+                            {historyGroups.length === 0 && (
+                                <View style={styles.emptyHistory}>
+                                    <Text style={styles.emptyHistoryText}>ไม่พบประวัติการจ่าย</Text>
+                                </View>
+                            )}
+                        </ScrollView>
+                    </View>
+                </View>
+            </Modal>
+
+            {/* History Detail Modal */}
+            <Modal visible={detailModalVisible} transparent animationType="fade" onRequestClose={() => setDetailModalVisible(false)}>
+                <View style={styles.detailModalOverlay}>
+                    <View style={styles.detailModalContent}>
+                        <View style={styles.detailHeader}>
+                            <View>
+                                <Text style={styles.detailTitle}>รายละเอียดรอบการจ่าย</Text>
+                                {selectedGroup && (
+                                    <Text style={styles.detailSub}>
+                                        ช่าง: {selectedGroup.techCode} | {new Date(selectedGroup.timestamp).toLocaleString('th-TH')}
+                                    </Text>
+                                )}
+                            </View>
+                            <TouchableOpacity onPress={() => setDetailModalVisible(false)} style={styles.detailCloseBtn}>
+                                <Text style={styles.detailCloseText}>✕</Text>
+                            </TouchableOpacity>
+                        </View>
+
+                        <View style={styles.detailStats}>
+                            <View style={styles.statBox}>
+                                <Text style={styles.statLabel}>จำนวนทั้งหมด</Text>
+                                <Text style={styles.statValue}>{selectedGroup?.seals.length || 0} ตัว</Text>
+                            </View>
+                        </View>
+
+                        <View style={styles.detailTableHead}>
+                            <Text style={styles.detailTh}>#</Text>
+                            <Text style={styles.detailTh}>หมายเลขซีล (Seal Number)</Text>
+                        </View>
+
+                        <ScrollView style={styles.detailList}>
+                            {selectedGroup?.seals.map((seal: string, idx: number) => (
+                                <View key={idx} style={styles.detailRow}>
+                                    <Text style={[styles.detailTd, { width: 40 }]}>{idx + 1}</Text>
+                                    <Text style={[styles.detailTd, { fontWeight: 'bold', color: colors.primaryPurple }]}>{seal}</Text>
+                                </View>
+                            ))}
+                        </ScrollView>
+
+                        <View style={styles.detailFooter}>
+                            <TouchableOpacity 
+                                style={styles.detailPrintBtn} 
+                                onPress={() => {
+                                    handleReDownloadPDFFromGroup(selectedGroup);
+                                    setDetailModalVisible(false);
+                                }}
+                            >
+                                <Text style={styles.detailPrintBtnText}>📥 โหลดใบจ่ายซีล (PDF)</Text>
+                            </TouchableOpacity>
+                        </View>
                     </View>
                 </View>
             </Modal>
@@ -772,4 +1011,237 @@ const styles = StyleSheet.create({
     modalMessage: { fontSize: 16, color: '#666', textAlign: 'center', marginBottom: 25, lineHeight: 22 },
     modalBtn: { width: '100%', height: 50, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
     modalBtnText: { color: 'white', fontSize: 16, fontWeight: 'bold' },
+
+    // History Styles
+    historyBtn: {
+        marginLeft: 15,
+        paddingHorizontal: 12,
+        paddingVertical: 6,
+        borderRadius: 6,
+        borderWidth: 1,
+        borderColor: colors.primaryPurple,
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#fdfbff',
+    },
+    historyBtnText: {
+        color: colors.primaryPurple,
+        fontSize: 14,
+        fontWeight: 'bold',
+    },
+    historyModalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.6)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    historyModalContent: {
+        width: '60%',
+        maxHeight: '80%',
+        backgroundColor: 'white',
+        borderRadius: 16,
+        padding: 24,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 10 },
+        shadowOpacity: 0.3,
+        shadowRadius: 20,
+        elevation: 10,
+    },
+    historyModalHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+        marginBottom: 20,
+    },
+    historyModalTitle: {
+        fontSize: 22,
+        fontWeight: 'bold',
+        color: '#333',
+    },
+    historyModalSub: {
+        fontSize: 14,
+        color: '#888',
+        marginTop: 4,
+    },
+    historyCloseBtn: {
+        padding: 4,
+    },
+    historyCloseText: {
+        fontSize: 24,
+        color: '#bbb',
+    },
+    historyTableHead: {
+        flexDirection: 'row',
+        backgroundColor: '#f8f9fa',
+        padding: 12,
+        borderRadius: 8,
+        marginBottom: 8,
+    },
+    historyTh: {
+        fontSize: 13,
+        fontWeight: 'bold',
+        color: '#666',
+    },
+    historyList: {
+        flex: 1,
+    },
+    historyRow: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: 14,
+        borderBottomWidth: 1,
+        borderBottomColor: '#f0f0f0',
+    },
+    historyDate: {
+        fontSize: 14,
+        fontWeight: 'bold',
+        color: '#333',
+    },
+    historyTime: {
+        fontSize: 12,
+        color: '#999',
+        marginTop: 2,
+    },
+    historyAction: {
+        fontSize: 14,
+        color: '#444',
+        fontWeight: '500',
+    },
+    historyUser: {
+        fontSize: 12,
+        color: '#888',
+        marginTop: 4,
+    },
+    reDownloadBtn: {
+        flex: 1.5,
+        alignItems: 'center',
+        justifyContent: 'center',
+        height: 40,
+    },
+    reDownloadText: {
+        fontSize: 20,
+    },
+    emptyHistory: {
+        padding: 40,
+        alignItems: 'center',
+    },
+    emptyHistoryText: {
+        color: '#bbb',
+        fontSize: 15,
+    },
+    countBadgeSmall: {
+        backgroundColor: '#f3e5f5',
+        paddingHorizontal: 8,
+        paddingVertical: 4,
+        borderRadius: 12,
+        minWidth: 30,
+        alignItems: 'center',
+    },
+    countTextSmall: {
+        color: colors.primaryPurple,
+        fontWeight: 'bold',
+        fontSize: 12,
+    },
+
+    // Detail Modal Styles
+    detailModalOverlay: {
+        flex: 1,
+        backgroundColor: 'rgba(0,0,0,0.7)',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    detailModalContent: {
+        width: '40%',
+        maxHeight: '75%',
+        backgroundColor: 'white',
+        borderRadius: 16,
+        padding: 24,
+    },
+    detailHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+        marginBottom: 20,
+    },
+    detailTitle: {
+        fontSize: 20,
+        fontWeight: 'bold',
+        color: '#333',
+    },
+    detailSub: {
+        fontSize: 13,
+        color: '#666',
+        marginTop: 4,
+    },
+    detailCloseBtn: {
+        padding: 4,
+    },
+    detailCloseText: {
+        fontSize: 20,
+        color: '#bbb',
+    },
+    detailStats: {
+        flexDirection: 'row',
+        marginBottom: 20,
+    },
+    statBox: {
+        backgroundColor: '#f8f9fa',
+        padding: 15,
+        borderRadius: 10,
+        flex: 1,
+        alignItems: 'center',
+        borderWidth: 1,
+        borderColor: '#eee',
+    },
+    statLabel: {
+        fontSize: 12,
+        color: '#888',
+        marginBottom: 5,
+    },
+    statValue: {
+        fontSize: 18,
+        fontWeight: 'bold',
+        color: colors.primaryPurple,
+    },
+    detailTableHead: {
+        flexDirection: 'row',
+        paddingVertical: 10,
+        borderBottomWidth: 1,
+        borderBottomColor: '#eee',
+    },
+    detailTh: {
+        fontSize: 13,
+        fontWeight: 'bold',
+        color: '#999',
+    },
+    detailList: {
+        flex: 1,
+    },
+    detailRow: {
+        flexDirection: 'row',
+        paddingVertical: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: '#f9f9f9',
+    },
+    detailTd: {
+        fontSize: 14,
+        color: '#444',
+    },
+    detailFooter: {
+        marginTop: 20,
+        paddingTop: 15,
+        borderTopWidth: 1,
+        borderTopColor: '#eee',
+    },
+    detailPrintBtn: {
+        backgroundColor: colors.primaryPurple,
+        paddingVertical: 12,
+        borderRadius: 8,
+        alignItems: 'center',
+    },
+    detailPrintBtnText: {
+        color: 'white',
+        fontWeight: 'bold',
+        fontSize: 15,
+    },
 });

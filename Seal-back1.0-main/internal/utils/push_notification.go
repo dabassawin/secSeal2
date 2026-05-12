@@ -20,7 +20,6 @@ type ExpoPushMessage struct {
 // SendExpoPushNotification sends a push notification to an Expo device token
 func SendExpoPushNotification(token, title, body string, data map[string]interface{}) error {
 	if token == "" || len(token) < 18 || token[:17] != "ExponentPushToken" {
-		log.Println("⚠️ [WARNING] Invalid or missing Expo Push Token:", token)
 		return errors.New("invalid expo push token")
 	}
 

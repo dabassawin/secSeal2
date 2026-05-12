@@ -159,7 +159,7 @@ const StaffNavigator = () => {
                 name="AssignSeal"
                 component={AssignSealScreen}
                 options={{
-                    title: 'มอบหมายซีล',
+                    title: `ใบจ่ายซีล(${new Date().toLocaleDateString('th-TH')})`,
                     drawerItemStyle: { display: 'none' }
                 }}
             />

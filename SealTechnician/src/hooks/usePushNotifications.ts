@@ -87,14 +87,14 @@ async function registerForPushNotificationsAsync() {
             const projectId =
                 Constants?.expoConfig?.extra?.eas?.projectId ?? Constants?.easConfig?.projectId;
             if (!projectId) {
-                // You can also use explicitly registered 'expo-project-id' string 
-                // token = (await Notifications.getExpoPushTokenAsync({ projectId: 'YOUR-EXPO-PROJECT-ID' })).data;
                 token = (await Notifications.getExpoPushTokenAsync()).data;
             } else {
                 token = (await Notifications.getExpoPushTokenAsync({ projectId })).data;
             }
         } catch (e) {
-            token = `${e}`;
+            console.error('❌ Failed to get Expo Push Token:', e);
+            // ❌ อย่าเก็บ error message เป็น token เด็ดขาด
+            return undefined;
         }
     } else {
     }
