@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, ActivityIndicator, Modal, FlatList } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, ActivityIndicator, Modal, FlatList, Platform } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { colors, sizes } from '@/constants';
 import { Header } from '@/components/dashboard';
@@ -53,6 +53,9 @@ export const AssignSealScreen: React.FC = () => {
 
     const [detailModalVisible, setDetailModalVisible] = useState(false);
     const [selectedGroup, setSelectedGroup] = useState<any>(null);
+
+    const [historyDateFilter, setHistoryDateFilter] = useState('');
+    const [historySearchQuery, setHistorySearchQuery] = useState('');
 
     useFocusEffect(
         React.useCallback(() => {
@@ -457,6 +460,38 @@ export const AssignSealScreen: React.FC = () => {
         }
     };
 
+    const filteredHistoryGroups = historyGroups.filter(group => {
+        let match = true;
+        if (historyDateFilter) {
+            // Check if user is using YYYY-MM-DD or other formats
+            try {
+                // For timezone safety, just take YYYY-MM-DD from locale string or create a Date
+                const groupDate = new Date(group.timestamp);
+                const year = groupDate.getFullYear();
+                const month = String(groupDate.getMonth() + 1).padStart(2, '0');
+                const day = String(groupDate.getDate()).padStart(2, '0');
+                const groupDateStr = `${year}-${month}-${day}`;
+                if (groupDateStr !== historyDateFilter) {
+                    match = false;
+                }
+            } catch (e) {
+                // ignore
+            }
+        }
+        if (historySearchQuery && match) {
+            const query = historySearchQuery.toLowerCase();
+            const techCode = (group.techCode || '').toLowerCase();
+            const tech = technicians.find(t => t.technician_code === group.techCode);
+            const techName = tech ? `${tech.first_name} ${tech.last_name}`.toLowerCase() : '';
+            const issuerName = `${group.first_name || ''} ${group.last_name || ''}`.toLowerCase();
+            
+            if (!techCode.includes(query) && !techName.includes(query) && !issuerName.includes(query)) {
+                match = false;
+            }
+        }
+        return match;
+    });
+
     const handleShowDetails = (group: any) => {
         setSelectedGroup(group);
         setDetailModalVisible(true);
@@ -760,6 +795,61 @@ export const AssignSealScreen: React.FC = () => {
                             </TouchableOpacity>
                         </View>
 
+                        <View style={styles.historyFilterContainer}>
+                            <View style={styles.historyFilterItem}>
+                                <Text style={styles.historyFilterLabel}>ค้นหาวันที่</Text>
+                                {Platform.OS === 'web' ? (
+                                    <input
+                                        type="date"
+                                        value={historyDateFilter}
+                                        onChange={(e: any) => setHistoryDateFilter(e.target.value)}
+                                        onClick={(e: any) => { try { e.target.showPicker && e.target.showPicker(); } catch (err) {} }}
+                                        style={{
+                                            height: 40,
+                                            borderRadius: 8,
+                                            border: '1px solid #ddd',
+                                            backgroundColor: '#f9f9f9',
+                                            paddingLeft: 12,
+                                            paddingRight: 12,
+                                            fontSize: 14,
+                                            color: '#333',
+                                            outline: 'none',
+                                            width: '100%',
+                                            boxSizing: 'border-box' as any,
+                                            cursor: 'pointer',
+                                        }}
+                                    />
+                                ) : (
+                                    <TextInput
+                                        style={styles.historyFilterInput}
+                                        placeholder="YYYY-MM-DD"
+                                        value={historyDateFilter}
+                                        onChangeText={setHistoryDateFilter}
+                                    />
+                                )}
+                            </View>
+                            <View style={[styles.historyFilterItem, { flex: 1 }]}>
+                                <Text style={styles.historyFilterLabel}>ค้นหาชื่อช่าง, รหัสช่าง หรือ ชื่อผู้จ่าย</Text>
+                                <TextInput
+                                    style={styles.historyFilterInput}
+                                    placeholder="พิมพ์เพื่อค้นหา..."
+                                    value={historySearchQuery}
+                                    onChangeText={setHistorySearchQuery}
+                                />
+                            </View>
+                            {(historyDateFilter || historySearchQuery) ? (
+                                <TouchableOpacity 
+                                    style={styles.historyClearFilterBtn}
+                                    onPress={() => {
+                                        setHistoryDateFilter('');
+                                        setHistorySearchQuery('');
+                                    }}
+                                >
+                                    <Text style={styles.historyClearFilterText}>ล้างตัวกรอง</Text>
+                                </TouchableOpacity>
+                            ) : null}
+                        </View>
+
                         <View style={styles.historyTableHead}>
                             <Text style={[styles.historyTh, { flex: 2 }]}>วัน-เวลา</Text>
                             <Text style={[styles.historyTh, { flex: 4 }]}>รายละเอียด (ผู้จ่าย/ช่างผู้รับ)</Text>
@@ -768,7 +858,7 @@ export const AssignSealScreen: React.FC = () => {
                         </View>
 
                         <ScrollView style={styles.historyList}>
-                            {historyGroups.map((group, index) => (
+                            {filteredHistoryGroups.map((group, index) => (
                                 <TouchableOpacity key={group.id || index} style={styles.historyRow} onPress={() => handleShowDetails(group)}>
                                     <View style={{ flex: 2 }}>
                                         <Text style={styles.historyDate}>{new Date(group.timestamp).toLocaleDateString('th-TH')}</Text>
@@ -791,9 +881,9 @@ export const AssignSealScreen: React.FC = () => {
                                     </TouchableOpacity>
                                 </TouchableOpacity>
                             ))}
-                            {historyGroups.length === 0 && (
+                            {filteredHistoryGroups.length === 0 && (
                                 <View style={styles.emptyHistory}>
-                                    <Text style={styles.emptyHistoryText}>ไม่พบประวัติการจ่าย</Text>
+                                    <Text style={styles.emptyHistoryText}>ไม่พบประวัติการจ่ายตามเงื่อนไขที่ค้นหา</Text>
                                 </View>
                             )}
                         </ScrollView>
@@ -1064,6 +1154,51 @@ const styles = StyleSheet.create({
     historyModalSub: { fontSize: 14, color: '#888', marginTop: 4 },
     historyCloseBtn: { padding: 4 },
     historyCloseText: { fontSize: 24, color: '#bbb' },
+    
+    historyFilterContainer: {
+        flexDirection: 'row',
+        alignItems: 'flex-end',
+        marginBottom: 15,
+        gap: 12,
+        paddingBottom: 15,
+        borderBottomWidth: 1,
+        borderBottomColor: '#f0f0f0',
+    },
+    historyFilterItem: {
+        flexDirection: 'column',
+    },
+    historyFilterLabel: {
+        fontSize: 12,
+        color: '#666',
+        marginBottom: 6,
+        fontWeight: 'bold',
+    },
+    historyFilterInput: {
+        height: 40,
+        borderWidth: 1,
+        borderColor: '#ddd',
+        borderRadius: 8,
+        paddingHorizontal: 12,
+        backgroundColor: '#f9f9f9',
+        fontSize: 14,
+        minWidth: 140,
+    },
+    historyClearFilterBtn: {
+        height: 40,
+        paddingHorizontal: 15,
+        justifyContent: 'center',
+        alignItems: 'center',
+        backgroundColor: '#ffebee',
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: '#ffcdd2',
+    },
+    historyClearFilterText: {
+        color: '#c62828',
+        fontSize: 13,
+        fontWeight: 'bold',
+    },
+
     historyTableHead: {
         flexDirection: 'row',
         backgroundColor: '#f8f9fa',
