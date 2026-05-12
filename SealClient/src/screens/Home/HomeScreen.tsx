@@ -22,7 +22,8 @@ export const HomeScreen: React.FC = () => {
 
     const fetchData = async () => {
         try {
-            const reportResponse = await sealService.getReport(user?.pea_code);
+            const inventoryDepartment = user?.role === 'meter' ? 'meter' : 'accounting';
+            const reportResponse = await sealService.getReport(user?.pea_code, inventoryDepartment);
 
             if (reportResponse) {
                 setStats(reportResponse);
@@ -78,14 +79,6 @@ export const HomeScreen: React.FC = () => {
                         color={colors.accentGreen}
                         onPress={() => (navigation as any).navigate('Inventory', { screen: 'SealInventory', params: { filter: SealStatus.INSTALLED } })}
                     />
-                    {stats && stats.pending_transfer_in > 0 && (
-                        <StatusCard
-                            title="รอยืนยัน (รับโอน)"
-                            count={stats.pending_transfer_in.toLocaleString()}
-                            color="#E65100" // Orange/Deep Orange
-                            onPress={() => (navigation as any).navigate('Inventory', { screen: 'SealInventory', params: { filter: 'รอยืนยันรับโอน' } })}
-                        />
-                    )}
                 </View>
 
                 {/* Action Cards Grid - Row 1 */}

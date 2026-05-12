@@ -15,7 +15,7 @@ const ITEMS_PER_PAGE = 10;
 const ROLES = [
     { label: '-- เลือกสิทธิ์ --', value: '' },
     { label: 'Admin (ผู้ดูแลระบบ)', value: 'admin' },
-    { label: 'Storekeeper (เจ้าหน้าที่คลัง)', value: 'storekeeper' },
+    { label: 'Meter (แผนกมิเตอร์)', value: 'meter' },
     { label: 'User', value: 'user' },
 ];
 
@@ -23,8 +23,8 @@ const getRoleBadge = (role: string) => {
     switch (role?.toLowerCase()) {
         case 'admin':
             return { label: 'Admin', bg: '#FFF3E0', color: '#E65100', borderColor: '#FFB74D' };
-        case 'storekeeper':
-            return { label: 'Storekeeper', bg: '#E3F2FD', color: '#1565C0', borderColor: '#64B5F6' };
+        case 'meter':
+            return { label: 'Meter', bg: '#E3F2FD', color: '#1565C0', borderColor: '#90CAF9' };
         default:
             return { label: role || 'User', bg: '#F3E5F5', color: '#6A1B9A', borderColor: '#CE93D8' };
     }
@@ -38,7 +38,7 @@ const getInitial = (name: string) => {
 const getAvatarColor = (role: string) => {
     switch (role?.toLowerCase()) {
         case 'admin': return '#E65100';
-        case 'storekeeper': return '#1565C0';
+        case 'meter': return '#1565C0';
         default: return '#6A1B9A';
     }
 };
@@ -84,9 +84,6 @@ export const UserManagementScreen: React.FC = () => {
     // Delete Confirm
     const [deleteModalVisible, setDeleteModalVisible] = useState(false);
     const [deleteTarget, setDeleteTarget] = useState<UserResponse | null>(null);
-
-    // Show/Hide Password
-    const [showPassword, setShowPassword] = useState(false);
 
     // Form data
     const emptyForm = {
@@ -156,7 +153,6 @@ export const UserManagementScreen: React.FC = () => {
     const stats = useMemo(() => ({
         total: users.length,
         admin: users.filter(u => u.role?.toLowerCase() === 'admin').length,
-        storekeeper: users.filter(u => u.role?.toLowerCase() === 'storekeeper').length,
         active: users.filter(u => u.is_active !== false).length,
     }), [users]);
 
@@ -166,7 +162,6 @@ export const UserManagementScreen: React.FC = () => {
         setFormErrors({});
         setSelectedPeaDisplay('');
         setIsEditMode(false);
-        setShowPassword(false);
         setModalVisible(true);
     };
 
@@ -184,7 +179,6 @@ export const UserManagementScreen: React.FC = () => {
         setSelectedPeaDisplay(user.pea_name ? `${user.pea_code} - ${user.pea_name}` : '');
         setFormErrors({});
         setIsEditMode(true);
-        setShowPassword(false);
         setModalVisible(true);
     };
 
@@ -339,15 +333,6 @@ export const UserManagementScreen: React.FC = () => {
                         </View>
                         <View style={[styles.statIcon, { backgroundColor: '#FFF3E0' }]}>
                             <Text style={{ fontSize: 22 }}>👤</Text>
-                        </View>
-                    </View>
-                    <View style={[styles.statCard, { borderLeftColor: '#1565C0' }]}>
-                        <View style={styles.statInfo}>
-                            <Text style={styles.statLabel}>เจ้าหน้าที่คลัง (Storekeeper)</Text>
-                            <Text style={[styles.statValue, { color: '#1565C0' }]}>{stats.storekeeper}</Text>
-                        </View>
-                        <View style={[styles.statIcon, { backgroundColor: '#E3F2FD' }]}>
-                            <Text style={{ fontSize: 22 }}>📋</Text>
                         </View>
                     </View>
                     <View style={[styles.statCard, { borderLeftColor: '#2E7D32' }]}>
@@ -650,11 +635,8 @@ export const UserManagementScreen: React.FC = () => {
                                             placeholderTextColor="#bbb"
                                             value={formData.password}
                                             onChangeText={t => setFormData(p => ({ ...p, password: t }))}
-                                            secureTextEntry={!showPassword}
+                                            secureTextEntry={true}
                                         />
-                                        <TouchableOpacity style={styles.eyeBtn} onPress={() => setShowPassword(!showPassword)}>
-                                            <Text style={{ fontSize: 18 }}>{showPassword ? '👁️' : '🙈'}</Text>
-                                        </TouchableOpacity>
                                     </View>
                                     {formErrors.password && <Text style={styles.formError}>{formErrors.password}</Text>}
                                 </View>

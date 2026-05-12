@@ -14,50 +14,43 @@ import { generateAssignPDF } from '@/utils/generateAssignPDF';
 type EntryMode = 'scan' | 'range';
 
 interface StagedSeal {
-    id: string; // unique key for list
+    id: string;
     sealNumber: string;
     type: 'Single' | 'Range';
     status: 'checking' | 'available' | 'unavailable' | 'duplicate';
-    rangeCount?: number; // Changed from rangeEnd to rangeCount
-    startSeal?: string;  // Added to help with expansion
+    rangeCount?: number;
+    startSeal?: string;
     issueRemark: string;
 }
 
 export const AssignSealScreen: React.FC = () => {
     const navigation = useNavigation();
-    const { user, refreshUser } = useAuth(); // ดึงประวัติ user และฟังก์ชันอัปเดต
+    const { user, refreshUser } = useAuth();
 
-    // Data & Loading
     const [technicians, setTechnicians] = useState<Technician[]>([]);
     const [masPeaList, setMasPeaList] = useState<any[]>([]);
     const [loading, setLoading] = useState(false);
     const [initialLoading, setInitialLoading] = useState(true);
 
-    // Technician Selection
     const [searchTechQuery, setSearchTechQuery] = useState('');
     const [selectedTech, setSelectedTech] = useState<Technician | null>(null);
     const [showTechDropdown, setShowTechDropdown] = useState(false);
 
-    // Seal Entry
     const [entryMode, setEntryMode] = useState<EntryMode>('scan');
     const [singleSealInput, setSingleSealInput] = useState('');
     const [rangeStartInput, setRangeStartInput] = useState('');
-    const [rangeCountInput, setRangeCountInput] = useState(''); // Changed from rangeEndInput
+    const [rangeCountInput, setRangeCountInput] = useState('');
 
-    // Staging
     const [stagedSeals, setStagedSeals] = useState<StagedSeal[]>([]);
 
-    // Modal
     const [modalVisible, setModalVisible] = useState(false);
     const [modalStatus, setModalStatus] = useState<'success' | 'error'>('success');
     const [modalMessage, setModalMessage] = useState('');
 
-    // History Modal
     const [historyModalVisible, setHistoryModalVisible] = useState(false);
     const [historyGroups, setHistoryGroups] = useState<any[]>([]);
     const [loadingHistory, setLoadingHistory] = useState(false);
 
-    // History Detail Modal
     const [detailModalVisible, setDetailModalVisible] = useState(false);
     const [selectedGroup, setSelectedGroup] = useState<any>(null);
 
@@ -92,10 +85,7 @@ export const AssignSealScreen: React.FC = () => {
 
     const fetchTechnicians = async () => {
         try {
-            // ดึงเฉพาะ 4 หลักแรกของ PEA Code
             const peaPrefix = user?.pea_code ? user.pea_code.substring(0, 4) : undefined;
-
-            // ส่ง parameter peaCode และ isPrefix = true
             const data = await technicianService.getTechnicians(peaPrefix, true);
             setTechnicians(data);
         } catch (error) {
@@ -140,13 +130,11 @@ export const AssignSealScreen: React.FC = () => {
         }
     };
 
-    // Helper to generate seal range
     const generateSealRange = (start: string, count: number): string[] => {
         const seals: string[] = [];
         const match = start.match(/^([A-Za-z]+)(\d+)$/);
 
         if (!match) {
-            // Fallback for non-standard formats (just returns start)
             if (count === 1) return [start];
             return [];
         }
@@ -169,13 +157,11 @@ export const AssignSealScreen: React.FC = () => {
 
         const sealNum = singleSealInput.trim();
 
-        // Check local duplicate
         if (stagedSeals.some(s => s.sealNumber === sealNum)) {
-            setSingleSealInput(''); // Clear input
-            return; // Or show error toast
+            setSingleSealInput('');
+            return;
         }
 
-        // Perform check BEFORE adding to list
         const checkResult = await checkSealAvailability(sealNum);
 
         if (checkResult.status === 'unavailable') {
@@ -186,7 +172,6 @@ export const AssignSealScreen: React.FC = () => {
             return;
         }
 
-        // Add to list only if available
         const newEntry: StagedSeal = {
             id: Date.now().toString(),
             sealNumber: sealNum,
@@ -220,18 +205,11 @@ export const AssignSealScreen: React.FC = () => {
             return;
         }
 
-        // Check availability of ALL generated seals using CheckSeals (batch check)
-        // Or check start and end as proxy? Let's verify all for safety since count is usually small-medium.
-        // For better UX on large batches, we might just check start/end or rely on backend validation during assign.
-        // Let's stick to check all for now to be safe.
-
-
         try {
             const results = await sealService.checkSeals(generatedSeals, user?.pea_code);
             const available = results.filter(r => r.is_available);
             const unavailable = results.filter(r => !r.is_available);
 
-            // Add available ones first
             if (available.length > 0) {
                 const newEntries: StagedSeal[] = available.map((result, index) => ({
                     id: Date.now().toString() + '-' + index,
@@ -243,9 +221,7 @@ export const AssignSealScreen: React.FC = () => {
                 setStagedSeals(prev => [...newEntries, ...prev]);
             }
 
-            // If there are unavailable ones, show error
             if (unavailable.length > 0) {
-                // Show error with first few unavailable
                 const reasons = unavailable.slice(0, 5).map(r => `${r.seal_number}: ${r.reason}`).join('\n');
                 setModalStatus('error');
 
@@ -259,7 +235,6 @@ export const AssignSealScreen: React.FC = () => {
                 setModalVisible(true);
             }
 
-            // Clear inputs if at least some were added or if we just want to reset
             if (available.length > 0) {
                 setRangeStartInput('');
                 setRangeCountInput('');
@@ -299,7 +274,6 @@ export const AssignSealScreen: React.FC = () => {
 
         setLoading(true);
         try {
-            // Collect all seal numbers (they are all Single now)
             let sealList = validSeals.map(s => s.sealNumber);
 
             if (sealList.length === 0) {
@@ -310,10 +284,8 @@ export const AssignSealScreen: React.FC = () => {
                 return;
             }
 
-            // Remove duplicates if any (though UI prevents easy duplicates)
             sealList = [...new Set(sealList)];
 
-            // Build per-seal remarks map
             const sealRemarksMap: Record<string, string> = {};
             validSeals.forEach(s => {
                 if (s.issueRemark) {
@@ -321,7 +293,7 @@ export const AssignSealScreen: React.FC = () => {
                 }
             });
 
-            await sealService.assignSealsByTechCode(
+            const response = await sealService.assignSealsByTechCode(
                 selectedTech.technician_code,
                 sealList,
                 undefined,
@@ -330,6 +302,31 @@ export const AssignSealScreen: React.FC = () => {
 
             // เปิด PDF ใบจ่ายซีลอัตโนมัติ (web only)
             try {
+                // Fetch current user details to ensure we have first_name and last_name
+                let issuerData = {
+                    first_name: user?.first_name,
+                    last_name: user?.last_name,
+                    username: user?.username || '',
+                    pea_code: user?.pea_code,
+                };
+
+                if (user?.username) {
+                    try {
+                        const fullUser = await userService.getUser(user.username);
+                        issuerData = {
+                            first_name: fullUser.first_name,
+                            last_name: fullUser.last_name,
+                            username: fullUser.username,
+                            pea_code: fullUser.pea_code,
+                        };
+                    } catch (err) {
+                        console.warn('Failed to fetch full user details for PDF, using cached data:', err);
+                    }
+                }
+
+                // ใช้ timestamp จาก backend response ถ้ามี ไม่งั้นใช้เวลาปัจจุบัน
+                const assignmentTimestamp = response?.data?.timestamp ? new Date(response.data.timestamp) : new Date();
+
                 generateAssignPDF({
                     sealNumbers: sealList,
                     technician: {
@@ -340,13 +337,9 @@ export const AssignSealScreen: React.FC = () => {
                         company_name: selectedTech.company_name,
                         is_center: selectedTech.is_center,
                     },
-                    issuer: {
-                        first_name: user?.first_name,
-                        last_name: user?.last_name,
-                        username: user?.username || '',
-                        pea_code: user?.pea_code,
-                    },
+                    issuer: issuerData,
                     peaName: getPeaName(user?.pea_code),
+                    timestamp: assignmentTimestamp, // ใช้ timestamp จาก backend
                 });
             } catch (pdfErr) {
                 console.warn('PDF generation failed:', pdfErr);
@@ -369,33 +362,59 @@ export const AssignSealScreen: React.FC = () => {
 
     const handleModalClose = () => {
         setModalVisible(false);
-        if (modalStatus === 'success') {
-            // Optional: navigate back or stays
-            // navigation.goBack(); 
-        }
     };
 
     const fetchHistory = async () => {
         setLoadingHistory(true);
         try {
             const logs = await (sealService as any).getIssuedLogs();
-            
-            // Group logs by user and time (approx 5 seconds apart to account for batch latency)
-            const sortedLogs = logs.sort((a: any, b: any) => 
+
+            const sortedLogs = logs.sort((a: any, b: any) =>
                 new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()
             );
+
+            const uniqueUserIds = [...new Set(sortedLogs.map((log: any) => log.user_id))];
+            const userMap: Record<number, any> = {};
+
+            for (const userId of uniqueUserIds) {
+                try {
+                    const logWithUsername = sortedLogs.find((log: any) => log.user_id === userId && log.username);
+                    if (logWithUsername?.username) {
+                        const userDetails = await userService.getUser(logWithUsername.username);
+                        userMap[userId as number] = userDetails;
+                    }
+                } catch (err) {
+                    console.warn(`Failed to fetch user details for user_id ${userId}:`, err);
+                }
+            }
 
             const groups: any[] = [];
             sortedLogs.forEach((log: any) => {
                 const logTime = new Date(log.timestamp).getTime();
-                // Find a group with same user and within 5 seconds
-                const group = groups.find(g => 
-                    g.user_id === log.user_id && 
+                const group = groups.find(g =>
+                    g.user_id === log.user_id &&
                     Math.abs(new Date(g.timestamp).getTime() - logTime) < 5000
                 );
 
                 const sealMatch = log.action.match(/จ่ายซีล\s+(\S+)\s+ให้ช่าง/);
                 const sealNum = sealMatch ? sealMatch[1] : null;
+
+                const issuerMatch = log.action.match(/ผู้จ่าย:\s*([^)]+)/);
+                const issuerName = issuerMatch ? issuerMatch[1].trim() : '';
+
+                let firstName = '';
+                let lastName = '';
+                if (issuerName) {
+                    const nameParts = issuerName.split(' ');
+                    firstName = nameParts[0] || '';
+                    lastName = nameParts.slice(1).join(' ') || '';
+                }
+
+                if (!firstName) {
+                    const userDetails = userMap[log.user_id] || {};
+                    firstName = userDetails.first_name || log.first_name || '';
+                    lastName = userDetails.last_name || log.last_name || '';
+                }
 
                 if (group) {
                     if (sealNum) group.seals.push(sealNum);
@@ -405,8 +424,9 @@ export const AssignSealScreen: React.FC = () => {
                         id: log.id,
                         timestamp: log.timestamp,
                         user_id: log.user_id,
-                        first_name: log.first_name,
-                        last_name: log.last_name,
+                        first_name: firstName,
+                        last_name: lastName,
+                        username: log.username,
                         techCode: techMatch ? techMatch[1] : 'Unknown',
                         seals: sealNum ? [sealNum] : [],
                         originalLogs: [log]
@@ -414,7 +434,21 @@ export const AssignSealScreen: React.FC = () => {
                 }
             });
 
-            setHistoryGroups(groups);
+            let filteredGroups = groups;
+            if (user?.pea_code) {
+                const userPeaPrefix = user.pea_code.substring(0, 4);
+                filteredGroups = groups.filter(g => {
+                    // 1. เช็คว่าช่างผู้รับอยู่ในสังกัดเราหรือไม่ (เทียบล็อกรหัสช่างใน state ที่โหลดเฉพาะช่างสังกัดเรามาแล้ว)
+                    const isTechInPea = technicians.some(t => t.technician_code === g.techCode);
+                    // 2. เช็คว่าผู้จ่ายอยู่ในสังกัดเราหรือไม่
+                    const groupPea = userMap[g.user_id]?.pea_code;
+                    const isIssuerInPea = groupPea && groupPea.startsWith(userPeaPrefix);
+                    
+                    return isTechInPea || isIssuerInPea;
+                });
+            }
+
+            setHistoryGroups(filteredGroups);
             setHistoryModalVisible(true);
         } catch (error) {
             console.error('Failed to fetch history:', error);
@@ -431,7 +465,6 @@ export const AssignSealScreen: React.FC = () => {
     const handleReDownloadPDFFromGroup = (group: any) => {
         if (!group.seals || group.seals.length === 0) return;
 
-        // We need technician details. We can try to find them in our current technicians list
         const tech = technicians.find(t => t.technician_code === group.techCode);
 
         if (tech) {
@@ -448,19 +481,15 @@ export const AssignSealScreen: React.FC = () => {
                 issuer: {
                     first_name: group.first_name,
                     last_name: group.last_name,
-                    username: '', // Not critical for display if names exist
+                    username: '',
                     pea_code: user?.pea_code,
                 },
                 peaName: getPeaName(user?.pea_code),
+                timestamp: new Date(group.timestamp), // ใช้ timestamp จาก log (browser จะแปลง timezone ให้อัตโนมัติ)
             });
         } else {
             alert('ไม่สามารถดึงข้อมูลช่างได้ (อาจเป็นช่างที่ถูกลบไปแล้ว)');
         }
-    };
-
-    const handleReDownloadPDF = (log: any) => {
-        // This is legacy from previous turn, now we use handleReDownloadPDFFromGroup
-        // but let's keep it just in case or replace it.
     };
 
     return (
@@ -631,9 +660,9 @@ export const AssignSealScreen: React.FC = () => {
                         <View style={styles.totalRow}>
                             <Text style={styles.totalLabel}>รวมทั้งหมด:</Text>
                             <Text style={styles.totalValue}>{stagedSeals.reduce((sum, item) => sum + (item.type === 'Range' ? (item.rangeCount || 0) : 1), 0)} <Text style={{ fontSize: 16, fontWeight: 'normal' }}>ชิ้น/Seals</Text></Text>
-                            
-                            <TouchableOpacity 
-                                style={styles.historyBtn} 
+
+                            <TouchableOpacity
+                                style={styles.historyBtn}
                                 onPress={fetchHistory}
                                 disabled={loadingHistory}
                             >
@@ -733,7 +762,7 @@ export const AssignSealScreen: React.FC = () => {
 
                         <View style={styles.historyTableHead}>
                             <Text style={[styles.historyTh, { flex: 2 }]}>วัน-เวลา</Text>
-                            <Text style={[styles.historyTh, { flex: 4 }]}>รายละเอียด (ช่างผู้รับ)</Text>
+                            <Text style={[styles.historyTh, { flex: 4 }]}>รายละเอียด (ผู้จ่าย/ช่างผู้รับ)</Text>
                             <Text style={[styles.historyTh, { flex: 1.5, textAlign: 'center' }]}>จำนวน</Text>
                             <Text style={[styles.historyTh, { flex: 1.5, textAlign: 'center' }]}>PDF</Text>
                         </View>
@@ -754,8 +783,8 @@ export const AssignSealScreen: React.FC = () => {
                                             <Text style={styles.countTextSmall}>{group.seals.length}</Text>
                                         </View>
                                     </View>
-                                    <TouchableOpacity 
-                                        style={styles.reDownloadBtn} 
+                                    <TouchableOpacity
+                                        style={styles.reDownloadBtn}
                                         onPress={() => handleReDownloadPDFFromGroup(group)}
                                     >
                                         <Text style={styles.reDownloadText}>📥</Text>
@@ -780,9 +809,17 @@ export const AssignSealScreen: React.FC = () => {
                             <View>
                                 <Text style={styles.detailTitle}>รายละเอียดรอบการจ่าย</Text>
                                 {selectedGroup && (
-                                    <Text style={styles.detailSub}>
-                                        ช่าง: {selectedGroup.techCode} | {new Date(selectedGroup.timestamp).toLocaleString('th-TH')}
-                                    </Text>
+                                    <View>
+                                        <Text style={styles.detailSub}>
+                                            ช่างผู้รับ: {selectedGroup.techCode}
+                                        </Text>
+                                        <Text style={styles.detailSub}>
+                                            ผู้จ่าย: {selectedGroup.first_name || 'Admin'} {selectedGroup.last_name || ''}
+                                        </Text>
+                                        <Text style={styles.detailSub}>
+                                            เวลา: {new Date(selectedGroup.timestamp).toLocaleString('th-TH')}
+                                        </Text>
+                                    </View>
                                 )}
                             </View>
                             <TouchableOpacity onPress={() => setDetailModalVisible(false)} style={styles.detailCloseBtn}>
@@ -812,8 +849,8 @@ export const AssignSealScreen: React.FC = () => {
                         </ScrollView>
 
                         <View style={styles.detailFooter}>
-                            <TouchableOpacity 
-                                style={styles.detailPrintBtn} 
+                            <TouchableOpacity
+                                style={styles.detailPrintBtn}
                                 onPress={() => {
                                     handleReDownloadPDFFromGroup(selectedGroup);
                                     setDetailModalVisible(false);
@@ -838,7 +875,6 @@ const styles = StyleSheet.create({
     sectionCard: { backgroundColor: 'white', borderRadius: 12, padding: 20, marginBottom: 20, elevation: 1 },
     sectionTitle: { fontSize: 16, fontWeight: 'bold', color: colors.primaryPurple, marginBottom: 15 },
 
-    // Tech Selection
     formGroup: { marginBottom: 15 },
     techSelector: {
         borderWidth: 1,
@@ -890,9 +926,7 @@ const styles = StyleSheet.create({
         backgroundColor: '#fafafa',
         marginBottom: 10,
     },
-    techList: {
-        flex: 1,
-    },
+    techList: { flex: 1 },
     techItem: {
         paddingVertical: 12,
         paddingHorizontal: 10,
@@ -910,29 +944,11 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         marginRight: 10,
     },
-    techAvatarTextSmall: {
-        color: 'white',
-        fontSize: 14,
-        fontWeight: 'bold',
-    },
-    techItemName: {
-        fontSize: 14,
-        fontWeight: 'bold',
-        color: '#333',
-    },
-    techItemSub: {
-        fontSize: 12,
-        color: '#666',
-        marginTop: 2,
-    },
-    emptyTechList: {
-        padding: 20,
-        alignItems: 'center',
-    },
-    emptyTechText: {
-        color: '#999',
-        fontSize: 14,
-    },
+    techAvatarTextSmall: { color: 'white', fontSize: 14, fontWeight: 'bold' },
+    techItemName: { fontSize: 14, fontWeight: 'bold', color: '#333' },
+    techItemSub: { fontSize: 12, color: '#666', marginTop: 2 },
+    emptyTechList: { padding: 20, alignItems: 'center' },
+    emptyTechText: { color: '#999', fontSize: 14 },
 
     selectedTechCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#f9f9f9', padding: 12, borderRadius: 10, borderWidth: 1, borderColor: '#eee' },
     techAvatar: { width: 45, height: 45, borderRadius: 25, backgroundColor: colors.primaryPurple, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
@@ -945,14 +961,12 @@ const styles = StyleSheet.create({
     removeTechBtn: { padding: 8 },
     removeTechText: { fontSize: 16, color: '#999' },
 
-    // Tabs
     tabContainer: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: '#eee', marginBottom: 20 },
     tab: { paddingVertical: 10, paddingHorizontal: 15, marginRight: 15 },
     activeTab: { borderBottomWidth: 2, borderBottomColor: colors.primaryPurple },
     tabText: { fontSize: 14, color: '#666' },
     activeTabText: { color: colors.primaryPurple, fontWeight: 'bold' },
 
-    // Inputs
     inputArea: { minHeight: 100 },
     scanInput: { borderWidth: 2, borderColor: colors.primaryPurple, borderRadius: 8, padding: 15, fontSize: 16, textAlign: 'center', backgroundColor: '#fdfbff', borderStyle: 'dashed' },
     helperText: { textAlign: 'center', color: '#999', fontSize: 12, marginTop: 10 },
@@ -965,7 +979,6 @@ const styles = StyleSheet.create({
     spacer: { flex: 1 },
     infoText: { fontSize: 12, color: '#999', marginTop: 10 },
 
-    // Right Panel
     listHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
     listTitle: { fontSize: 18, fontWeight: 'bold', color: '#333' },
     countBadge: { backgroundColor: '#f3e5f5', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
@@ -1002,7 +1015,6 @@ const styles = StyleSheet.create({
     confirmBtn: { backgroundColor: colors.primaryPurple, paddingVertical: 12, paddingHorizontal: 30, borderRadius: 8 },
     confirmBtnText: { color: 'white', fontWeight: 'bold' },
 
-    // Modal
     modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
     modalContent: { width: 350, backgroundColor: 'white', borderRadius: 20, padding: 30, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.25, shadowRadius: 15, elevation: 10 },
     modalIconCircle: { width: 80, height: 80, borderRadius: 40, justifyContent: 'center', alignItems: 'center', marginBottom: 20 },
@@ -1012,7 +1024,6 @@ const styles = StyleSheet.create({
     modalBtn: { width: '100%', height: 50, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
     modalBtnText: { color: 'white', fontSize: 16, fontWeight: 'bold' },
 
-    // History Styles
     historyBtn: {
         marginLeft: 15,
         paddingHorizontal: 12,
@@ -1024,11 +1035,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         backgroundColor: '#fdfbff',
     },
-    historyBtnText: {
-        color: colors.primaryPurple,
-        fontSize: 14,
-        fontWeight: 'bold',
-    },
+    historyBtnText: { color: colors.primaryPurple, fontSize: 14, fontWeight: 'bold' },
     historyModalOverlay: {
         flex: 1,
         backgroundColor: 'rgba(0,0,0,0.6)',
@@ -1053,23 +1060,10 @@ const styles = StyleSheet.create({
         alignItems: 'flex-start',
         marginBottom: 20,
     },
-    historyModalTitle: {
-        fontSize: 22,
-        fontWeight: 'bold',
-        color: '#333',
-    },
-    historyModalSub: {
-        fontSize: 14,
-        color: '#888',
-        marginTop: 4,
-    },
-    historyCloseBtn: {
-        padding: 4,
-    },
-    historyCloseText: {
-        fontSize: 24,
-        color: '#bbb',
-    },
+    historyModalTitle: { fontSize: 22, fontWeight: 'bold', color: '#333' },
+    historyModalSub: { fontSize: 14, color: '#888', marginTop: 4 },
+    historyCloseBtn: { padding: 4 },
+    historyCloseText: { fontSize: 24, color: '#bbb' },
     historyTableHead: {
         flexDirection: 'row',
         backgroundColor: '#f8f9fa',
@@ -1077,14 +1071,8 @@ const styles = StyleSheet.create({
         borderRadius: 8,
         marginBottom: 8,
     },
-    historyTh: {
-        fontSize: 13,
-        fontWeight: 'bold',
-        color: '#666',
-    },
-    historyList: {
-        flex: 1,
-    },
+    historyTh: { fontSize: 13, fontWeight: 'bold', color: '#666' },
+    historyList: { flex: 1 },
     historyRow: {
         flexDirection: 'row',
         alignItems: 'center',
@@ -1092,43 +1080,19 @@ const styles = StyleSheet.create({
         borderBottomWidth: 1,
         borderBottomColor: '#f0f0f0',
     },
-    historyDate: {
-        fontSize: 14,
-        fontWeight: 'bold',
-        color: '#333',
-    },
-    historyTime: {
-        fontSize: 12,
-        color: '#999',
-        marginTop: 2,
-    },
-    historyAction: {
-        fontSize: 14,
-        color: '#444',
-        fontWeight: '500',
-    },
-    historyUser: {
-        fontSize: 12,
-        color: '#888',
-        marginTop: 4,
-    },
+    historyDate: { fontSize: 14, fontWeight: 'bold', color: '#333' },
+    historyTime: { fontSize: 12, color: '#999', marginTop: 2 },
+    historyAction: { fontSize: 14, color: '#444', fontWeight: '500' },
+    historyUser: { fontSize: 12, color: '#888', marginTop: 4 },
     reDownloadBtn: {
         flex: 1.5,
         alignItems: 'center',
         justifyContent: 'center',
         height: 40,
     },
-    reDownloadText: {
-        fontSize: 20,
-    },
-    emptyHistory: {
-        padding: 40,
-        alignItems: 'center',
-    },
-    emptyHistoryText: {
-        color: '#bbb',
-        fontSize: 15,
-    },
+    reDownloadText: { fontSize: 20 },
+    emptyHistory: { padding: 40, alignItems: 'center' },
+    emptyHistoryText: { color: '#bbb', fontSize: 15 },
     countBadgeSmall: {
         backgroundColor: '#f3e5f5',
         paddingHorizontal: 8,
@@ -1137,13 +1101,8 @@ const styles = StyleSheet.create({
         minWidth: 30,
         alignItems: 'center',
     },
-    countTextSmall: {
-        color: colors.primaryPurple,
-        fontWeight: 'bold',
-        fontSize: 12,
-    },
+    countTextSmall: { color: colors.primaryPurple, fontWeight: 'bold', fontSize: 12 },
 
-    // Detail Modal Styles
     detailModalOverlay: {
         flex: 1,
         backgroundColor: 'rgba(0,0,0,0.7)',
@@ -1163,27 +1122,11 @@ const styles = StyleSheet.create({
         alignItems: 'flex-start',
         marginBottom: 20,
     },
-    detailTitle: {
-        fontSize: 20,
-        fontWeight: 'bold',
-        color: '#333',
-    },
-    detailSub: {
-        fontSize: 13,
-        color: '#666',
-        marginTop: 4,
-    },
-    detailCloseBtn: {
-        padding: 4,
-    },
-    detailCloseText: {
-        fontSize: 20,
-        color: '#bbb',
-    },
-    detailStats: {
-        flexDirection: 'row',
-        marginBottom: 20,
-    },
+    detailTitle: { fontSize: 20, fontWeight: 'bold', color: '#333' },
+    detailSub: { fontSize: 13, color: '#666', marginTop: 4 },
+    detailCloseBtn: { padding: 4 },
+    detailCloseText: { fontSize: 20, color: '#bbb' },
+    detailStats: { flexDirection: 'row', marginBottom: 20 },
     statBox: {
         backgroundColor: '#f8f9fa',
         padding: 15,
@@ -1193,40 +1136,23 @@ const styles = StyleSheet.create({
         borderWidth: 1,
         borderColor: '#eee',
     },
-    statLabel: {
-        fontSize: 12,
-        color: '#888',
-        marginBottom: 5,
-    },
-    statValue: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        color: colors.primaryPurple,
-    },
+    statLabel: { fontSize: 12, color: '#888', marginBottom: 5 },
+    statValue: { fontSize: 18, fontWeight: 'bold', color: colors.primaryPurple },
     detailTableHead: {
         flexDirection: 'row',
         paddingVertical: 10,
         borderBottomWidth: 1,
         borderBottomColor: '#eee',
     },
-    detailTh: {
-        fontSize: 13,
-        fontWeight: 'bold',
-        color: '#999',
-    },
-    detailList: {
-        flex: 1,
-    },
+    detailTh: { fontSize: 13, fontWeight: 'bold', color: '#999' },
+    detailList: { flex: 1 },
     detailRow: {
         flexDirection: 'row',
         paddingVertical: 12,
         borderBottomWidth: 1,
         borderBottomColor: '#f9f9f9',
     },
-    detailTd: {
-        fontSize: 14,
-        color: '#444',
-    },
+    detailTd: { fontSize: 14, color: '#444' },
     detailFooter: {
         marginTop: 20,
         paddingTop: 15,
@@ -1239,9 +1165,5 @@ const styles = StyleSheet.create({
         borderRadius: 8,
         alignItems: 'center',
     },
-    detailPrintBtnText: {
-        color: 'white',
-        fontWeight: 'bold',
-        fontSize: 15,
-    },
+    detailPrintBtnText: { color: 'white', fontWeight: 'bold', fontSize: 15 },
 });

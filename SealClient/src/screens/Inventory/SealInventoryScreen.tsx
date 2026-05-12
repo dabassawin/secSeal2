@@ -22,7 +22,7 @@ const StatusBadge: React.FC<{ status: string; seal?: Seal }> = ({ status, seal }
             case SealStatus.READY: return 'พร้อมใช้งาน';
             case SealStatus.WAIT_CONFIRMATION: 
                 if (seal && seal.pending_pea_code === user?.pea_code) {
-                    return 'รอยืนยันรับโอน';
+                    return 'รอยืนยันรับโอนข้ามหน่วย';
                 }
                 return 'รอยืนยัน';
             case SealStatus.ISSUED: return 'จ่าย';
@@ -128,9 +128,7 @@ export const SealInventoryScreen: React.FC = () => {
 
     const statuses = [
         'สถานะทั้งหมด',
-        'รอยืนยันรับโอน',
         SealStatus.READY,
-        SealStatus.WAIT_CONFIRMATION,
         SealStatus.ISSUED,
         SealStatus.INSTALLED,
         SealStatus.USED,
@@ -141,7 +139,6 @@ export const SealInventoryScreen: React.FC = () => {
 
     const statusOptions = [
         SealStatus.READY,
-        SealStatus.WAIT_CONFIRMATION,
         SealStatus.ISSUED,
         SealStatus.INSTALLED,
         SealStatus.USED,
@@ -155,7 +152,7 @@ export const SealInventoryScreen: React.FC = () => {
             case SealStatus.READY: return 'พร้อมใช้งาน';
             case SealStatus.WAIT_CONFIRMATION: 
                 if (seal && seal.pending_pea_code === user?.pea_code) {
-                    return 'รอยืนยันรับโอน';
+                    return 'รอยืนยันรับโอนข้ามหน่วย';
                 }
                 return 'รอยืนยัน';
             case SealStatus.ISSUED: return 'จ่าย';
@@ -165,6 +162,48 @@ export const SealInventoryScreen: React.FC = () => {
             case SealStatus.DAMAGED: return 'เสียหาย';
             case SealStatus.LOST: return 'สูญหาย';
             default: return status;
+        }
+    };
+
+    const handleConfirmUserReceipt = async () => {
+        const title = 'ยืนยันการรับซีล';
+        const message = `คุณต้องการยืนยันการรับซีลจำนวน ${selectedIds.size} รายการ หรือไม่?`;
+
+        const proceed = await new Promise((resolve) => {
+            if (Platform.OS === 'web') {
+                resolve(window.confirm(message));
+            } else {
+                Alert.alert(title, message, [
+                    { text: 'ยกเลิก', style: 'cancel', onPress: () => resolve(false) },
+                    { text: 'ยืนยันรับ', style: 'default', onPress: () => resolve(true) }
+                ]);
+            }
+        });
+
+        if (!proceed) return;
+
+        try {
+            setActionLoading(true);
+            const res = await sealService.confirmUserReceipt(selectedSealNumbers);
+            const successMsg = res.data.message || `ยืนยันรับซีลสำเร็จ ${selectedIds.size} รายการ`;
+
+            if (Platform.OS === 'web') {
+                window.alert(successMsg);
+            } else {
+                Alert.alert('สำเร็จ ✅', successMsg);
+            }
+
+            clearSelection();
+            fetchSeals();
+        } catch (err: any) {
+            const errorMsg = err.response?.data?.error || 'ไม่สามารถยืนยันรับซีลได้';
+            if (Platform.OS === 'web') {
+                window.alert(errorMsg);
+            } else {
+                Alert.alert('เกิดข้อผิดพลาด', errorMsg);
+            }
+        } finally {
+            setActionLoading(false);
         }
     };
 
@@ -208,16 +247,8 @@ export const SealInventoryScreen: React.FC = () => {
     const fetchSeals = async () => {
         try {
             setLoading(true);
-            // Fetch seals belonging to this PEA
-            const owned = await sealService.getSeals(userPeaCode);
-            // Fetch seals transferred to this PEA
-            const incoming = await sealService.getSeals(undefined, userPeaCode);
-            
-            // Combine and remove any potential duplicates (though unlikely)
-            const combined = [...owned, ...incoming];
-            const unique = Array.from(new Map(combined.map(s => [s.id, s])).values());
-            
-            setSeals(unique);
+            const data = await sealService.getSeals(userPeaCode);
+            setSeals(data);
         } catch (error) {
             console.error('Error fetching seals:', error);
         } finally {
@@ -232,11 +263,7 @@ export const SealInventoryScreen: React.FC = () => {
             
             let matchesStatus = true;
             if (statusFilter !== 'สถานะทั้งหมด') {
-                if (statusFilter === 'รอยืนยันรับโอน') {
-                    matchesStatus = seal.status === SealStatus.WAIT_CONFIRMATION && seal.pending_pea_code === user?.pea_code;
-                } else {
-                    matchesStatus = seal.status === statusFilter;
-                }
+                matchesStatus = seal.status === statusFilter;
             }
             return matchesSearch && matchesStatus;
         });
@@ -284,6 +311,15 @@ export const SealInventoryScreen: React.FC = () => {
             s.pending_pea_code === user?.pea_code
         );
     }, [seals, selectedIds, user?.pea_code]);
+
+    const canConfirmUserReceipt = useMemo(() => {
+        if (selectedIds.size === 0) return false;
+        const selectedSeals = seals.filter(s => selectedIds.has(s.id));
+        return selectedSeals.every(s =>
+            s.status === SealStatus.WAIT_CONFIRMATION &&
+            s.issued_to === user?.id
+        );
+    }, [seals, selectedIds, user?.id]);
 
     // ─── Bulk Actions ────────────────────────────────────────────────
     const handleBulkStatusUpdate = async () => {
@@ -624,6 +660,16 @@ export const SealInventoryScreen: React.FC = () => {
                                 disabled={actionLoading}
                             >
                                 <Text style={styles.confirmTransferBtnText}>📥 ยืนยันรับโอน</Text>
+                            </TouchableOpacity>
+                        )}
+
+                        {canConfirmUserReceipt && (
+                            <TouchableOpacity
+                                style={styles.confirmTransferBtn}
+                                onPress={handleConfirmUserReceipt}
+                                disabled={actionLoading}
+                            >
+                                <Text style={styles.confirmTransferBtnText}>📥 ยืนยันรับซีล</Text>
                             </TouchableOpacity>
                         )}
                         <TouchableOpacity

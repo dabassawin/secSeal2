@@ -191,7 +191,7 @@ func (tc *TechnicianController) GetAssignedSealsHandler(c *fiber.Ctx) error {
 			}
 
 			// Case 2: ดึงซีลที่โอนระหว่างบริษัท (inter-company, pending_pea_code set)
-			pendingSeals, err := tc.sealService.GetAllSeals("", tech.PeaCode)
+			pendingSeals, err := tc.sealService.GetAllSeals("", tech.PeaCode, "")
 			if err == nil {
 				for _, s := range pendingSeals {
 					if !seen[s.ID] {
@@ -222,7 +222,6 @@ func (tc *TechnicianController) GetAllTechnicianSealsHandler(c *fiber.Ctx) error
 		if isCenterInter != nil {
 			isCenter = isCenterInter.(bool)
 		}
-
 
 		if !isCenter {
 			return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Access denied: Center accounts only"})
@@ -265,7 +264,6 @@ func (tc *TechnicianController) InstallSealHandler(c *fiber.Ctx) error {
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
 	}
-
 
 	if req.SealNumber == "" {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Seal number is required"})
@@ -391,7 +389,6 @@ func (tc *TechnicianController) UpdateTechnicianHandler(c *fiber.Ctx) error {
 	if err := c.BodyParser(&req); err != nil {
 		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid body"})
 	}
-
 
 	// Convert req to the expected format
 	techData := struct {

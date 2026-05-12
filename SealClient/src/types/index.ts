@@ -39,6 +39,7 @@ export interface Seal {
     seal_number: string;
     qr_code?: string;
     pea_code?: string; // ✅ รหัสการไฟฟ้าที่ออกซีล
+    inventory_department?: string;
     status: typeof SealStatus[keyof typeof SealStatus];
     box_number?: string;
     created_at?: string;
