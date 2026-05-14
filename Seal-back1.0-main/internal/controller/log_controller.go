@@ -69,7 +69,7 @@ func (lc *LogController) GetAllLogsHandler(c *fiber.Ctx) error {
 		switch {
 		case contains(log.Action, "สร้างซีล") || contains(log.Action, "สร้างซิล") || contains(log.Action, "Created seal"):
 			groupedLogs["created"] = append(groupedLogs["created"], log)
-		case contains(log.Action, "จ่ายซิล") || contains(log.Action, "จ่ายซีล") || contains(log.Action, "Assigned seal") || contains(log.Action, "Issued seal"):
+		case contains(log.Action, "จ่ายซิล") || contains(log.Action, "จ่ายซีล") || contains(log.Action, "Assigned seal") || contains(log.Action, "Issued seal") || contains(log.Action, "โอนซีล"):
 			groupedLogs["issued"] = append(groupedLogs["issued"], log)
 		case contains(log.Action, "ติดตั้งซิล") || contains(log.Action, "ติดตั้งซีล") || contains(log.Action, "ใช้งานแล้ว") || contains(log.Action, "Used seal"):
 			groupedLogs["used"] = append(groupedLogs["used"], log)
@@ -117,7 +117,7 @@ func (lc *LogController) GetLogsByTypeHandler(c *fiber.Ctx) error {
 	// Map type names to action keywords (Thai + English)
 	typeKeywords := map[string][]string{
 		"created":  {"สร้างซีล", "สร้างซิล", "Created seal"},
-		"issued":   {"จ่ายซิล", "จ่ายซีล", "Assigned seal", "Issued seal"},
+		"issued":   {"จ่ายซิล", "จ่ายซีล", "Assigned seal", "Issued seal", "โอนซีล"},
 		"used":     {"ติดตั้งซิล", "ติดตั้งซีล", "ใช้งานแล้ว", "Used seal"},
 		"returned": {"คืนซีล", "คืนซิล", "Returned seal"},
 	}
@@ -232,7 +232,7 @@ func (lc *LogController) GetCreatedLogsHandler(c *fiber.Ctx) error {
 
 // ✅ Get logs where action contains seal issuance keywords
 func (lc *LogController) GetIssuedLogsHandler(c *fiber.Ctx) error {
-	logs, err := lc.logService.GetLogsByActions([]string{"จ่ายซิล", "จ่ายซีล", "Assigned seal", "Issued seal"})
+	logs, err := lc.logService.GetLogsByActions([]string{"จ่ายซิล", "จ่ายซีล", "Assigned seal", "Issued seal", "โอนซีล"})
 	if err != nil {
 		return c.Status(fiber.StatusInternalServerError).JSON(fiber.Map{
 			"error":   "Failed to fetch issued logs",
