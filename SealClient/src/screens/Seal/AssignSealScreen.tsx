@@ -77,7 +77,7 @@ export const AssignSealScreen: React.FC = () => {
         if (user?.pea_code) {
             fetchTechnicians();
             fetchMasPea();
-            if (user.role === 'meter') {
+            if ((user.role || '').toLowerCase() === 'meter') {
                 fetchAccountingUsers();
             }
         }
@@ -91,7 +91,8 @@ export const AssignSealScreen: React.FC = () => {
                 .filter((u) =>
                     u.is_active !== false &&
                     (u.role || '').toLowerCase() === 'user' &&
-                    (!user?.pea_code || u.pea_code === user.pea_code)
+                    u.username !== user?.username &&
+                    (!user?.pea_code || u.pea_code.substring(0, 4) === user.pea_code.substring(0, 4))
                 )
                 .sort((a, b) => {
                     const aName = `${a.first_name || ''} ${a.last_name || ''}`.trim() || a.username;
@@ -596,7 +597,7 @@ export const AssignSealScreen: React.FC = () => {
     };
 
     const filteredHistoryGroups = historyGroups.filter(group => {
-        if (user?.role === 'meter') {
+        if ((user?.role || '').toLowerCase() === 'meter') {
             if (historyTab === 'technician' && group.isTransfer) return false;
             if (historyTab === 'user' && !group.isTransfer) return false;
         } else {
@@ -732,7 +733,7 @@ export const AssignSealScreen: React.FC = () => {
                     <View style={styles.sectionCard}>
                         <Text style={styles.sectionTitle}>1. ระบุตัวผู้รับ (Recipient)</Text>
                         
-                        {user?.role === 'meter' && (
+                        {(user?.role || '').toLowerCase() === 'meter' && (
                             <View style={styles.recipientTypeContainer}>
                                 <TouchableOpacity 
                                     style={[styles.recipientTypeBtn, recipientType === 'technician' && styles.recipientTypeBtnActive]}
@@ -1093,7 +1094,7 @@ export const AssignSealScreen: React.FC = () => {
                             </TouchableOpacity>
                         </View>
 
-                        {user?.role === 'meter' && (
+                        {(user?.role || '').toLowerCase() === 'meter' && (
                             <View style={[styles.recipientTypeContainer, { marginBottom: 15 }]}>
                                 <TouchableOpacity 
                                     style={[styles.recipientTypeBtn, historyTab === 'technician' && styles.recipientTypeBtnActive]}
