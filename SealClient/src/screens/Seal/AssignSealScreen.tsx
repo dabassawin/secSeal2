@@ -48,9 +48,6 @@ export const AssignSealScreen: React.FC = () => {
     const [singleSealInput, setSingleSealInput] = useState('');
     const [rangeStartInput, setRangeStartInput] = useState('');
     const [rangeCountInput, setRangeCountInput] = useState('');
-    const [recipientType, setRecipientType] = useState<'technician' | 'user'>('technician');
-    const [usersList, setUsersList] = useState<any[]>([]);
-    const [selectedUser, setSelectedUser] = useState<any | null>(null);
 
     const [stagedSeals, setStagedSeals] = useState<StagedSeal[]>([]);
 
@@ -68,7 +65,7 @@ export const AssignSealScreen: React.FC = () => {
 
     const [historyDateFilter, setHistoryDateFilter] = useState('');
     const [historySearchQuery, setHistorySearchQuery] = useState('');
-    const [historyTypeFilter, setHistoryTypeFilter] = useState<'all' | 'technician' | 'user'>('all');
+
 
     useFocusEffect(
         React.useCallback(() => {
@@ -164,21 +161,17 @@ export const AssignSealScreen: React.FC = () => {
 
     const handleSelectTechnician = (tech: Technician) => {
         setSelectedTech(tech);
-        setSelectedUser(null);
         setSearchTechQuery(`${tech.first_name} ${tech.last_name}`);
         setShowTechDropdown(false);
     };
 
-    const handleSelectUser = (userData: any) => {
-        setSelectedUser(userData);
+    const handleClearTechnician = () => {
         setSelectedTech(null);
-        setSearchTechQuery(`${userData.first_name} ${userData.last_name}`);
-        setShowTechDropdown(false);
+        setSearchTechQuery('');
     };
 
     const handleClearRecipient = () => {
         setSelectedTech(null);
-        setSelectedUser(null);
         setSearchTechQuery('');
     };
 
@@ -393,7 +386,7 @@ export const AssignSealScreen: React.FC = () => {
 
         if (!selectedTech) {
             setModalStatus('error');
-            setModalMessage(recipientType === 'user' ? 'กรุณาระบุตัวผู้รับ (User)' : 'กรุณาระบุตัวผู้รับ (Technician)');
+            setModalMessage('กรุณาระบุตัวผู้รับ (Technician)');
             setModalVisible(true);
             return;
         }
@@ -428,35 +421,24 @@ export const AssignSealScreen: React.FC = () => {
             });
 
             let response;
-            if (recipientType === 'technician' && selectedTech) {
+            if (selectedTech) {
                 response = await sealService.assignSealsByTechCode(
                     selectedTech.technician_code,
                     sealList,
                     undefined,
                     Object.keys(sealRemarksMap).length > 0 ? sealRemarksMap : undefined
                 );
-            } else if (recipientType === 'user' && selectedUser) {
-                // สำหรับการส่งให้ User (ฝ่าย User) จะเป็นการโอนเข้าคลังบัญชี
-                // ตาม requirement: "meter สามารถส่งซีลให้ทั้งช่างและ user ได้"
-                response = await sealService.transferToUser(selectedUser.username, sealList);
             }
 
             // เปิด PDF ใบจ่ายซีลอัตโนมัติ (web only)
             try {
-                const recipientData = selectedTech ? {
-                    first_name: selectedTech.first_name,
-                    last_name: selectedTech.last_name,
-                    technician_code: selectedTech.technician_code,
-                    pea_code: selectedTech.pea_code,
-                    company_name: selectedTech.company_name,
-                    is_center: selectedTech.is_center,
-                } : {
-                    first_name: selectedUser.first_name,
-                    last_name: selectedUser.last_name,
-                    technician_code: selectedUser.username, // ใช้ username แทนสำหรับ User
-                    pea_code: selectedUser.pea_code,
-                    company_name: 'ฝ่ายผู้ใช้ (User)',
-                    is_center: false,
+                const recipientData = {
+                    first_name: selectedTech!.first_name,
+                    last_name: selectedTech!.last_name,
+                    technician_code: selectedTech!.technician_code,
+                    pea_code: selectedTech!.pea_code,
+                    company_name: selectedTech!.company_name,
+                    is_center: selectedTech!.is_center,
                 };
                 // Fetch current user details to ensure we have first_name and last_name
                 let issuerData = {
@@ -649,10 +631,7 @@ export const AssignSealScreen: React.FC = () => {
                 match = false;
             }
         }
-        if (historyTypeFilter !== 'all' && match) {
-            if (historyTypeFilter === 'technician' && group.isToUser) match = false;
-            if (historyTypeFilter === 'user' && !group.isToUser) match = false;
-        }
+
         return match;
     });
 
@@ -1003,53 +982,30 @@ export const AssignSealScreen: React.FC = () => {
                             onChangeText={setSearchTechQuery}
                         />
 
-                        <View style={styles.techList}>
-                            {recipientType === 'technician' ? (
-                                filterTechnicians().map(tech => (
-                                    <TouchableOpacity
-                                        key={tech.id}
-                                        style={styles.techItem}
-                                        onPress={() => handleSelectTechnician(tech)}
-                                    >
-                                        <View style={styles.techAvatarSmall}>
-                                            <Text style={styles.techAvatarTextSmall}>{tech.is_center ? '🏢' : tech.first_name.charAt(0)}</Text>
-                                        </View>
-                                        <View style={{ flex: 1 }}>
-                                            <Text style={styles.techItemName}>
-                                                {tech.first_name} {tech.is_center ? '' : tech.last_name} {tech.is_center ? '(ศูนย์งาน)' : ''}
-                                            </Text>
-                                            <Text style={styles.techItemSub}>รหัส: {tech.technician_code} • สังกัด: {getPeaName(tech.pea_code)}</Text>
-                                        </View>
-                                    </TouchableOpacity>
-                                ))
-                            ) : (
-                                usersList.filter(u => 
-                                    (u.first_name + ' ' + u.last_name).toLowerCase().includes(searchTechQuery.toLowerCase()) ||
-                                    u.username.toLowerCase().includes(searchTechQuery.toLowerCase())
-                                ).map(u => (
-                                    <TouchableOpacity
-                                        key={u.id}
-                                        style={styles.techItem}
-                                        onPress={() => handleSelectUser(u)}
-                                    >
-                                        <View style={styles.techAvatarSmall}>
-                                            <Text style={styles.techAvatarTextSmall}>{u.first_name.charAt(0)}</Text>
-                                        </View>
-                                        <View style={{ flex: 1 }}>
-                                            <Text style={styles.techItemName}>
-                                                {u.first_name} {u.last_name} (User)
-                                            </Text>
-                                            <Text style={styles.techItemSub}>Username: {u.username} • สังกัด: {getPeaName(u.pea_code)}</Text>
-                                        </View>
-                                    </TouchableOpacity>
-                                ))
-                            )}
-                            {(recipientType === 'technician' ? filterTechnicians().length : usersList.length) === 0 && (
+                        <ScrollView style={styles.techList}>
+                            {filterTechnicians().map(tech => (
+                                <TouchableOpacity
+                                    key={tech.id}
+                                    style={styles.techItem}
+                                    onPress={() => handleSelectTechnician(tech)}
+                                >
+                                    <View style={styles.techAvatarSmall}>
+                                        <Text style={styles.techAvatarTextSmall}>{tech.is_center ? '🏢' : tech.first_name.charAt(0)}</Text>
+                                    </View>
+                                    <View style={{ flex: 1 }}>
+                                        <Text style={styles.techItemName}>
+                                            {tech.first_name} {tech.is_center ? '' : tech.last_name} {tech.is_center ? '(ศูนย์งาน)' : ''}
+                                        </Text>
+                                        <Text style={styles.techItemSub}>รหัส: {tech.technician_code} • สังกัด: {getPeaName(tech.pea_code)}</Text>
+                                    </View>
+                                </TouchableOpacity>
+                            ))}
+                            {filterTechnicians().length === 0 && (
                                 <View style={styles.emptyTechList}>
-                                    <Text style={styles.emptyTechText}>ไม่พบข้อมูล</Text>
+                                    <Text style={styles.emptyTechText}>ไม่พบข้อมูลช่าง</Text>
                                 </View>
                             )}
-                        </View>
+                        </ScrollView>
                     </View>
                 </View>
             </Modal>
@@ -1155,29 +1111,6 @@ export const AssignSealScreen: React.FC = () => {
                         )}
 
                         <View style={styles.historyFilterContainer}>
-                            <View style={styles.historyFilterItem}>
-                                <Text style={styles.historyFilterLabel}>ประเภทผู้รับ</Text>
-                                <View style={styles.recipientToggle}>
-                                    <TouchableOpacity 
-                                        style={[styles.toggleBtn, historyTypeFilter === 'all' && styles.toggleBtnActive]}
-                                        onPress={() => setHistoryTypeFilter('all')}
-                                    >
-                                        <Text style={[styles.toggleText, historyTypeFilter === 'all' && styles.toggleTextActive]}>ทั้งหมด</Text>
-                                    </TouchableOpacity>
-                                    <TouchableOpacity 
-                                        style={[styles.toggleBtn, historyTypeFilter === 'technician' && styles.toggleBtnActive]}
-                                        onPress={() => setHistoryTypeFilter('technician')}
-                                    >
-                                        <Text style={[styles.toggleText, historyTypeFilter === 'technician' && styles.toggleTextActive]}>ช่าง</Text>
-                                    </TouchableOpacity>
-                                    <TouchableOpacity 
-                                        style={[styles.toggleBtn, historyTypeFilter === 'user' && styles.toggleBtnActive]}
-                                        onPress={() => setHistoryTypeFilter('user')}
-                                    >
-                                        <Text style={[styles.toggleText, historyTypeFilter === 'user' && styles.toggleTextActive]}>ฝ่าย User</Text>
-                                    </TouchableOpacity>
-                                </View>
-                            </View>
                             <View style={styles.historyFilterItem}>
                                 <Text style={styles.historyFilterLabel}>ค้นหาวันที่</Text>
                                 {Platform.OS === 'web' ? (
@@ -1354,34 +1287,6 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between', 
         alignItems: 'center',
         marginBottom: 15 
-    },
-    recipientToggle: { 
-        flexDirection: 'row', 
-        backgroundColor: '#f0f0f0', 
-        borderRadius: 8, 
-        padding: 2 
-    },
-    toggleBtn: { 
-        paddingHorizontal: 12, 
-        paddingVertical: 6, 
-        borderRadius: 6 
-    },
-    toggleBtnActive: { 
-        backgroundColor: 'white', 
-        elevation: 2,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.1,
-        shadowRadius: 2
-    },
-    toggleText: { 
-        fontSize: 12, 
-        color: '#666',
-        fontWeight: '500'
-    },
-    toggleTextActive: { 
-        color: colors.primaryPurple,
-        fontWeight: 'bold'
     },
 
     formGroup: { marginBottom: 15 },
