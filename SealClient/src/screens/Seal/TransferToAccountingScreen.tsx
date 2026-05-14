@@ -24,9 +24,6 @@ export const TransferToAccountingScreen: React.FC = () => {
 
     // Seal entry
     const [entryMode, setEntryMode] = useState<EntryMode>('scan');
-    const [loading, setLoading] = useState(false);
-    const [stagedSeals, setStagedSeals] = useState<StagedSeal[]>([]);
-
     const [singleSealInput, setSingleSealInput] = useState('');
     const [rangeStartInput, setRangeStartInput] = useState('');
     const [rangeCountInput, setRangeCountInput] = useState('');
