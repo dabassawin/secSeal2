@@ -72,29 +72,36 @@ func NewSealService(
 	}
 }
 
-func (s *SealService) TransferSealsToUser(sealNumbers []string, issuedBy uint, receiverUsername string) error {
-	receiver, err := s.userRepo.GetByUsername(receiverUsername)
-	if err != nil {
-		return fmt.Errorf("ไม่พบผู้รับที่เลือกในระบบ")
-	}
-	if !receiver.IsActive {
-		return fmt.Errorf("ผู้รับที่เลือกไม่อยู่ในสถานะใช้งาน")
-	}
-	if !strings.EqualFold(receiver.Role, "user") {
-		return fmt.Errorf("ผู้รับต้องเป็นผู้ใช้ role user เท่านั้น")
-	}
-
-	issuer, issuerErr := s.userRepo.GetByID(issuedBy)
-	if issuerErr == nil && issuer != nil && issuer.PeaCode != "" && receiver.PeaCode != "" && issuer.PeaCode != receiver.PeaCode {
-		return fmt.Errorf("ผู้รับที่เลือกไม่อยู่ในสังกัดเดียวกัน")
-	}
-
-	receiverDisplayName := strings.TrimSpace(fmt.Sprintf("%s %s", receiver.FirstName, receiver.LastName))
-	if receiverDisplayName == "" {
-		receiverDisplayName = receiver.Username
-	}
-
+func (s *SealService) TransferSealsToUser(sealNumbers []string, issuedBy uint, targetUsername string) error {
 	now := time.Now()
+
+	var targetUser *model.User
+	var receiverDisplayName string
+
+	if targetUsername != "" {
+		u, err := s.userRepo.GetByUsername(targetUsername)
+		if err != nil {
+			return fmt.Errorf("ไม่พบผู้ใช้ %s", targetUsername)
+		}
+		if !u.IsActive {
+			return fmt.Errorf("ผู้รับที่เลือกไม่อยู่ในสถานะใช้งาน")
+		}
+		if !strings.EqualFold(u.Role, "user") {
+			return fmt.Errorf("ผู้รับต้องเป็นผู้ใช้ role user เท่านั้น")
+		}
+
+		issuer, issuerErr := s.userRepo.GetByID(issuedBy)
+		if issuerErr == nil && issuer != nil && issuer.PeaCode != "" && u.PeaCode != "" && issuer.PeaCode != u.PeaCode {
+			return fmt.Errorf("ผู้รับที่เลือกไม่อยู่ในสังกัดเดียวกัน")
+		}
+
+		receiverDisplayName = strings.TrimSpace(fmt.Sprintf("%s %s", u.FirstName, u.LastName))
+		if receiverDisplayName == "" {
+			receiverDisplayName = u.Username
+		}
+		targetUser = u
+	}
+
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		for _, sn := range sealNumbers {
 			seal, err := s.repo.FindByNumber(sn)
@@ -112,10 +119,18 @@ func (s *SealService) TransferSealsToUser(sealNumbers []string, issuedBy uint, r
 				return fmt.Errorf("ซีล %s ไม่ได้อยู่ในคลังมิเตอร์", sn)
 			}
 
-			seal.Status = string(constants.StatusReady)
+			if targetUser != nil {
+				// ส่งให้ User เฉพาะเจาะจง -> รอยืนยัน
+				seal.Status = string(constants.StatusWaitConfirmation)
+				seal.IssuedTo = &targetUser.ID
+			} else {
+				// ส่งเข้าคลังส่วนกลาง -> พร้อมใช้งานทันที
+				seal.Status = string(constants.StatusReady)
+				seal.IssuedTo = nil
+			}
+
 			seal.IssuedAt = &now
 			seal.IssuedBy = &issuedBy
-			seal.IssuedTo = nil
 			seal.PendingPeaCode = ""
 			seal.InventoryDepartment = "accounting"
 			seal.AssignedToTechnician = nil
@@ -125,10 +140,12 @@ func (s *SealService) TransferSealsToUser(sealNumbers []string, issuedBy uint, r
 				return err
 			}
 
-			logEntry := model.Log{
-				UserID: issuedBy,
-				Action: fmt.Sprintf("โอนซีล %s เข้าคลังแผนกบัญชี (ผู้รับ: %s @%s)", sn, receiverDisplayName, receiver.Username),
+			action := fmt.Sprintf("โอนซีล %s เข้าคลังแผนกบัญชี", sn)
+			if targetUser != nil {
+				action = fmt.Sprintf("โอนซีล %s เข้าคลังแผนกบัญชี (ผู้รับ: %s @%s)", sn, receiverDisplayName, targetUser.Username)
 			}
+
+			logEntry := model.Log{UserID: issuedBy, Action: action}
 			if err := s.logRepo.Create(&logEntry); err != nil {
 				return err
 			}

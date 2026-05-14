@@ -22,6 +22,7 @@ interface AssignPDFOptions {
   };
   peaName?: string;
   timestamp?: Date; // เพิ่ม timestamp ของเวลาจริงที่จ่ายซีล
+  isToUser?: boolean; // ระบุว่าเป็นฝ่าย User หรือไม่
 }
 
 function toBuddhistDate(date: Date): string {
@@ -46,7 +47,7 @@ function getThaiMonth(date: Date): string {
 }
 
 export function generateAssignPDF(options: AssignPDFOptions): void {
-  const { sealNumbers, technician, issuer, peaName, timestamp } = options;
+  const { sealNumbers, technician, issuer, peaName, timestamp, isToUser } = options;
   const now = timestamp || new Date(); // ใช้ timestamp ที่ส่งมา ถ้ามี ไม่งั้นใช้เวลาปัจจุบัน
   const thaiDate = toBuddhistDate(now);
   const thaiTime = toThaiTime(now);
@@ -61,20 +62,56 @@ export function generateAssignPDF(options: AssignPDFOptions): void {
   const issuerAffiliation = peaName || issuer.pea_code || '-';
 
   // สร้างแถวข้อมูล
-  const dataRows = sealNumbers.map((sealNum, idx) => `
-    <tr>
-      <td class="center">${idx + 1}</td>
-      <td class="center bold">${sealNum}</td>
-      <td class="center">${thaiDate}</td>
-      <td>${techFullName}<br/><span class="sub">${techAffiliation}</span></td>
-      <td class="sign-cell"></td>
-      <td>${issuerFullName}<br/><span class="sub">${issuerAffiliation}</span></td>
-      <td class="sign-cell"></td>
-    </tr>`).join('');
+  let dataRows = '';
+  let rowCount = 0;
+
+  if (isToUser && sealNumbers.length > 0) {
+    // สำหรับ User Side แสดงเฉพาะตัวแรกและตัวสุดท้าย
+    const firstSeal = sealNumbers[0];
+    const lastSeal = sealNumbers.length > 1 ? sealNumbers[sealNumbers.length - 1] : null;
+
+    dataRows += `
+      <tr>
+        <td class="center">${sealNumbers.length}</td>
+        <td class="center bold">${firstSeal}</td>
+        <td class="center">${thaiDate}</td>
+        <td>${techFullName}<br/><span class="sub">${techAffiliation}</span></td>
+        <td class="sign-cell"></td>
+        <td>${issuerFullName}<br/><span class="sub">${issuerAffiliation}</span></td>
+        <td class="sign-cell"></td>
+      </tr>`;
+    rowCount++;
+
+    if (lastSeal) {
+      dataRows += `
+        <tr>
+          <td class="center"></td>
+          <td class="center bold">${lastSeal}</td>
+          <td class="center">${thaiDate}</td>
+          <td>${techFullName}<br/><span class="sub">${techAffiliation}</span></td>
+          <td class="sign-cell"></td>
+          <td>${issuerFullName}<br/><span class="sub">${issuerAffiliation}</span></td>
+          <td class="sign-cell"></td>
+        </tr>`;
+      rowCount++;
+    }
+  } else {
+    dataRows = sealNumbers.map((sealNum, idx) => `
+      <tr>
+        <td class="center">${idx + 1}</td>
+        <td class="center bold">${sealNum}</td>
+        <td class="center">${thaiDate}</td>
+        <td>${techFullName}<br/><span class="sub">${techAffiliation}</span></td>
+        <td class="sign-cell"></td>
+        <td>${issuerFullName}<br/><span class="sub">${issuerAffiliation}</span></td>
+        <td class="sign-cell"></td>
+      </tr>`).join('');
+    rowCount = sealNumbers.length;
+  }
 
   // แถวว่างให้ครบ 20 แถว
   const minRows = 20;
-  const emptyCount = Math.max(0, minRows - sealNumbers.length);
+  const emptyCount = Math.max(0, minRows - rowCount);
   const emptyRows = Array(emptyCount).fill(`
     <tr>
       <td class="center">&nbsp;</td>
@@ -142,7 +179,7 @@ export function generateAssignPDF(options: AssignPDFOptions): void {
     </colgroup>
     <thead>
       <tr>
-        <th rowspan="2">ลำดับที่</th>
+        <th rowspan="2">${isToUser ? 'จำนวน' : 'ลำดับที่'}</th>
         <th rowspan="2">หมายเลข Serial no.</th>
         <th rowspan="2">วัน/เดือน/ปี</th>
         <th colspan="2">ผู้รับ</th>

@@ -1,6 +1,5 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, ActivityIndicator, Modal } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
 import { colors } from '@/constants';
 import { Header } from '@/components/dashboard';
 import { sealService } from '@/services/sealService';
@@ -13,13 +12,11 @@ type EntryMode = 'scan' | 'range' | 'existing';
 interface StagedSeal {
     id: string;
     sealNumber: string;
-    type: 'Single';
-    status: 'available' | 'unavailable' | 'duplicate';
+    status: 'checking' | 'available' | 'unavailable' | 'duplicate';
     issueRemark: string;
 }
 
 export const TransferToAccountingScreen: React.FC = () => {
-    const navigation = useNavigation();
     const { user } = useAuth();
 
     const [loading, setLoading] = useState(false);
@@ -27,12 +24,12 @@ export const TransferToAccountingScreen: React.FC = () => {
 
     // Seal entry
     const [entryMode, setEntryMode] = useState<EntryMode>('scan');
+    const [loading, setLoading] = useState(false);
+    const [stagedSeals, setStagedSeals] = useState<StagedSeal[]>([]);
+
     const [singleSealInput, setSingleSealInput] = useState('');
     const [rangeStartInput, setRangeStartInput] = useState('');
     const [rangeCountInput, setRangeCountInput] = useState('');
-    const [existingSearchQuery, setExistingSearchQuery] = useState('');
-    const [existingSeals, setExistingSeals] = useState<Seal[]>([]);
-    const [loadingExisting, setLoadingExisting] = useState(false);
 
     const [stagedSeals, setStagedSeals] = useState<StagedSeal[]>([]);
     const [accountingUsers, setAccountingUsers] = useState<UserResponse[]>([]);
@@ -56,15 +53,14 @@ export const TransferToAccountingScreen: React.FC = () => {
     const fetchExistingSeals = async () => {
         try {
             setLoadingExisting(true);
-            const rows = await sealService.getSeals(user?.pea_code);
-            const readyInMeter = rows.filter(
-                (s) => s.status === 'พร้อมใช้งาน' && s.inventory_department === 'meter'
-            );
-            setExistingSeals(readyInMeter);
+            const data = await sealService.getSeals({
+                status: 'available',
+                pea_code: user?.pea_code,
+                limit: 100
+            });
+            setExistingSeals(data);
         } catch (error) {
-            setModalStatus('error');
-            setModalMessage('ไม่สามารถดึงรายการซีลในคลังได้');
-            setModalVisible(true);
+            console.error('Failed to fetch existing seals:', error);
         } finally {
             setLoadingExisting(false);
         }
@@ -193,40 +189,60 @@ export const TransferToAccountingScreen: React.FC = () => {
         setSingleSealInput('');
     };
 
-    const handleAddRangeSeals = async () => {
-        if (!rangeStartInput.trim() || !rangeCountInput.trim()) return;
-
-        const count = parseInt(rangeCountInput.trim(), 10);
-        if (isNaN(count) || count <= 0) {
-            setModalStatus('error');
-            setModalMessage('กรุณาระบุจำนวนที่ถูกต้อง (มากกว่า 0)');
-            setModalVisible(true);
+    const handleAddRangeSeals = () => {
+        if (!rangeStartInput.trim() || !rangeCountInput) return;
+        const count = parseInt(rangeCountInput);
+        if (isNaN(count) || count <= 0 || count > 500) {
+            alert('กรุณาระบุจำนวนที่ถูกต้อง (1-500)');
             return;
         }
 
-        const startSeal = rangeStartInput.trim();
-        const generated = generateSealRange(startSeal, count);
-        if (generated.length === 0) {
-            setModalStatus('error');
-            setModalMessage('รูปแบบซีลเริ่มต้นไม่ถูกต้อง (ต้องเป็น ตัวอักษร+ตัวเลข)');
-            setModalVisible(true);
+        const prefixMatch = rangeStartInput.match(/^([a-zA-Z]+)(\d+)$/);
+        if (!prefixMatch) {
+            alert('รูปแบบ Serial ไม่ถูกต้อง (ต้องเป็น ตัวอักษรตามด้วยตัวเลข เช่น SL001)');
             return;
         }
 
-        setLoading(true);
+        const prefix = prefixMatch[1];
+        const startNumStr = prefixMatch[2];
+        const startNum = parseInt(startNumStr);
+
+        for (let i = 0; i < count; i++) {
+            const currentNum = startNum + i;
+            const currentSerial = prefix + currentNum.toString().padStart(startNumStr.length, '0');
+            handleAddSeal(currentSerial);
+        }
+
+        setRangeStartInput('');
+        setRangeCountInput('');
+    };
+
+    const handleAddSeal = (serial: string) => {
+        const normalized = serial.toUpperCase();
+        if (stagedSeals.some(s => s.sealNumber === normalized)) return;
+
+        const newId = Math.random().toString(36).substr(2, 9);
+        const newItem: StagedSeal = {
+            id: newId,
+            sealNumber: normalized,
+            status: 'checking',
+            issueRemark: ''
+        };
+
+        setStagedSeals(prev => [newItem, ...prev]);
+        checkSealStatus(newId, normalized);
+    };
+
+    const checkSealStatus = async (id: string, serial: string) => {
         try {
-            for (const sn of generated) {
-                if (stagedSeals.some(s => s.sealNumber === sn)) continue;
-                const check = await checkSealAvailabilityForTransfer(sn);
-                if (check.ok) {
-                    setStagedSeals(prev => [{ id: Date.now().toString() + sn, sealNumber: sn, type: 'Single', status: 'available', issueRemark: '' }, ...prev]);
-                }
-            }
-
-            setRangeStartInput('');
-            setRangeCountInput('');
-        } finally {
-            setLoading(false);
+            const isAvailable = await sealService.checkSealAvailability(serial);
+            setStagedSeals(prev => prev.map(s =>
+                s.id === id ? { ...s, status: isAvailable ? 'available' : 'unavailable' } : s
+            ));
+        } catch (error) {
+            setStagedSeals(prev => prev.map(s =>
+                s.id === id ? { ...s, status: 'unavailable' } : s
+            ));
         }
     };
 
@@ -235,7 +251,9 @@ export const TransferToAccountingScreen: React.FC = () => {
     };
 
     const handleUpdateIssueRemark = (id: string, remark: string) => {
-        setStagedSeals(prev => prev.map(s => s.id === id ? { ...s, issueRemark: remark } : s));
+        setStagedSeals(prev => prev.map(s =>
+            s.id === id ? { ...s, issueRemark: remark } : s
+        ));
     };
 
     const handleConfirmTransfer = async () => {
@@ -281,10 +299,11 @@ export const TransferToAccountingScreen: React.FC = () => {
 
     const handleModalClose = () => {
         setModalVisible(false);
-        if (modalStatus === 'success') {
-            navigation.goBack();
-        }
     };
+
+    const filteredExistingSeals = existingSeals.filter(s =>
+        s.seal_number.toLowerCase().includes(existingSearchQuery.toLowerCase())
+    );
 
     return (
         <View style={styles.mainContainer}>
@@ -597,12 +616,12 @@ const styles = StyleSheet.create({
     tabContainer: { flexDirection: 'row', borderBottomWidth: 1, borderBottomColor: '#eee', marginBottom: 20 },
     tab: { paddingVertical: 10, paddingHorizontal: 15, marginRight: 15 },
     activeTab: { borderBottomWidth: 2, borderBottomColor: colors.primaryPurple },
-    tabText: { fontSize: 14, color: '#666' },
+    tabText: { color: '#666', fontWeight: '500' },
     activeTabText: { color: colors.primaryPurple, fontWeight: 'bold' },
 
-    inputArea: { minHeight: 100 },
-    scanInput: { borderWidth: 2, borderColor: colors.primaryPurple, borderRadius: 8, padding: 15, fontSize: 16, textAlign: 'center', backgroundColor: '#fdfbff', borderStyle: 'dashed' },
-    helperText: { textAlign: 'center', color: '#999', fontSize: 12, marginTop: 10 },
+    inputArea: { marginTop: 10 },
+    scanInput: { height: 50, borderWidth: 1, borderColor: '#ddd', borderRadius: 8, paddingHorizontal: 15, fontSize: 16, backgroundColor: '#fafafa' },
+    helperText: { fontSize: 12, color: '#999', marginTop: 8, textAlign: 'center' },
 
     rangeRow: { flexDirection: 'row' },
     label: { fontSize: 12, color: '#666', marginBottom: 5 },
@@ -627,23 +646,24 @@ const styles = StyleSheet.create({
     existingList: { marginTop: 12, maxHeight: 250, borderWidth: 1, borderColor: '#eee', borderRadius: 8 },
     existingItem: { paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#f2f2f2' },
     existingMain: { fontSize: 14, fontWeight: 'bold', color: '#333' },
-    existingSub: { fontSize: 12, color: '#888', marginTop: 2 },
+    existingSub: { fontSize: 11, color: '#999', marginTop: 2 },
 
     listHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
     listTitle: { fontSize: 18, fontWeight: 'bold', color: '#333' },
     countBadge: { backgroundColor: '#f3e5f5', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
-    countText: { color: colors.primaryPurple, fontWeight: 'bold', fontSize: 13 },
+    countText: { color: colors.primaryPurple, fontWeight: 'bold' },
 
     tableHead: { flexDirection: 'row', backgroundColor: '#f8f9fa', padding: 12, borderRadius: 8, marginBottom: 10 },
-    th: { fontSize: 12, fontWeight: 'bold', color: '#999' },
+    th: { fontSize: 12, fontWeight: 'bold', color: '#666', textTransform: 'uppercase' },
+
     listContainer: { flex: 1 },
-    tableRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#f5f5f5' },
-    rowError: { backgroundColor: '#fff0f0' },
-    rowWarning: { backgroundColor: '#fff8e1' },
-    td: { fontSize: 14, color: '#333' },
-    serialText: { fontWeight: 'bold', fontSize: 14, color: colors.primaryPurple },
-    statusOk: { color: '#4caf50', fontWeight: 'bold', fontSize: 13 },
-    statusError: { color: '#f44336', fontWeight: 'bold', fontSize: 13 },
+    tableRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, paddingHorizontal: 12, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
+    rowError: { backgroundColor: '#fff5f5' },
+    rowWarning: { backgroundColor: '#fffde7' },
+    td: { fontSize: 13, color: '#333' },
+    serialText: { fontWeight: 'bold', color: '#333' },
+    statusOk: { color: '#4caf50', fontWeight: 'bold', fontSize: 11 },
+    statusError: { color: '#f44336', fontWeight: 'bold', fontSize: 11 },
     deleteIcon: { fontSize: 16, color: '#ccc' },
     remarkInput: { borderWidth: 1, borderColor: '#e0e0e0', borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4, fontSize: 12, backgroundColor: '#fafafa', minHeight: 32 },
 
