@@ -3,7 +3,6 @@ export * from './Inventory/SealInventoryScreen';
 export * from './Inventory/SealHistoryScreen';
 export * from './Seal/CreateSealScreen';
 export * from './Seal/AssignSealScreen';
-export * from './Seal/TransferToAccountingScreen';
 
 export * from './Technician/TechnicianListScreen';
 export * from './Technician/TechnicianDetailScreen';

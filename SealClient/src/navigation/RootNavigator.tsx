@@ -18,7 +18,6 @@ import {
     AddTechnicianScreen,
     ImportTechnicianScreen,
     AssignSealScreen,
-    TransferToAccountingScreen,
     UserManagementScreen,
     ChangeWorkplaceScreen,
     ReportScreen,
@@ -165,14 +164,7 @@ const StaffNavigator = () => {
                     drawerItemStyle: { display: 'none' }
                 }}
             />
-            <Drawer.Screen
-                name="TransferToAccounting"
-                component={TransferToAccountingScreen}
-                options={{
-                    title: 'โอนให้บัญชี',
-                    drawerItemStyle: user?.role === 'meter' ? undefined : { display: 'none' }
-                }}
-            />
+
             <Drawer.Screen
                 name="Logs"
                 component={AuditLogScreen}
@@ -248,7 +240,6 @@ const RootNavigator = () => {
                         AddTechnician: 'technicians/add',
                         ImportTechnician: 'technicians/import',
                         AssignSeal: 'seals/assign',
-                        TransferToAccounting: 'seals/transfer-to-accounting',
                         Report: 'report',
                         ReturnVerification: 'return-verification',
                         AddMasCom: 'mascom/add',
