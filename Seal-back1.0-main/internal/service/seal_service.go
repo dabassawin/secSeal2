@@ -140,9 +140,9 @@ func (s *SealService) TransferSealsToUser(sealNumbers []string, issuedBy uint, t
 				return err
 			}
 
-			action := fmt.Sprintf("โอนซีล %s เข้าคลังแผนกบัญชี", sn)
+			action := fmt.Sprintf("โอนซีล %s เข้าคลังแผนกบัญชี [PEA:%s]", sn, seal.PeaCode)
 			if targetUser != nil {
-				action = fmt.Sprintf("โอนซีล %s เข้าคลังแผนกบัญชี (ผู้รับ: %s @%s)", sn, receiverDisplayName, targetUser.Username)
+				action = fmt.Sprintf("โอนซีล %s เข้าคลังแผนกบัญชี (ผู้รับ: %s @%s) [PEA:%s]", sn, receiverDisplayName, targetUser.Username, seal.PeaCode)
 			}
 
 			logEntry := model.Log{UserID: issuedBy, Action: action}
@@ -352,7 +352,6 @@ func (s *SealService) GenerateAndCreateSealsFromNumber(startingSealNumber string
 	}
 
 	now := time.Now()
-	var newSeals []model.Seal
 
 	if status == "" {
 		status = string(constants.StatusReady)
@@ -360,30 +359,41 @@ func (s *SealService) GenerateAndCreateSealsFromNumber(startingSealNumber string
 
 	_ = requesterRole
 
-	for _, sn := range sealNumbers {
-		exists, err := s.repo.CheckSealExists(sn)
-		if err != nil {
+	// ✅ Batch check: single query instead of N individual queries
+	var existingSeals []model.Seal
+	// Check in chunks of 500 to avoid SQL parameter limits
+	for i := 0; i < len(sealNumbers); i += 500 {
+		end := i + 500
+		if end > len(sealNumbers) {
+			end = len(sealNumbers)
+		}
+		var chunk []model.Seal
+		if err := s.db.Where("seal_number IN ?", sealNumbers[i:end]).Select("seal_number").Find(&chunk).Error; err != nil {
 			return nil, err
 		}
-		if exists {
-			return nil, fmt.Errorf("Security seal ซ้ำกรุณากรอกเลขใหม่ด้วยค่ะ: %s", sn)
-		}
+		existingSeals = append(existingSeals, chunk...)
+	}
+	if len(existingSeals) > 0 {
+		return nil, fmt.Errorf("Security seal ซ้ำกรุณากรอกเลขใหม่ด้วยค่ะ: %s", existingSeals[0].SealNumber)
+	}
 
-		newSeal := model.Seal{
-			SealNumber: sn,
-			PeaCode:    peaCode,
-			InventoryDepartment: func() string {
-				if requesterRole == "meter" {
-					return "meter"
-				}
-				return "accounting"
-			}(),
-			Status:        status,
-			CreateRemarks: createRemarks,
-			CreatedAt:     now,
-			UpdatedAt:     now,
+	// Build all seal objects at once
+	invDept := "accounting"
+	if requesterRole == "meter" {
+		invDept = "meter"
+	}
+
+	newSeals := make([]model.Seal, len(sealNumbers))
+	for i, sn := range sealNumbers {
+		newSeals[i] = model.Seal{
+			SealNumber:          sn,
+			PeaCode:             peaCode,
+			InventoryDepartment: invDept,
+			Status:              status,
+			CreateRemarks:       createRemarks,
+			CreatedAt:           now,
+			UpdatedAt:           now,
 		}
-		newSeals = append(newSeals, newSeal)
 	}
 
 	err = s.db.Transaction(func(tx *gorm.DB) error {
@@ -831,11 +841,12 @@ func (s *SealService) IssueMultipleSeals(
 			logEntry := model.Log{
 				UserID: issuedBy,
 				Action: fmt.Sprintf(
-					"จ่ายซีล %s ให้ช่าง %d (รหัส: %s) - หมายเหตุ: %s",
+					"จ่ายซีล %s ให้ช่าง %d (รหัส: %s) - หมายเหตุ: %s [PEA:%s]",
 					sealsToIssue[i].SealNumber,
 					issuedTo,
 					employeeCode,
 					remark,
+					sealsToIssue[i].PeaCode,
 				),
 			}
 			if err := s.logRepo.Create(&logEntry); err != nil {
@@ -1006,7 +1017,7 @@ func (s *SealService) AssignSealsByTechCode(techCode string, sealNumbers []strin
 		// log - บันทึกด้วย UserID ของผู้จ่าย และรวมชื่อผู้จ่ายใน action
 		logEntry := model.Log{
 			UserID:    issuedBy,
-			Action:    fmt.Sprintf("จ่ายซีล %s ให้ช่าง %s (ผู้จ่าย: %s)", sn, techCode, issuerName),
+			Action:    fmt.Sprintf("จ่ายซีล %s ให้ช่าง %s (ผู้จ่าย: %s) [PEA:%s]", sn, techCode, issuerName, seal.PeaCode),
 			Timestamp: now,
 		}
 		if err := s.logRepo.Create(&logEntry); err != nil {

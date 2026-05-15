@@ -109,6 +109,10 @@ export const SealInventoryScreen: React.FC = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const [statusFilter, setStatusFilter] = useState('สถานะทั้งหมด');
     const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+
+    // Pagination
+    const ITEMS_PER_PAGE = 100;
+    const [currentPage, setCurrentPage] = useState(1);
     const [masPeaList, setMasPeaList] = useState<any[]>([]);
 
     // Selection
@@ -268,6 +272,31 @@ export const SealInventoryScreen: React.FC = () => {
             return matchesSearch && matchesStatus;
         });
     }, [seals, searchQuery, statusFilter, user?.pea_code]);
+
+    // Reset to page 1 when filter/search changes
+    useMemo(() => { setCurrentPage(1); }, [searchQuery, statusFilter]);
+
+    const totalPages = Math.max(1, Math.ceil(filteredSeals.length / ITEMS_PER_PAGE));
+    const paginatedSeals = useMemo(() => {
+        const start = (currentPage - 1) * ITEMS_PER_PAGE;
+        return filteredSeals.slice(start, start + ITEMS_PER_PAGE);
+    }, [filteredSeals, currentPage]);
+
+    const getPageNumbers = () => {
+        const pages: (number | string)[] = [];
+        if (totalPages <= 7) {
+            for (let i = 1; i <= totalPages; i++) pages.push(i);
+        } else {
+            pages.push(1);
+            if (currentPage > 3) pages.push('...');
+            for (let i = Math.max(2, currentPage - 1); i <= Math.min(totalPages - 1, currentPage + 1); i++) {
+                pages.push(i);
+            }
+            if (currentPage < totalPages - 2) pages.push('...');
+            pages.push(totalPages);
+        }
+        return pages;
+    };
 
     // ─── Selection Logic ─────────────────────────────────────────────
     const isAllSelected = filteredSeals.length > 0 && filteredSeals.every(s => selectedIds.has(s.id));
@@ -558,7 +587,7 @@ export const SealInventoryScreen: React.FC = () => {
                                     <Text style={styles.emptyText}>ไม่พบข้อมูลซีล</Text>
                                 </View>
                             ) : (
-                                filteredSeals.map((seal) => {
+                                paginatedSeals.map((seal) => {
                                     const isSelected = selectedIds.has(seal.id);
                                     return (
                                         <TouchableOpacity
@@ -615,12 +644,36 @@ export const SealInventoryScreen: React.FC = () => {
                 {/* Footer */}
                 <View style={styles.footer}>
                     <Text style={styles.footerText}>
-                        แสดง {filteredSeals.length} รายการ
+                        แสดง {((currentPage - 1) * ITEMS_PER_PAGE) + 1}-{Math.min(currentPage * ITEMS_PER_PAGE, filteredSeals.length)} จาก {filteredSeals.length} รายการ
                     </Text>
                     <View style={styles.pagination}>
-                        <TouchableOpacity style={styles.pageBtn}><Text>‹</Text></TouchableOpacity>
-                        <TouchableOpacity style={[styles.pageBtn, styles.pageBtnActive]}><Text style={{ color: 'white' }}>1</Text></TouchableOpacity>
-                        <TouchableOpacity style={styles.pageBtn}><Text>›</Text></TouchableOpacity>
+                        <TouchableOpacity
+                            style={[styles.pageBtn, currentPage === 1 && { opacity: 0.4 }]}
+                            onPress={() => setCurrentPage(p => Math.max(1, p - 1))}
+                            disabled={currentPage === 1}
+                        >
+                            <Text>‹</Text>
+                        </TouchableOpacity>
+                        {getPageNumbers().map((page, idx) => (
+                            typeof page === 'number' ? (
+                                <TouchableOpacity
+                                    key={idx}
+                                    style={[styles.pageBtn, currentPage === page && styles.pageBtnActive]}
+                                    onPress={() => setCurrentPage(page)}
+                                >
+                                    <Text style={currentPage === page ? { color: 'white' } : undefined}>{page}</Text>
+                                </TouchableOpacity>
+                            ) : (
+                                <Text key={idx} style={{ paddingHorizontal: 4, color: '#999' }}>…</Text>
+                            )
+                        ))}
+                        <TouchableOpacity
+                            style={[styles.pageBtn, currentPage === totalPages && { opacity: 0.4 }]}
+                            onPress={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                            disabled={currentPage === totalPages}
+                        >
+                            <Text>›</Text>
+                        </TouchableOpacity>
                     </View>
                 </View>
             </View>

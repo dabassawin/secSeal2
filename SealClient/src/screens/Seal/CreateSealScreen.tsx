@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, TextInput, TouchableOpacity, ActivityIndicator, Modal } from 'react-native';
+import React, { useState, useEffect, useCallback } from 'react';
+import { View, Text, StyleSheet, FlatList, ScrollView, TextInput, TouchableOpacity, ActivityIndicator, Modal } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { colors, sizes } from '@/constants';
 import { Header } from '@/components/dashboard';
@@ -203,8 +203,14 @@ export const CreateSealScreen: React.FC = () => {
         setLoading(true);
 
         try {
-            // Check existence for all generated seals
-            const results = await sealService.checkSeals(generatedSeals);
+            // ✅ Check existence in chunks of 500 to avoid oversized requests
+            let results: Awaited<ReturnType<typeof sealService.checkSeals>> = [];
+            const CHUNK_SIZE = 500;
+            for (let i = 0; i < generatedSeals.length; i += CHUNK_SIZE) {
+                const chunk = generatedSeals.slice(i, i + CHUNK_SIZE);
+                const chunkResults = await sealService.checkSeals(chunk);
+                results = [...results, ...chunkResults];
+            }
 
             // For creation, "Not Found" status means it DOES NOT EXIST (which is what we want)
             // Anything else means it EXISTS and cannot be created
@@ -296,18 +302,39 @@ export const CreateSealScreen: React.FC = () => {
 
         setLoading(true);
         try {
-            const batchesPayload = validBatches.map(b => ({
-                seal_number: b.sealNumber,
-                count: b.count,
-                pea_code: code,
-                status: b.creationStatus,
-                create_remarks: b.createRemarks
-            }));
+            // ✅ Group consecutive seals with same status/remarks into batches
+            // Instead of sending 10,000 items (count=1 each), sends ~1-3 grouped batches
+            const sorted = [...validBatches].sort((a, b) => a.sealNumber.localeCompare(b.sealNumber));
+            const grouped: { seal_number: string; count: number; pea_code: string; status?: string; create_remarks?: string }[] = [];
+            let gi = 0;
+            while (gi < sorted.length) {
+                const start = sorted[gi];
+                let count = 1;
+                while (gi + count < sorted.length) {
+                    const prev = sorted[gi + count - 1];
+                    const next = sorted[gi + count];
+                    if (next.creationStatus !== start.creationStatus || next.createRemarks !== start.createRemarks) break;
+                    // Check if consecutive seal number
+                    const mP = prev.sealNumber.match(/^([A-Za-z]*)(\d+)$/);
+                    const mN = next.sealNumber.match(/^([A-Za-z]*)(\d+)$/);
+                    if (!mP || !mN || mP[1] !== mN[1] || mP[2].length !== mN[2].length) break;
+                    if (parseInt(mN[2]) !== parseInt(mP[2]) + 1) break;
+                    count++;
+                }
+                grouped.push({
+                    seal_number: start.sealNumber,
+                    count,
+                    pea_code: code,
+                    status: start.creationStatus,
+                    create_remarks: start.createRemarks
+                });
+                gi += count;
+            }
 
-            await sealService.generateBatches(batchesPayload);
+            await sealService.generateBatches(grouped);
 
             setModalStatus('success');
-            setModalMessage(`สร้างซีลจำนวน ${validBatches.reduce((acc, curr) => acc + curr.count, 0)} ดวง เรียบร้อยแล้ว`);
+            setModalMessage(`สร้างซีลจำนวน ${validBatches.length} ดวง เรียบร้อยแล้ว (${grouped.length} batch)`);
             setModalVisible(true);
             setStagedBatches([]); // Clear list
 
@@ -457,9 +484,16 @@ export const CreateSealScreen: React.FC = () => {
                         <Text style={[styles.th, { flex: 1, textAlign: 'center' }]}>ACTION</Text>
                     </View>
 
-                    <ScrollView style={styles.listContainer}>
-                        {stagedBatches.map((item, index) => (
-                            <View key={item.id} style={[
+                    <FlatList
+                        style={styles.listContainer}
+                        data={stagedBatches}
+                        keyExtractor={(item) => item.id}
+                        initialNumToRender={30}
+                        maxToRenderPerBatch={20}
+                        windowSize={5}
+                        removeClippedSubviews={true}
+                        renderItem={({ item, index }) => (
+                            <View style={[
                                 styles.tableRow,
                                 item.status === 'unavailable' && styles.rowError
                             ]}>
@@ -467,8 +501,6 @@ export const CreateSealScreen: React.FC = () => {
                                 <View style={{ flex: 3 }}>
                                     {item.type === 'Batch' && <View style={styles.rangeTag}><Text style={styles.rangeTagText}>BATCH ({item.count})</Text></View>}
                                     <Text style={styles.serialText}>{item.sealNumber}</Text>
-
-                                    {/* Inline Status Selection */}
                                     <View style={styles.inlineStatusContainer}>
                                         {CREATION_STATUSES.map(s => (
                                             <TouchableOpacity
@@ -508,13 +540,13 @@ export const CreateSealScreen: React.FC = () => {
                                     <Text style={styles.deleteIcon}>🗑</Text>
                                 </TouchableOpacity>
                             </View>
-                        ))}
-                        {stagedBatches.length === 0 && (
+                        )}
+                        ListEmptyComponent={
                             <View style={styles.emptyState}>
                                 <Text style={styles.emptyText}>ยังไม่มีรายการ</Text>
                             </View>
-                        )}
-                    </ScrollView>
+                        }
+                    />
 
                     <View style={styles.footer}>
                         <View style={styles.totalRow}>

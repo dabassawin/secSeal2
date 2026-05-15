@@ -59,8 +59,8 @@ func (r *SealRepository) CreateMultiple(seals []model.Seal) error {
 		return nil
 	}
 
-	// Insert only the new seals
-	return r.db.Create(&newSeals).Error
+	// Insert only the new seals in batches for performance
+	return r.db.CreateInBatches(&newSeals, 500).Error
 }
 
 func (r *SealRepository) FindByNumber(sealNumber string) (*model.Seal, error) {
