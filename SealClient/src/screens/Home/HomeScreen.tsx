@@ -5,6 +5,7 @@ import { Header, StatusCard, ActionCard } from '@/components/dashboard';
 import { useAuth } from '@/context/AuthContext';
 
 import { sealService } from '@/services/sealService';
+import { userService } from '@/services/userService';
 import { SealReport } from '@/types';
 import { useNavigation } from '@react-navigation/native';
 import { SealStatus } from '../../constants/status';
@@ -15,6 +16,7 @@ export const HomeScreen: React.FC = () => {
     const { user } = useAuth();
     const [stats, setStats] = React.useState<SealReport | null>(null);
     const [loading, setLoading] = React.useState(true);
+    const [isLevel1, setIsLevel1] = React.useState(false);
 
     React.useEffect(() => {
         fetchData();
@@ -27,6 +29,12 @@ export const HomeScreen: React.FC = () => {
 
             if (reportResponse) {
                 setStats(reportResponse);
+            }
+
+            if (user?.pea_code) {
+                const masPea = await userService.getMasPea();
+                const currentPea = masPea.find((p: any) => (p.pea_code || p.PeaCode || p.code) === user.pea_code);
+                setIsLevel1(currentPea && (currentPea.level || currentPea.Level) === '1');
             }
 
         } catch (error) {
@@ -83,14 +91,16 @@ export const HomeScreen: React.FC = () => {
 
                 {/* Action Cards Grid - Row 1 */}
                 <View style={styles.actionGridContainer}>
-                    <ActionCard
-                        title="สร้างซีลใหม่ (Batch)"
-                        subtitle="สร้างรหัสซีลชุดใหม่เข้าสู่ระบบคลัง"
-                        icon="➕"
-                        iconColor="#7c4dff"
-                        iconBgColor="#ede7f6"
-                        onPress={() => (navigation as any).navigate('Seals', { screen: 'CreateSeal' })}
-                    />
+                    {isLevel1 && (
+                        <ActionCard
+                            title="สร้างซีลใหม่ (Batch)"
+                            subtitle="สร้างรหัสซีลชุดใหม่เข้าสู่ระบบคลัง"
+                            icon="➕"
+                            iconColor="#7c4dff"
+                            iconBgColor="#ede7f6"
+                            onPress={() => (navigation as any).navigate('Seals', { screen: 'CreateSeal' })}
+                        />
+                    )}
                     <ActionCard
                         title="รายชื่อช่าง"
                         subtitle="ลงทะเบียนช่าง"
