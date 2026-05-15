@@ -1038,7 +1038,7 @@ export const AssignSealScreen: React.FC = () => {
                             <View style={styles.formGroup}>
                                 <TouchableOpacity style={styles.techSelector} onPress={() => setShowRecipientTypeDropdown(true)}>
                                     <Text style={[styles.techPlaceholder, recipientType && { color: '#333' }]}>
-                                        {recipientType === 'technician' ? 'จ่ายให้ช่าง' : recipientType === 'user' ? 'โอนให้ฝ่ายบัญชี (User)' : recipientType === 'meter_transfer' ? 'โอนให้แผนกมิเตอร์สังกัดอื่น' : recipientType === 'accounting_other' ? 'โอนให้ฝ่ายบัญชีสังกัดอื่น' : 'เลือกประเภทผู้รับ...'}
+                                        {recipientType === 'technician' ? 'จ่ายให้ช่าง' : recipientType === 'user' ? 'โอนให้ฝ่ายบัญชี (User)' : recipientType === 'meter_transfer' ? 'โอนให้แผนกมิเตอร์สังกัดอื่น' : recipientType === 'accounting_other' ? 'โอนXS' : 'เลือกประเภทผู้รับ...'}
                                     </Text>
                                     <Text style={styles.dropdownIcon}>▼</Text>
                                 </TouchableOpacity>
@@ -1540,7 +1540,7 @@ export const AssignSealScreen: React.FC = () => {
                             }}
                         >
                             <View style={{ flex: 1, paddingVertical: 5 }}>
-                                <Text style={[styles.techItemName, recipientType === 'accounting_other' && { color: colors.primaryPurple }]}>โอนให้ฝ่ายบัญชีสังกัดอื่น</Text>
+                                <Text style={[styles.techItemName, recipientType === 'accounting_other' && { color: colors.primaryPurple }]}>โอนXS</Text>
                             </View>
                         </TouchableOpacity>
                     </View>
@@ -1690,7 +1690,13 @@ export const AssignSealScreen: React.FC = () => {
                                 .filter(p => {
                                     const code = p.pea_code || p.PeaCode || p.code || '';
                                     const nameTh = p.name_th || p.NameTh || '';
-                                    if (user?.pea_code && code === user.pea_code) return false;
+
+                                    // ต้องมี 4 ตัวแรกตรงกับ user แต่ไม่ใช่ตัวเอง
+                                    if (!user?.pea_code) return false;
+                                    const userPrefix = user.pea_code.substring(0, 4);
+                                    if (code.substring(0, 4) !== userPrefix) return false;  // ไม่ใช่ลูก
+                                    if (code === user.pea_code) return false;               // ตัดตัวเอง
+
                                     if (!accOtherPeaSearchQuery) return true;
                                     const q = accOtherPeaSearchQuery.toLowerCase();
                                     return code.toLowerCase().includes(q) || nameTh.toLowerCase().includes(q);
@@ -1711,10 +1717,16 @@ export const AssignSealScreen: React.FC = () => {
                                 })}
                             {masPeaList.filter(p => {
                                 const code = p.pea_code || p.PeaCode || p.code || '';
-                                if (user?.pea_code && code === user.pea_code) return false;
+                                const nameTh = p.name_th || p.NameTh || '';
+
+                                // ต้องมี 4 ตัวแรกตรงกับ user แต่ไม่ใช่ตัวเอง
+                                if (!user?.pea_code) return false;
+                                const userPrefix = user.pea_code.substring(0, 4);
+                                if (code.substring(0, 4) !== userPrefix) return false;  // ไม่ใช่ลูก
+                                if (code === user.pea_code) return false;               // ตัดตัวเอง
+
                                 if (!accOtherPeaSearchQuery) return true;
                                 const q = accOtherPeaSearchQuery.toLowerCase();
-                                const nameTh = p.name_th || p.NameTh || '';
                                 return code.toLowerCase().includes(q) || nameTh.toLowerCase().includes(q);
                             }).length === 0 && (
                                 <View style={styles.emptyTechList}><Text style={styles.emptyTechText}>ไม่พบสังกัดตามคำค้นหา</Text></View>

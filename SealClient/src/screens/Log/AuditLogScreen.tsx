@@ -126,6 +126,10 @@ export const AuditLogScreen: React.FC = () => {
     const [searchQuery, setSearchQuery] = useState('');
     const [loading, setLoading] = useState(true);
 
+    // Pagination
+    const ITEMS_PER_PAGE = 100;
+    const [currentPage, setCurrentPage] = useState(1);
+
     useEffect(() => {
         fetchLogs();
     }, []);
@@ -164,13 +168,37 @@ export const AuditLogScreen: React.FC = () => {
         );
     }, [allLogs, searchQuery]);
 
-    const groupedLogs = useMemo(() => groupLogsByDate(filteredLogs), [filteredLogs]);
+    // Reset to page 1 when search changes
+    useMemo(() => { setCurrentPage(1); }, [searchQuery]);
+
+    const totalPages = Math.max(1, Math.ceil(filteredLogs.length / ITEMS_PER_PAGE));
+
+    const paginatedLogs = useMemo(() => {
+        const start = (currentPage - 1) * ITEMS_PER_PAGE;
+        return filteredLogs.slice(start, start + ITEMS_PER_PAGE);
+    }, [filteredLogs, currentPage]);
+
+    const groupedLogs = useMemo(() => groupLogsByDate(paginatedLogs), [paginatedLogs]);
+
+    const getPageNumbers = () => {
+        const pages: (number | string)[] = [];
+        if (totalPages <= 7) {
+            for (let i = 1; i <= totalPages; i++) pages.push(i);
+        } else {
+            pages.push(1);
+            if (currentPage > 3) pages.push('...');
+            for (let i = Math.max(2, currentPage - 1); i <= Math.min(totalPages - 1, currentPage + 1); i++) pages.push(i);
+            if (currentPage < totalPages - 2) pages.push('...');
+            pages.push(totalPages);
+        }
+        return pages;
+    };
 
     return (
         <View style={styles.mainContainer}>
             <Header />
 
-            {/* Search Bar - Chrome Inspired */}
+            {/* Search Bar */}
             <View style={styles.searchBarWrapper}>
                 <View style={styles.searchBarContainer}>
                     <Text style={styles.searchIcon}>🔍</Text>
@@ -200,7 +228,7 @@ export const AuditLogScreen: React.FC = () => {
                         <Text style={styles.emptyText}>ไม่พบข้อมูลที่ค้นหา</Text>
                     </View>
                 ) : (
-                    groupedLogs.map((group, gIndex) => (
+                    groupedLogs.map((group) => (
                         <View key={group.date} style={styles.dateGroup}>
                             <Text style={styles.dateHeader}>{group.date}</Text>
                             <View style={styles.groupCard}>
@@ -216,6 +244,44 @@ export const AuditLogScreen: React.FC = () => {
                     ))
                 )}
             </ScrollView>
+
+            {/* Pagination Footer */}
+            {!loading && filteredLogs.length > 0 && (
+                <View style={styles.paginationFooter}>
+                    <Text style={styles.paginationInfo}>
+                        แสดง {((currentPage - 1) * ITEMS_PER_PAGE) + 1}–{Math.min(currentPage * ITEMS_PER_PAGE, filteredLogs.length)} จาก {filteredLogs.length} รายการ
+                    </Text>
+                    <View style={styles.paginationControls}>
+                        <TouchableOpacity
+                            style={[styles.pageBtn, currentPage === 1 && styles.pageBtnDisabled]}
+                            onPress={() => setCurrentPage(p => Math.max(1, p - 1))}
+                            disabled={currentPage === 1}
+                        >
+                            <Text style={styles.pageBtnText}>‹</Text>
+                        </TouchableOpacity>
+                        {getPageNumbers().map((page, idx) =>
+                            typeof page === 'number' ? (
+                                <TouchableOpacity
+                                    key={idx}
+                                    style={[styles.pageBtn, currentPage === page && styles.pageBtnActive]}
+                                    onPress={() => setCurrentPage(page)}
+                                >
+                                    <Text style={[styles.pageBtnText, currentPage === page && styles.pageBtnTextActive]}>{page}</Text>
+                                </TouchableOpacity>
+                            ) : (
+                                <Text key={idx} style={styles.pageDots}>…</Text>
+                            )
+                        )}
+                        <TouchableOpacity
+                            style={[styles.pageBtn, currentPage === totalPages && styles.pageBtnDisabled]}
+                            onPress={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                            disabled={currentPage === totalPages}
+                        >
+                            <Text style={styles.pageBtnText}>›</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            )}
         </View>
     );
 };
@@ -372,5 +438,55 @@ const styles = StyleSheet.create({
     emptyText: {
         fontSize: sizes.fontLg,
         color: colors.textLight,
-    }
+    },
+    paginationFooter: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: sizes.lg,
+        paddingVertical: 10,
+        backgroundColor: colors.white,
+        borderTopWidth: 1,
+        borderTopColor: '#e9ecef',
+    },
+    paginationInfo: {
+        fontSize: sizes.fontSm,
+        color: colors.textLight,
+    },
+    paginationControls: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+    },
+    pageBtn: {
+        minWidth: 32,
+        height: 32,
+        borderRadius: 6,
+        borderWidth: 1,
+        borderColor: '#dee2e6',
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingHorizontal: 8,
+        backgroundColor: colors.white,
+    },
+    pageBtnActive: {
+        backgroundColor: colors.primaryPurple,
+        borderColor: colors.primaryPurple,
+    },
+    pageBtnDisabled: {
+        opacity: 0.4,
+    },
+    pageBtnText: {
+        fontSize: sizes.fontSm,
+        color: colors.text,
+    },
+    pageBtnTextActive: {
+        color: colors.white,
+        fontWeight: 'bold',
+    },
+    pageDots: {
+        paddingHorizontal: 4,
+        color: '#999',
+        fontSize: sizes.fontSm,
+    },
 });
