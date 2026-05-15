@@ -357,7 +357,7 @@ export const AssignSealScreen: React.FC = () => {
                                 username: fullUser.username,
                                 pea_code: fullUser.pea_code,
                             };
-                        } catch (err) {}
+                        } catch (err) { }
                     }
                     generateTransferPDF({
                         sealNumbers: sealList,
@@ -558,7 +558,7 @@ export const AssignSealScreen: React.FC = () => {
                 } else {
                     const techMatch = log.action.match(/ให้ช่าง\s+(\S+)/);
                     const userMatch = log.action.match(/ให้ฝ่ายผู้ใช้\s+\(([^)]+)\)/);
-                    
+
                     groups.push({
                         id: log.id,
                         timestamp: log.timestamp,
@@ -566,6 +566,7 @@ export const AssignSealScreen: React.FC = () => {
                         first_name: firstName,
                         last_name: lastName,
                         username: log.username,
+                        groupPea: userMap[log.user_id]?.pea_code, // Added this line
                         techCode: techMatch ? techMatch[1] : (isTransfer ? receiverName : 'Unknown'),
                         isTransfer: isTransfer,
                         seals: sealNum ? [sealNum] : [],
@@ -577,12 +578,14 @@ export const AssignSealScreen: React.FC = () => {
             let filteredGroups = groups;
             if (user?.pea_code) {
                 filteredGroups = groups.filter(g => {
-                    // 1. เช็คว่าช่างผู้รับอยู่ในสังกัดเราหรือไม่ (เทียบล็อกรหัสช่างใน state ที่โหลดเฉพาะช่างสังกัดเรามาแล้ว)
-                    const isTechInPea = technicians.some(t => t.technician_code === g.techCode);
-                    // 2. เช็คว่าผู้จ่ายอยู่ในสังกัดเราหรือไม่ (ต้องตรงเป๊ะ ไม่ใช่แค่ขึ้นต้นเหมือนกัน)
+                    // 1. เช็คว่าช่างผู้รับอยู่ในสังกัดเราหรือไม่ (เช็คให้ตรงเป๊ะกับ pea_code ของผู้ใช้)
+                    const tech = technicians.find(t => t.technician_code === g.techCode);
+                    const isTechInPea = tech ? tech.pea_code === user.pea_code : false;
+
+                    // 2. เช็คว่าผู้จ่ายอยู่ในสังกัดเราหรือไม่ (ต้องตรงเป๊ะ)
                     const groupPea = userMap[g.user_id]?.pea_code;
                     const isIssuerInPea = groupPea === user.pea_code;
-                    
+
                     return isTechInPea || isIssuerInPea;
                 });
             }
@@ -627,7 +630,7 @@ export const AssignSealScreen: React.FC = () => {
             const tech = technicians.find(t => t.technician_code === group.techCode);
             const techName = tech ? `${tech.first_name} ${tech.last_name}`.toLowerCase() : '';
             const issuerName = `${group.first_name || ''} ${group.last_name || ''}`.toLowerCase();
-            
+
             if (!techCode.includes(query) && !techName.includes(query) && !issuerName.includes(query)) {
                 match = false;
             }
@@ -732,16 +735,16 @@ export const AssignSealScreen: React.FC = () => {
                     {/* 1. Recipient Selection */}
                     <View style={styles.sectionCard}>
                         <Text style={styles.sectionTitle}>1. ระบุตัวผู้รับ (Recipient)</Text>
-                        
+
                         {(user?.role || '').toLowerCase() === 'meter' && (
                             <View style={styles.recipientTypeContainer}>
-                                <TouchableOpacity 
+                                <TouchableOpacity
                                     style={[styles.recipientTypeBtn, recipientType === 'technician' && styles.recipientTypeBtnActive]}
                                     onPress={() => setRecipientType('technician')}
                                 >
                                     <Text style={[styles.recipientTypeText, recipientType === 'technician' && styles.recipientTypeTextActive]}>จ่ายให้ช่าง</Text>
                                 </TouchableOpacity>
-                                <TouchableOpacity 
+                                <TouchableOpacity
                                     style={[styles.recipientTypeBtn, recipientType === 'user' && styles.recipientTypeBtnActive]}
                                     onPress={() => setRecipientType('user')}
                                 >
@@ -1096,13 +1099,13 @@ export const AssignSealScreen: React.FC = () => {
 
                         {(user?.role || '').toLowerCase() === 'meter' && (
                             <View style={[styles.recipientTypeContainer, { marginBottom: 15 }]}>
-                                <TouchableOpacity 
+                                <TouchableOpacity
                                     style={[styles.recipientTypeBtn, historyTab === 'technician' && styles.recipientTypeBtnActive]}
                                     onPress={() => setHistoryTab('technician')}
                                 >
                                     <Text style={[styles.recipientTypeText, historyTab === 'technician' && styles.recipientTypeTextActive]}>ประวัติการจ่ายช่าง</Text>
                                 </TouchableOpacity>
-                                <TouchableOpacity 
+                                <TouchableOpacity
                                     style={[styles.recipientTypeBtn, historyTab === 'user' && styles.recipientTypeBtnActive]}
                                     onPress={() => setHistoryTab('user')}
                                 >
@@ -1119,7 +1122,7 @@ export const AssignSealScreen: React.FC = () => {
                                         type="date"
                                         value={historyDateFilter}
                                         onChange={(e: any) => setHistoryDateFilter(e.target.value)}
-                                        onClick={(e: any) => { try { e.target.showPicker && e.target.showPicker(); } catch (err) {} }}
+                                        onClick={(e: any) => { try { e.target.showPicker && e.target.showPicker(); } catch (err) { } }}
                                         style={{
                                             height: 40,
                                             borderRadius: 8,
@@ -1154,7 +1157,7 @@ export const AssignSealScreen: React.FC = () => {
                                 />
                             </View>
                             {(historyDateFilter || historySearchQuery) ? (
-                                <TouchableOpacity 
+                                <TouchableOpacity
                                     style={styles.historyClearFilterBtn}
                                     onPress={() => {
                                         setHistoryDateFilter('');
@@ -1182,7 +1185,7 @@ export const AssignSealScreen: React.FC = () => {
                                     </View>
                                     <View style={{ flex: 4 }}>
                                         <Text style={styles.historyAction}>
-                                            {group.isTransfer ? 'โอนให้บัญชี: ' : 'จ่ายให้ช่าง: '} 
+                                            {group.isTransfer ? 'โอนให้บัญชี: ' : 'จ่ายให้ช่าง: '}
                                             <Text style={{ fontWeight: 'bold', color: colors.primaryPurple }}>{group.techCode}</Text>
                                         </Text>
                                         <Text style={styles.historyUser}>ผู้ออกใบ: {group.first_name || 'Admin'} {group.last_name || ''}</Text>
@@ -1283,11 +1286,11 @@ const styles = StyleSheet.create({
 
     sectionCard: { backgroundColor: 'white', borderRadius: 12, padding: 20, marginBottom: 20, elevation: 1 },
     sectionTitle: { fontSize: 16, fontWeight: 'bold', color: colors.primaryPurple },
-    sectionHeaderRow: { 
-        flexDirection: 'row', 
-        justifyContent: 'space-between', 
+    sectionHeaderRow: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 15 
+        marginBottom: 15
     },
 
     formGroup: { marginBottom: 15 },
@@ -1485,7 +1488,7 @@ const styles = StyleSheet.create({
     historyModalSub: { fontSize: 14, color: '#888', marginTop: 4 },
     historyCloseBtn: { padding: 4 },
     historyCloseText: { fontSize: 24, color: '#bbb' },
-    
+
     historyFilterContainer: {
         flexDirection: 'row',
         alignItems: 'flex-end',

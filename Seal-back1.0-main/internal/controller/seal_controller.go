@@ -703,10 +703,6 @@ func (sc *SealController) AssignSealsByTechCodeHandler(c *fiber.Ctx) error {
 		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Unauthorized"})
 	}
 
-	role, roleOk := c.Locals("role").(string)
-	if roleOk && role == "meter" {
-		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Access denied"})
-	}
 
 	var req struct {
 		TechnicianCode string            `json:"technician_code"`

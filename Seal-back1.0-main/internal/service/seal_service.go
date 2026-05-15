@@ -140,9 +140,9 @@ func (s *SealService) TransferSealsToUser(sealNumbers []string, issuedBy uint, t
 				return err
 			}
 
-			action := fmt.Sprintf("โอนซีล %s เข้าคลังแผนกบัญชี", sn)
+			action := fmt.Sprintf("โอนซีล %s เข้าคลังแผนกบัญชี [PEA:%s]", sn, seal.PeaCode)
 			if targetUser != nil {
-				action = fmt.Sprintf("โอนซีล %s เข้าคลังแผนกบัญชี (ผู้รับ: %s @%s)", sn, receiverDisplayName, targetUser.Username)
+				action = fmt.Sprintf("โอนซีล %s เข้าคลังแผนกบัญชี (ผู้รับ: %s @%s) [PEA:%s]", sn, receiverDisplayName, targetUser.Username, seal.PeaCode)
 			}
 
 			logEntry := model.Log{UserID: issuedBy, Action: action}
@@ -831,11 +831,12 @@ func (s *SealService) IssueMultipleSeals(
 			logEntry := model.Log{
 				UserID: issuedBy,
 				Action: fmt.Sprintf(
-					"จ่ายซีล %s ให้ช่าง %d (รหัส: %s) - หมายเหตุ: %s",
+					"จ่ายซีล %s ให้ช่าง %d (รหัส: %s) - หมายเหตุ: %s [PEA:%s]",
 					sealsToIssue[i].SealNumber,
 					issuedTo,
 					employeeCode,
 					remark,
+					sealsToIssue[i].PeaCode,
 				),
 			}
 			if err := s.logRepo.Create(&logEntry); err != nil {
@@ -1006,7 +1007,7 @@ func (s *SealService) AssignSealsByTechCode(techCode string, sealNumbers []strin
 		// log - บันทึกด้วย UserID ของผู้จ่าย และรวมชื่อผู้จ่ายใน action
 		logEntry := model.Log{
 			UserID:    issuedBy,
-			Action:    fmt.Sprintf("จ่ายซีล %s ให้ช่าง %s (ผู้จ่าย: %s)", sn, techCode, issuerName),
+			Action:    fmt.Sprintf("จ่ายซีล %s ให้ช่าง %s (ผู้จ่าย: %s) [PEA:%s]", sn, techCode, issuerName, seal.PeaCode),
 			Timestamp: now,
 		}
 		if err := s.logRepo.Create(&logEntry); err != nil {
