@@ -37,7 +37,7 @@ export const AssignSealScreen: React.FC = () => {
     const [selectedTech, setSelectedTech] = useState<Technician | null>(null);
     const [showTechDropdown, setShowTechDropdown] = useState(false);
 
-    const [recipientType, setRecipientType] = useState<'technician' | 'user' | 'meter_transfer' | null>(null);
+    const [recipientType, setRecipientType] = useState<'technician' | 'user' | 'meter_transfer' | 'accounting_other' | null>(null);
     const [showRecipientTypeDropdown, setShowRecipientTypeDropdown] = useState(false);
     const [accountingUsers, setAccountingUsers] = useState<UserResponse[]>([]);
     const [selectedReceiverUsername, setSelectedReceiverUsername] = useState('');
@@ -52,6 +52,14 @@ export const AssignSealScreen: React.FC = () => {
     const [selectedMeterReceiverUsername, setSelectedMeterReceiverUsername] = useState('');
     const [showMeterReceiverDropdown, setShowMeterReceiverDropdown] = useState(false);
     const [meterReceiverSearchQuery, setMeterReceiverSearchQuery] = useState('');
+
+    const [selectedAccOtherPea, setSelectedAccOtherPea] = useState('');
+    const [showAccOtherPeaDropdown, setShowAccOtherPeaDropdown] = useState(false);
+    const [accOtherPeaSearchQuery, setAccOtherPeaSearchQuery] = useState('');
+    const [accOtherUsersAtTarget, setAccOtherUsersAtTarget] = useState<UserResponse[]>([]);
+    const [selectedAccOtherReceiverUsername, setSelectedAccOtherReceiverUsername] = useState('');
+    const [showAccOtherReceiverDropdown, setShowAccOtherReceiverDropdown] = useState(false);
+    const [accOtherReceiverSearchQuery, setAccOtherReceiverSearchQuery] = useState('');
 
     const [entryMode, setEntryMode] = useState<EntryMode>('scan');
     const [singleSealInput, setSingleSealInput] = useState('');
@@ -176,6 +184,51 @@ export const AssignSealScreen: React.FC = () => {
             return fullName.includes(q) || (u.username || '').toLowerCase().includes(q);
         });
     }, [meterUsersAtTarget, meterReceiverSearchQuery]);
+
+    // Fetch accounting users at the selected target PEA for accounting_other
+    useEffect(() => {
+        if (!selectedAccOtherPea) {
+            setAccOtherUsersAtTarget([]);
+            setSelectedAccOtherReceiverUsername('');
+            return;
+        }
+        (async () => {
+            try {
+                const allUsers = await userService.getAllUsers();
+                const candidates = allUsers
+                    .filter((u) =>
+                        u.is_active !== false &&
+                        (u.role || '').toLowerCase() === 'user' &&
+                        u.pea_code &&
+                        u.pea_code.substring(0, 4) === selectedAccOtherPea.substring(0, 4) &&
+                        u.username !== user?.username
+                    )
+                    .sort((a, b) => {
+                        const aName = `${a.first_name || ''} ${a.last_name || ''}`.trim() || a.username;
+                        const bName = `${b.first_name || ''} ${b.last_name || ''}`.trim() || b.username;
+                        return aName.localeCompare(bName);
+                    });
+                setAccOtherUsersAtTarget(candidates);
+                setSelectedAccOtherReceiverUsername('');
+            } catch (err) {
+                console.error('Failed to fetch accounting users at target PEA:', err);
+            }
+        })();
+    }, [selectedAccOtherPea]);
+
+    const selectedAccOtherReceiver = React.useMemo(
+        () => accOtherUsersAtTarget.find((u) => u.username === selectedAccOtherReceiverUsername),
+        [accOtherUsersAtTarget, selectedAccOtherReceiverUsername]
+    );
+
+    const filteredAccOtherReceiverUsers = React.useMemo(() => {
+        const q = accOtherReceiverSearchQuery.trim().toLowerCase();
+        if (!q) return accOtherUsersAtTarget;
+        return accOtherUsersAtTarget.filter((u) => {
+            const fullName = `${u.first_name || ''} ${u.last_name || ''}`.trim().toLowerCase();
+            return fullName.includes(q) || (u.username || '').toLowerCase().includes(q);
+        });
+    }, [accOtherUsersAtTarget, accOtherReceiverSearchQuery]);
 
     const fetchMasPea = async () => {
         try {
@@ -453,6 +506,79 @@ export const AssignSealScreen: React.FC = () => {
             return;
         }
 
+        if (recipientType === 'accounting_other') {
+            const validSeals = stagedSeals.filter(s => s.status === 'available');
+            if (validSeals.length === 0) {
+                setModalStatus('error');
+                setModalMessage('ไม่มีรายการซีลที่พร้อมโอนในรายการ');
+                setModalVisible(true);
+                return;
+            }
+            if (!selectedAccOtherPea) {
+                setModalStatus('error');
+                setModalMessage('กรุณาเลือกสังกัดปลายทางก่อนยืนยันโอน');
+                setModalVisible(true);
+                return;
+            }
+            if (!selectedAccOtherReceiverUsername) {
+                setModalStatus('error');
+                setModalMessage('กรุณาเลือกผู้รับที่ฝ่ายบัญชีปลายทาง');
+                setModalVisible(true);
+                return;
+            }
+            setLoading(true);
+            try {
+                const sealList = validSeals.map(s => s.sealNumber);
+                await sealService.accountingOtherTransfer(sealList, selectedAccOtherPea, selectedAccOtherReceiverUsername);
+
+                const receiverDisplay = selectedAccOtherReceiver
+                    ? `${selectedAccOtherReceiver.first_name || ''} ${selectedAccOtherReceiver.last_name || ''}`.trim() || selectedAccOtherReceiver.username
+                    : selectedAccOtherReceiverUsername;
+
+                try {
+                    let issuerData = {
+                        first_name: user?.first_name,
+                        last_name: user?.last_name,
+                        username: user?.username || '',
+                        pea_code: user?.pea_code,
+                    };
+                    if (user?.username) {
+                        try {
+                            const fullUser = await userService.getUser(user.username);
+                            issuerData = {
+                                first_name: fullUser.first_name,
+                                last_name: fullUser.last_name,
+                                username: fullUser.username,
+                                pea_code: fullUser.pea_code,
+                            };
+                        } catch (err) { }
+                    }
+                    generateTransferPDF({
+                        sealNumbers: sealList,
+                        receiverName: receiverDisplay,
+                        receiverAffiliation: getPeaName(selectedAccOtherPea),
+                        issuer: issuerData,
+                        peaName: getPeaName(user?.pea_code),
+                        timestamp: new Date(),
+                    });
+                } catch (pdfErr) {
+                    console.warn('PDF generation failed:', pdfErr);
+                }
+
+                setModalStatus('success');
+                setModalMessage(`โอนซีลจำนวน ${sealList.length} รายการ ไปฝ่ายบัญชีสังกัด ${getPeaName(selectedAccOtherPea)} เรียบร้อยแล้ว\nผู้รับ: ${receiverDisplay}`);
+                setModalVisible(true);
+                setStagedSeals([]);
+            } catch (e: any) {
+                setModalStatus('error');
+                setModalMessage(e?.response?.data?.error || 'เกิดข้อผิดพลาดในการโอนซีล');
+                setModalVisible(true);
+            } finally {
+                setLoading(false);
+            }
+            return;
+        }
+
         if (recipientType === 'user') {
             const validSeals = stagedSeals.filter(s => s.status === 'available');
             if (validSeals.length === 0) {
@@ -667,8 +793,12 @@ export const AssignSealScreen: React.FC = () => {
                 const receiverMatch = log.action.match(/ผู้รับ:\s*([^@)]+)/);
                 const receiverName = receiverMatch ? receiverMatch[1].trim() : 'Unknown';
 
-                const sealMatch = log.action.match(/จ่ายซีล\s+(\S+)\s+ให้ช่าง/) || log.action.match(/โอนซีล\s+(\S+)\s+เข้าคลังแผนกบัญชี/);
+                const sealMatch = log.action.match(/จ่ายซีล\s+(\S+)\s+ให้ช่าง/) || log.action.match(/โอนซีล\s+(\S+)\s+เข้าคลัง/);
                 const sealNum = sealMatch ? sealMatch[1] : null;
+
+                // Parse issuer's PEA code from log (stored at transfer time)
+                const issuerPeaMatch = log.action.match(/\[PEA:(\S+?)\]/);
+                const issuerPeaFromLog = issuerPeaMatch ? issuerPeaMatch[1] : '';
 
                 const issuerMatch = log.action.match(/ผู้จ่าย:\s*([^)]+)/);
                 const issuerName = issuerMatch ? issuerMatch[1].trim() : '';
@@ -693,15 +823,25 @@ export const AssignSealScreen: React.FC = () => {
                     const techMatch = log.action.match(/ให้ช่าง\s+(\S+)/);
                     const userMatch = log.action.match(/ให้ฝ่ายผู้ใช้\s+\(([^)]+)\)/);
 
-                    // ถ้าเป็นการโอนบัญชี ให้ดึง pea_code ของผู้รับ (receiver) จาก allUsers
+                    // ดึง pea_code ปลายทางจาก log action (เก็บไว้ตอนโอนจริง)
                     let receiverPeaCode: string | undefined;
                     if (isTransfer) {
-                        // receiverName คือชื่อเต็ม ให้หา user ที่ตรงชื่อ
-                        const receiverUser = (Object.values(userMap) as any[]).find((u: any) => {
-                            const fullName = `${u.first_name || ''} ${u.last_name || ''}`.trim();
-                            return fullName === receiverName || u.username === receiverName;
-                        });
-                        receiverPeaCode = receiverUser?.pea_code;
+                        // รูปแบบใหม่: สังกัด 'S2xxx' ในข้อความ log
+                        const targetPeaMatch = log.action.match(/\u0e2a\u0e31\u0e07\u0e01\u0e31\u0e14\s+'([^']+)'/);
+                        if (targetPeaMatch) {
+                            receiverPeaCode = targetPeaMatch[1];
+                        } else {
+                            // รูปแบบเก่า: ดึงจาก @username ใน log แล้วหา pea_code จาก userMap
+                            const atUsernameMatch = log.action.match(/@(\S+)\)/);
+                            if (atUsernameMatch) {
+                                const receiverUser = (Object.values(userMap) as any[]).find((u: any) => u.username === atUsernameMatch[1]);
+                                receiverPeaCode = receiverUser?.pea_code;
+                            }
+                            // fallback: ถ้าเป็นโอนบัญชีในสังกัดเดียวกัน ใช้ issuerPeaCode
+                            if (!receiverPeaCode && issuerPeaFromLog) {
+                                receiverPeaCode = issuerPeaFromLog;
+                            }
+                        }
                     }
 
                     // ถ้าเป็นการจ่ายช่าง ให้ดึง pea_code ของช่างจาก technicians state
@@ -718,6 +858,7 @@ export const AssignSealScreen: React.FC = () => {
                         techCode: techCode,
                         isTransfer: isTransfer,
                         receiverPeaCode: isTransfer ? receiverPeaCode : matchedTech?.pea_code,
+                        issuerPeaCode: issuerPeaFromLog || userMap[log.user_id]?.pea_code || '',
                         seals: sealNum ? [sealNum] : [],
                         originalLogs: [log]
                     });
@@ -803,17 +944,19 @@ export const AssignSealScreen: React.FC = () => {
         if (!group.seals || group.seals.length === 0) return;
 
         if (group.isTransfer) {
+            // Use stored PEA codes from log, not real-time user PEA
+            const issuerPea = group.issuerPeaCode || user?.pea_code;
             generateTransferPDF({
                 sealNumbers: group.seals,
                 receiverName: group.techCode,
-                receiverAffiliation: getPeaName(user?.pea_code),
+                receiverAffiliation: getPeaName(group.receiverPeaCode || user?.pea_code),
                 issuer: {
                     first_name: group.first_name,
                     last_name: group.last_name,
                     username: group.username || '',
-                    pea_code: user?.pea_code,
+                    pea_code: issuerPea,
                 },
-                peaName: getPeaName(user?.pea_code),
+                peaName: getPeaName(issuerPea),
                 timestamp: new Date(group.timestamp),
             });
             return;
@@ -824,7 +967,7 @@ export const AssignSealScreen: React.FC = () => {
             first_name: group.first_name,
             last_name: group.last_name,
             username: '',
-            pea_code: user?.pea_code,
+            pea_code: group.issuerPeaCode || user?.pea_code,
         };
 
         if (group.isToUser) {
@@ -895,7 +1038,7 @@ export const AssignSealScreen: React.FC = () => {
                             <View style={styles.formGroup}>
                                 <TouchableOpacity style={styles.techSelector} onPress={() => setShowRecipientTypeDropdown(true)}>
                                     <Text style={[styles.techPlaceholder, recipientType && { color: '#333' }]}>
-                                        {recipientType === 'technician' ? 'จ่ายให้ช่าง' : recipientType === 'user' ? 'โอนให้ฝ่ายบัญชี (User)' : recipientType === 'meter_transfer' ? 'โอนให้แผนกมิเตอร์สังกัดอื่น' : 'เลือกประเภทผู้รับ...'}
+                                        {recipientType === 'technician' ? 'จ่ายให้ช่าง' : recipientType === 'user' ? 'โอนให้ฝ่ายบัญชี (User)' : recipientType === 'meter_transfer' ? 'โอนให้แผนกมิเตอร์สังกัดอื่น' : recipientType === 'accounting_other' ? 'โอนให้ฝ่ายบัญชีสังกัดอื่น' : 'เลือกประเภทผู้รับ...'}
                                     </Text>
                                     <Text style={styles.dropdownIcon}>▼</Text>
                                 </TouchableOpacity>
@@ -1026,6 +1169,69 @@ export const AssignSealScreen: React.FC = () => {
                                         </View>
                                     </View>
                                     <TouchableOpacity onPress={() => setSelectedMeterReceiverUsername('')} style={styles.removeTechBtn}>
+                                        <Text style={styles.removeTechText}>✕</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            )
+                        )}
+                        {recipientType === 'accounting_other' && (
+                            !selectedAccOtherPea ? (
+                                <View style={styles.formGroup}>
+                                    <TouchableOpacity style={styles.techSelector} onPress={() => {
+                                        setAccOtherPeaSearchQuery('');
+                                        setShowAccOtherPeaDropdown(true);
+                                    }}>
+                                        <Text style={styles.techPlaceholder}>เลือกสังกัดปลายทาง...</Text>
+                                        <Text style={styles.dropdownIcon}>▼</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            ) : (
+                                <View style={styles.selectedTechCard}>
+                                    <View style={[styles.techAvatar, { backgroundColor: '#4caf50' }]}>
+                                        <Text style={styles.techAvatarText}>🏢</Text>
+                                    </View>
+                                    <View style={styles.techInfo}>
+                                        <Text style={styles.techName}>{getPeaName(selectedAccOtherPea)}</Text>
+                                        <Text style={styles.techDetail}>รหัสสังกัด: {selectedAccOtherPea}</Text>
+                                        <View style={[styles.techBadge, { backgroundColor: '#e8f5e9' }]}>
+                                            <Text style={[styles.techBadgeText, { color: '#2e7d32' }]}>แผนกบัญชี</Text>
+                                        </View>
+                                    </View>
+                                    <TouchableOpacity onPress={() => setSelectedAccOtherPea('')} style={styles.removeTechBtn}>
+                                        <Text style={styles.removeTechText}>✕</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            )
+                        )}
+
+                        {recipientType === 'accounting_other' && selectedAccOtherPea && (
+                            !selectedAccOtherReceiverUsername ? (
+                                <View style={styles.formGroup}>
+                                    <TouchableOpacity style={styles.techSelector} onPress={() => {
+                                        setAccOtherReceiverSearchQuery('');
+                                        setShowAccOtherReceiverDropdown(true);
+                                    }}>
+                                        <Text style={styles.techPlaceholder}>เลือกผู้รับที่ฝ่ายบัญชีปลายทาง...</Text>
+                                        <Text style={styles.dropdownIcon}>▼</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            ) : (
+                                <View style={styles.selectedTechCard}>
+                                    <View style={[styles.techAvatar, { backgroundColor: '#4caf50' }]}>
+                                        <Text style={styles.techAvatarText}>
+                                            {selectedAccOtherReceiver?.first_name ? selectedAccOtherReceiver.first_name.charAt(0).toUpperCase() : 'U'}
+                                        </Text>
+                                    </View>
+                                    <View style={styles.techInfo}>
+                                        <Text style={styles.techName}>
+                                            {selectedAccOtherReceiver ? (`${selectedAccOtherReceiver.first_name || ''} ${selectedAccOtherReceiver.last_name || ''}`.trim() || selectedAccOtherReceiver.username) : selectedAccOtherReceiverUsername}
+                                        </Text>
+                                        <Text style={styles.techDetail}>Username: {selectedAccOtherReceiverUsername} • สังกัด: {getPeaName(selectedAccOtherReceiver?.pea_code)}</Text>
+                                        <View style={[styles.techBadge, { backgroundColor: '#e8f5e9' }]}>
+                                            <Text style={[styles.techBadgeText, { color: '#2e7d32' }]}>ฝ่ายบัญชี</Text>
+                                        </View>
+                                    </View>
+                                    <TouchableOpacity onPress={() => setSelectedAccOtherReceiverUsername('')} style={styles.removeTechBtn}>
                                         <Text style={styles.removeTechText}>✕</Text>
                                     </TouchableOpacity>
                                 </View>
@@ -1316,7 +1522,7 @@ export const AssignSealScreen: React.FC = () => {
                             </View>
                         </TouchableOpacity>
                         <TouchableOpacity
-                            style={[styles.techItem, recipientType === 'meter_transfer' && { backgroundColor: '#f3e5f5', borderBottomWidth: 0 }]}
+                            style={[styles.techItem, recipientType === 'meter_transfer' && { backgroundColor: '#f3e5f5' }]}
                             onPress={() => {
                                 setRecipientType('meter_transfer');
                                 setShowRecipientTypeDropdown(false);
@@ -1324,6 +1530,17 @@ export const AssignSealScreen: React.FC = () => {
                         >
                             <View style={{ flex: 1, paddingVertical: 5 }}>
                                 <Text style={[styles.techItemName, recipientType === 'meter_transfer' && { color: colors.primaryPurple }]}>โอนให้แผนกมิเตอร์สังกัดอื่น</Text>
+                            </View>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={[styles.techItem, recipientType === 'accounting_other' && { backgroundColor: '#f3e5f5', borderBottomWidth: 0 }]}
+                            onPress={() => {
+                                setRecipientType('accounting_other');
+                                setShowRecipientTypeDropdown(false);
+                            }}
+                        >
+                            <View style={{ flex: 1, paddingVertical: 5 }}>
+                                <Text style={[styles.techItemName, recipientType === 'accounting_other' && { color: colors.primaryPurple }]}>โอนให้ฝ่ายบัญชีสังกัดอื่น</Text>
                             </View>
                         </TouchableOpacity>
                     </View>
@@ -1444,6 +1661,103 @@ export const AssignSealScreen: React.FC = () => {
                                         {meterUsersAtTarget.length === 0
                                             ? 'ไม่พบผู้ใช้แผนกมิเตอร์ในสังกัดที่เลือก'
                                             : 'ไม่พบผู้ใช้ตามคำค้นหา'}
+                                    </Text>
+                                </View>
+                            )}
+                        </ScrollView>
+                    </View>
+                </View>
+            </Modal>
+
+            {/* Accounting Other PEA Selection Modal */}
+            <Modal visible={showAccOtherPeaDropdown} transparent animationType="slide" onRequestClose={() => setShowAccOtherPeaDropdown(false)}>
+                <View style={styles.techModalOverlay}>
+                    <View style={[styles.techModalContent, { width: 500, maxWidth: '90%' }]}>
+                        <View style={styles.techModalHeader}>
+                            <Text style={styles.techModalTitle}>เลือกสังกัดปลายทาง (ฝ่ายบัญชี)</Text>
+                            <TouchableOpacity onPress={() => setShowAccOtherPeaDropdown(false)}>
+                                <Text style={styles.closeBtn}>✕</Text>
+                            </TouchableOpacity>
+                        </View>
+                        <TextInput
+                            style={styles.techSearchInput}
+                            placeholder="🔍 พิมพ์ชื่อหรือรหัสสังกัด..."
+                            value={accOtherPeaSearchQuery}
+                            onChangeText={setAccOtherPeaSearchQuery}
+                        />
+                        <ScrollView style={styles.techList}>
+                            {masPeaList
+                                .filter(p => {
+                                    const code = p.pea_code || p.PeaCode || p.code || '';
+                                    const nameTh = p.name_th || p.NameTh || '';
+                                    if (user?.pea_code && code === user.pea_code) return false;
+                                    if (!accOtherPeaSearchQuery) return true;
+                                    const q = accOtherPeaSearchQuery.toLowerCase();
+                                    return code.toLowerCase().includes(q) || nameTh.toLowerCase().includes(q);
+                                })
+                                .map((p: any) => {
+                                    const code = p.pea_code || p.PeaCode || p.code || '';
+                                    const nameTh = p.name_th || p.NameTh || code;
+                                    const selected = code === selectedAccOtherPea;
+                                    return (
+                                        <TouchableOpacity key={code} style={[styles.techItem, selected && { backgroundColor: '#f3e5f5' }]} onPress={() => { setSelectedAccOtherPea(code); setShowAccOtherPeaDropdown(false); }}>
+                                            <View style={[styles.techAvatarSmall, { backgroundColor: '#4caf50' }]}><Text style={styles.techAvatarTextSmall}>🏢</Text></View>
+                                            <View style={{ flex: 1 }}>
+                                                <Text style={[styles.techItemName, selected && { color: colors.primaryPurple }]}>{nameTh}</Text>
+                                                <Text style={styles.techItemSub}>รหัส: {code}</Text>
+                                            </View>
+                                        </TouchableOpacity>
+                                    );
+                                })}
+                            {masPeaList.filter(p => {
+                                const code = p.pea_code || p.PeaCode || p.code || '';
+                                if (user?.pea_code && code === user.pea_code) return false;
+                                if (!accOtherPeaSearchQuery) return true;
+                                const q = accOtherPeaSearchQuery.toLowerCase();
+                                const nameTh = p.name_th || p.NameTh || '';
+                                return code.toLowerCase().includes(q) || nameTh.toLowerCase().includes(q);
+                            }).length === 0 && (
+                                <View style={styles.emptyTechList}><Text style={styles.emptyTechText}>ไม่พบสังกัดตามคำค้นหา</Text></View>
+                            )}
+                        </ScrollView>
+                    </View>
+                </View>
+            </Modal>
+
+            {/* Accounting Other Receiver Selection Modal */}
+            <Modal visible={showAccOtherReceiverDropdown} transparent animationType="slide" onRequestClose={() => setShowAccOtherReceiverDropdown(false)}>
+                <View style={styles.techModalOverlay}>
+                    <View style={[styles.techModalContent, { width: 500, maxWidth: '90%' }]}>
+                        <View style={styles.techModalHeader}>
+                            <Text style={styles.techModalTitle}>เลือกผู้รับที่ฝ่ายบัญชีปลายทาง</Text>
+                            <TouchableOpacity onPress={() => setShowAccOtherReceiverDropdown(false)}>
+                                <Text style={styles.closeBtn}>✕</Text>
+                            </TouchableOpacity>
+                        </View>
+                        <TextInput
+                            style={styles.techSearchInput}
+                            placeholder="🔍 พิมพ์ชื่อหรือ username..."
+                            value={accOtherReceiverSearchQuery}
+                            onChangeText={setAccOtherReceiverSearchQuery}
+                        />
+                        <ScrollView style={styles.techList}>
+                            {filteredAccOtherReceiverUsers.map((u) => {
+                                const fullName = `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.username;
+                                const selected = u.username === selectedAccOtherReceiverUsername;
+                                return (
+                                    <TouchableOpacity key={u.username} style={[styles.techItem, selected && { backgroundColor: '#f3e5f5' }]} onPress={() => { setSelectedAccOtherReceiverUsername(u.username); setShowAccOtherReceiverDropdown(false); }}>
+                                        <View style={[styles.techAvatarSmall, { backgroundColor: '#4caf50' }]}><Text style={styles.techAvatarTextSmall}>{u.first_name ? u.first_name.charAt(0).toUpperCase() : 'U'}</Text></View>
+                                        <View style={{ flex: 1 }}>
+                                            <Text style={[styles.techItemName, selected && { color: colors.primaryPurple }]}>{fullName}</Text>
+                                            <Text style={styles.techItemSub}>Username: {u.username} • สังกัด: {u.pea_code}</Text>
+                                        </View>
+                                    </TouchableOpacity>
+                                );
+                            })}
+                            {filteredAccOtherReceiverUsers.length === 0 && (
+                                <View style={styles.emptyTechList}>
+                                    <Text style={styles.emptyTechText}>
+                                        {accOtherUsersAtTarget.length === 0 ? 'ไม่พบผู้ใช้ฝ่ายบัญชีในสังกัดที่เลือก' : 'ไม่พบผู้ใช้ตามคำค้นหา'}
                                     </Text>
                                 </View>
                             )}

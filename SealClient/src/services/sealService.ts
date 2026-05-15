@@ -173,4 +173,12 @@ export const sealService = {
             target_username: targetUsername || ''
         });
     },
+
+    accountingOtherTransfer: async (sealNumbers: string[], newPeaCode: string, targetUsername?: string) => {
+        return await api.post('/api/seals/accounting-other-transfer', {
+            seal_numbers: sealNumbers,
+            new_pea_code: newPeaCode,
+            target_username: targetUsername || ''
+        });
+    },
 };

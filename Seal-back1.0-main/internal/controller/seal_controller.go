@@ -1121,6 +1121,45 @@ func (sc *SealController) MeterTransferHandler(c *fiber.Ctx) error {
 	})
 }
 
+// AccountingOtherPeaTransferHandler
+// POST /api/seals/accounting-other-transfer
+// Transfers seals from meter dept to accounting dept at another PEA (status stays Ready)
+func (sc *SealController) AccountingOtherPeaTransferHandler(c *fiber.Ctx) error {
+	userID, ok := c.Locals("user_id").(uint)
+	if !ok {
+		return c.Status(fiber.StatusUnauthorized).JSON(fiber.Map{"error": "Unauthorized"})
+	}
+	role, _ := c.Locals("role").(string)
+	if role != "meter" {
+		return c.Status(fiber.StatusForbidden).JSON(fiber.Map{"error": "Access denied - meter only"})
+	}
+
+	var request struct {
+		SealNumbers    []string `json:"seal_numbers"`
+		NewPeaCode     string   `json:"new_pea_code"`
+		TargetUsername string   `json:"target_username,omitempty"`
+	}
+	if err := c.BodyParser(&request); err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "Invalid request body"})
+	}
+	if len(request.SealNumbers) == 0 {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "seal_numbers is required"})
+	}
+	if request.NewPeaCode == "" {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": "new_pea_code is required"})
+	}
+
+	transferred, err := sc.sealService.TransferSealsToAccountingOtherPea(request.SealNumbers, request.NewPeaCode, userID, request.TargetUsername)
+	if err != nil {
+		return c.Status(fiber.StatusBadRequest).JSON(fiber.Map{"error": err.Error()})
+	}
+
+	return c.JSON(fiber.Map{
+		"message":     fmt.Sprintf("โอนซีลสำเร็จ %d รายการ ไปแผนกบัญชีสังกัด %s", transferred, request.NewPeaCode),
+		"transferred": transferred,
+	})
+}
+
 // 26) BulkConfirmCompanyTransferHandler
 // POST /api/seals/bulk-confirm-transfer
 // Body: { "seal_numbers": [...], "pea_code": "S2" }

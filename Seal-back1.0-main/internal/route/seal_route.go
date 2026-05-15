@@ -102,6 +102,9 @@ func SetupSealRoutes(router fiber.Router, sealController *controller.SealControl
 
 	// -- 25) POST /api/seals/meter-transfer : meter department transfers seals to another meter department
 	seal.Post("/meter-transfer", middleware.JWTMiddleware(), sealController.MeterTransferHandler)
+
+	// -- 26) POST /api/seals/accounting-other-transfer : meter transfers seals to accounting at another PEA
+	seal.Post("/accounting-other-transfer", middleware.JWTMiddleware(), sealController.AccountingOtherPeaTransferHandler)
 }
 
 // SetupPublicSealRoutes sets up public routes for "seals" (no JWT required)

@@ -102,6 +102,13 @@ func (s *SealService) TransferSealsToUser(sealNumbers []string, issuedBy uint, t
 		targetUser = u
 	}
 
+	// Get issuer display name for logging
+	issuerDisplayName := ""
+	issuerObj, _ := s.userRepo.GetByID(issuedBy)
+	if issuerObj != nil {
+		issuerDisplayName = strings.TrimSpace(fmt.Sprintf("%s %s", issuerObj.FirstName, issuerObj.LastName))
+	}
+
 	return s.db.Transaction(func(tx *gorm.DB) error {
 		for _, sn := range sealNumbers {
 			seal, err := s.repo.FindByNumber(sn)
@@ -140,9 +147,9 @@ func (s *SealService) TransferSealsToUser(sealNumbers []string, issuedBy uint, t
 				return err
 			}
 
-			action := fmt.Sprintf("โอนซีล %s เข้าคลังแผนกบัญชี [PEA:%s]", sn, seal.PeaCode)
+			action := fmt.Sprintf("โอนซีล %s เข้าคลังแผนกบัญชี [PEA:%s] (ผู้จ่าย: %s)", sn, seal.PeaCode, issuerDisplayName)
 			if targetUser != nil {
-				action = fmt.Sprintf("โอนซีล %s เข้าคลังแผนกบัญชี (ผู้รับ: %s @%s) [PEA:%s]", sn, receiverDisplayName, targetUser.Username, seal.PeaCode)
+				action = fmt.Sprintf("โอนซีล %s เข้าคลังแผนกบัญชี (ผู้รับ: %s @%s) [PEA:%s] (ผู้จ่าย: %s)", sn, receiverDisplayName, targetUser.Username, seal.PeaCode, issuerDisplayName)
 			}
 
 			logEntry := model.Log{UserID: issuedBy, Action: action}
@@ -1611,6 +1618,68 @@ func (s *SealService) TransferSealsBetweenMeter(sealNumbers []string, newPeaCode
 		if seal, _ := s.repo.FindByNumber(sealNumbers[0]); seal != nil {
 			s.hub.Broadcast(seal.PeaCode, "seal_updated")
 		}
+	}
+	return transferred, err
+}
+
+// TransferSealsToAccountingOtherPea — meter dept transfers seals to accounting dept at another PEA
+func (s *SealService) TransferSealsToAccountingOtherPea(sealNumbers []string, newPeaCode string, userID uint, targetUsername string) (int, error) {
+	transferred := 0
+	now := time.Now()
+	issuer, _ := s.userRepo.GetByID(userID)
+	issuerName := ""
+	if issuer != nil {
+		issuerName = strings.TrimSpace(fmt.Sprintf("%s %s", issuer.FirstName, issuer.LastName))
+	}
+	receiverDisplayName := ""
+	if targetUsername != "" {
+		u, err := s.userRepo.GetByUsername(targetUsername)
+		if err == nil && u != nil {
+			receiverDisplayName = strings.TrimSpace(fmt.Sprintf("%s %s", u.FirstName, u.LastName))
+			if receiverDisplayName == "" {
+				receiverDisplayName = u.Username
+			}
+		}
+	}
+	err := s.db.Transaction(func(tx *gorm.DB) error {
+		for _, sn := range sealNumbers {
+			seal, err := s.repo.FindByNumber(sn)
+			if err != nil {
+				return fmt.Errorf("ไม่พบซีล %s ในระบบ", sn)
+			}
+			if seal.Status != string(constants.StatusReady) {
+				return fmt.Errorf("ซีล %s ไม่ได้อยู่ในสถานะพร้อมใช้งาน", sn)
+			}
+			if seal.InventoryDepartment != "meter" {
+				return fmt.Errorf("ซีล %s ไม่ได้อยู่ในคลังมิเตอร์", sn)
+			}
+			oldPeaCode := seal.PeaCode
+			seal.PeaCode = newPeaCode
+			seal.PendingPeaCode = ""
+			seal.Status = string(constants.StatusReady)
+			seal.InventoryDepartment = "accounting"
+			seal.AssignedToTechnician = nil
+			seal.IssuedTo = nil
+			seal.UpdatedAt = now
+			if err := s.repo.Update(seal); err != nil {
+				return fmt.Errorf("โอนซีล %s ล้มเหลว", sn)
+			}
+			var action string
+			if receiverDisplayName != "" {
+				action = fmt.Sprintf("โอนซีล %s เข้าคลังแผนกบัญชีสังกัด '%s' (ผู้รับ: %s @%s) [PEA:%s] (ผู้จ่าย: %s)", sn, newPeaCode, receiverDisplayName, targetUsername, oldPeaCode, issuerName)
+			} else {
+				action = fmt.Sprintf("โอนซีล %s เข้าคลังแผนกบัญชีสังกัด '%s' [PEA:%s] (ผู้จ่าย: %s)", sn, newPeaCode, oldPeaCode, issuerName)
+			}
+			logEntry := model.Log{UserID: userID, Action: action}
+			if err := s.logRepo.Create(&logEntry); err != nil {
+				return err
+			}
+			transferred++
+		}
+		return nil
+	})
+	if err == nil && len(sealNumbers) > 0 {
+		s.hub.Broadcast(newPeaCode, "seal_updated")
 	}
 	return transferred, err
 }
