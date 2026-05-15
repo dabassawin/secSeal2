@@ -99,6 +99,9 @@ func SetupSealRoutes(router fiber.Router, sealController *controller.SealControl
 
 	// -- 24) POST /api/seals/bulk-confirm-transfer : batch confirm company transfer
 	seal.Post("/bulk-confirm-transfer", middleware.JWTMiddleware(), sealController.BulkConfirmCompanyTransferHandler)
+
+	// -- 25) POST /api/seals/meter-transfer : meter department transfers seals to another meter department
+	seal.Post("/meter-transfer", middleware.JWTMiddleware(), sealController.MeterTransferHandler)
 }
 
 // SetupPublicSealRoutes sets up public routes for "seals" (no JWT required)

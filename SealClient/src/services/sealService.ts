@@ -165,4 +165,12 @@ export const sealService = {
             return [];
         }
     },
+
+    meterTransfer: async (sealNumbers: string[], newPeaCode: string, targetUsername?: string) => {
+        return await api.post('/api/seals/meter-transfer', {
+            seal_numbers: sealNumbers,
+            new_pea_code: newPeaCode,
+            target_username: targetUsername || ''
+        });
+    },
 };

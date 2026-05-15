@@ -36,10 +36,9 @@ export const ChangeWorkplaceScreen: React.FC = () => {
     const fetchMasPea = async () => {
         try {
             const data = await userService.getMasPea();
-            // Filter only Level 1
-            const level1Data = data.filter((item: any) => (item.level || item.Level) === '1');
-            setMasPeaList(level1Data);
-            setFilteredPeaList(level1Data);
+            // Show all jurisdictions as requested
+            setMasPeaList(data);
+            setFilteredPeaList(data);
         } catch (error) {
             console.error('Failed to fetch MasPea:', error);
         }

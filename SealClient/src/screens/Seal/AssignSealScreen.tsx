@@ -37,12 +37,21 @@ export const AssignSealScreen: React.FC = () => {
     const [selectedTech, setSelectedTech] = useState<Technician | null>(null);
     const [showTechDropdown, setShowTechDropdown] = useState(false);
 
-    const [recipientType, setRecipientType] = useState<'technician' | 'user'>('technician');
+    const [recipientType, setRecipientType] = useState<'technician' | 'user' | 'meter_transfer' | null>(null);
+    const [showRecipientTypeDropdown, setShowRecipientTypeDropdown] = useState(false);
     const [accountingUsers, setAccountingUsers] = useState<UserResponse[]>([]);
     const [selectedReceiverUsername, setSelectedReceiverUsername] = useState('');
     const [showReceiverDropdown, setShowReceiverDropdown] = useState(false);
     const [receiverSearchQuery, setReceiverSearchQuery] = useState('');
     const [loadingAccountingUsers, setLoadingAccountingUsers] = useState(false);
+
+    const [selectedMeterTransferPea, setSelectedMeterTransferPea] = useState('');
+    const [showMeterPeaDropdown, setShowMeterPeaDropdown] = useState(false);
+    const [meterPeaSearchQuery, setMeterPeaSearchQuery] = useState('');
+    const [meterUsersAtTarget, setMeterUsersAtTarget] = useState<UserResponse[]>([]);
+    const [selectedMeterReceiverUsername, setSelectedMeterReceiverUsername] = useState('');
+    const [showMeterReceiverDropdown, setShowMeterReceiverDropdown] = useState(false);
+    const [meterReceiverSearchQuery, setMeterReceiverSearchQuery] = useState('');
 
     const [entryMode, setEntryMode] = useState<EntryMode>('scan');
     const [singleSealInput, setSingleSealInput] = useState('');
@@ -79,6 +88,8 @@ export const AssignSealScreen: React.FC = () => {
             fetchMasPea();
             if ((user.role || '').toLowerCase() === 'meter') {
                 fetchAccountingUsers();
+            } else {
+                setRecipientType('technician');
             }
         }
     }, [user?.pea_code, user?.role]);
@@ -100,9 +111,6 @@ export const AssignSealScreen: React.FC = () => {
                     return aName.localeCompare(bName);
                 });
             setAccountingUsers(candidates);
-            if (candidates.length > 0 && !selectedReceiverUsername) {
-                setSelectedReceiverUsername(candidates[0].username);
-            }
         } catch (error) {
             console.error('Failed to fetch users', error);
         } finally {
@@ -123,6 +131,51 @@ export const AssignSealScreen: React.FC = () => {
             return fullName.includes(q) || (u.username || '').toLowerCase().includes(q);
         });
     }, [accountingUsers, receiverSearchQuery]);
+
+    // Fetch meter users at the selected target PEA
+    useEffect(() => {
+        if (!selectedMeterTransferPea) {
+            setMeterUsersAtTarget([]);
+            setSelectedMeterReceiverUsername('');
+            return;
+        }
+        (async () => {
+            try {
+                const allUsers = await userService.getAllUsers();
+                const candidates = allUsers
+                    .filter((u) =>
+                        u.is_active !== false &&
+                        (u.role || '').toLowerCase() === 'meter' &&
+                        u.pea_code &&
+                        u.pea_code.substring(0, 4) === selectedMeterTransferPea.substring(0, 4) &&
+                        u.username !== user?.username
+                    )
+                    .sort((a, b) => {
+                        const aName = `${a.first_name || ''} ${a.last_name || ''}`.trim() || a.username;
+                        const bName = `${b.first_name || ''} ${b.last_name || ''}`.trim() || b.username;
+                        return aName.localeCompare(bName);
+                    });
+                setMeterUsersAtTarget(candidates);
+                setSelectedMeterReceiverUsername('');
+            } catch (err) {
+                console.error('Failed to fetch meter users at target PEA:', err);
+            }
+        })();
+    }, [selectedMeterTransferPea]);
+
+    const selectedMeterReceiver = React.useMemo(
+        () => meterUsersAtTarget.find((u) => u.username === selectedMeterReceiverUsername),
+        [meterUsersAtTarget, selectedMeterReceiverUsername]
+    );
+
+    const filteredMeterReceiverUsers = React.useMemo(() => {
+        const q = meterReceiverSearchQuery.trim().toLowerCase();
+        if (!q) return meterUsersAtTarget;
+        return meterUsersAtTarget.filter((u) => {
+            const fullName = `${u.first_name || ''} ${u.last_name || ''}`.trim().toLowerCase();
+            return fullName.includes(q) || (u.username || '').toLowerCase().includes(q);
+        });
+    }, [meterUsersAtTarget, meterReceiverSearchQuery]);
 
     const fetchMasPea = async () => {
         try {
@@ -319,6 +372,87 @@ export const AssignSealScreen: React.FC = () => {
     };
 
     const handleConfirmAssignment = async () => {
+        if (!recipientType) {
+            setModalStatus('error');
+            setModalMessage('กรุณาเลือกประเภทผู้รับ');
+            setModalVisible(true);
+            return;
+        }
+
+        if (recipientType === 'meter_transfer') {
+            const validSeals = stagedSeals.filter(s => s.status === 'available');
+            if (validSeals.length === 0) {
+                setModalStatus('error');
+                setModalMessage('ไม่มีรายการซีลที่พร้อมโอนในรายการ');
+                setModalVisible(true);
+                return;
+            }
+            if (!selectedMeterTransferPea) {
+                setModalStatus('error');
+                setModalMessage('กรุณาเลือกสังกัดปลายทางก่อนยืนยันโอน');
+                setModalVisible(true);
+                return;
+            }
+            if (!selectedMeterReceiverUsername) {
+                setModalStatus('error');
+                setModalMessage('กรุณาเลือกผู้รับที่แผนกมิเตอร์ปลายทาง');
+                setModalVisible(true);
+                return;
+            }
+            setLoading(true);
+            try {
+                const sealList = validSeals.map(s => s.sealNumber);
+                await sealService.meterTransfer(sealList, selectedMeterTransferPea, selectedMeterReceiverUsername);
+
+                const receiverDisplay = selectedMeterReceiver
+                    ? `${selectedMeterReceiver.first_name || ''} ${selectedMeterReceiver.last_name || ''}`.trim() || selectedMeterReceiver.username
+                    : selectedMeterReceiverUsername;
+
+                // Generate transfer PDF
+                try {
+                    let issuerData = {
+                        first_name: user?.first_name,
+                        last_name: user?.last_name,
+                        username: user?.username || '',
+                        pea_code: user?.pea_code,
+                    };
+                    if (user?.username) {
+                        try {
+                            const fullUser = await userService.getUser(user.username);
+                            issuerData = {
+                                first_name: fullUser.first_name,
+                                last_name: fullUser.last_name,
+                                username: fullUser.username,
+                                pea_code: fullUser.pea_code,
+                            };
+                        } catch (err) { }
+                    }
+                    generateTransferPDF({
+                        sealNumbers: sealList,
+                        receiverName: receiverDisplay,
+                        receiverAffiliation: getPeaName(selectedMeterTransferPea),
+                        issuer: issuerData,
+                        peaName: getPeaName(user?.pea_code),
+                        timestamp: new Date(),
+                    });
+                } catch (pdfErr) {
+                    console.warn('PDF generation failed:', pdfErr);
+                }
+
+                setModalStatus('success');
+                setModalMessage(`โอนซีลจำนวน ${sealList.length} รายการ ไปแผนกมิเตอร์สังกัด ${getPeaName(selectedMeterTransferPea)} เรียบร้อยแล้ว\nผู้รับ: ${receiverDisplay}`);
+                setModalVisible(true);
+                setStagedSeals([]);
+            } catch (e: any) {
+                setModalStatus('error');
+                setModalMessage(e?.response?.data?.error || 'เกิดข้อผิดพลาดในการโอนซีล');
+                setModalVisible(true);
+            } finally {
+                setLoading(false);
+            }
+            return;
+        }
+
         if (recipientType === 'user') {
             const validSeals = stagedSeals.filter(s => s.status === 'available');
             if (validSeals.length === 0) {
@@ -758,23 +892,17 @@ export const AssignSealScreen: React.FC = () => {
                         <Text style={styles.sectionTitle}>1. ระบุตัวผู้รับ (Recipient)</Text>
 
                         {(user?.role || '').toLowerCase() === 'meter' && (
-                            <View style={styles.recipientTypeContainer}>
-                                <TouchableOpacity
-                                    style={[styles.recipientTypeBtn, recipientType === 'technician' && styles.recipientTypeBtnActive]}
-                                    onPress={() => setRecipientType('technician')}
-                                >
-                                    <Text style={[styles.recipientTypeText, recipientType === 'technician' && styles.recipientTypeTextActive]}>จ่ายให้ช่าง</Text>
-                                </TouchableOpacity>
-                                <TouchableOpacity
-                                    style={[styles.recipientTypeBtn, recipientType === 'user' && styles.recipientTypeBtnActive]}
-                                    onPress={() => setRecipientType('user')}
-                                >
-                                    <Text style={[styles.recipientTypeText, recipientType === 'user' && styles.recipientTypeTextActive]}>โอนให้ฝ่ายบัญชี (User)</Text>
+                            <View style={styles.formGroup}>
+                                <TouchableOpacity style={styles.techSelector} onPress={() => setShowRecipientTypeDropdown(true)}>
+                                    <Text style={[styles.techPlaceholder, recipientType && { color: '#333' }]}>
+                                        {recipientType === 'technician' ? 'จ่ายให้ช่าง' : recipientType === 'user' ? 'โอนให้ฝ่ายบัญชี (User)' : recipientType === 'meter_transfer' ? 'โอนให้แผนกมิเตอร์สังกัดอื่น' : 'เลือกประเภทผู้รับ...'}
+                                    </Text>
+                                    <Text style={styles.dropdownIcon}>▼</Text>
                                 </TouchableOpacity>
                             </View>
                         )}
 
-                        {recipientType === 'technician' ? (
+                        {recipientType === 'technician' && (
                             !selectedTech ? (
                                 <View style={styles.formGroup}>
                                     <TouchableOpacity style={styles.techSelector} onPress={() => {
@@ -804,7 +932,9 @@ export const AssignSealScreen: React.FC = () => {
                                     </TouchableOpacity>
                                 </View>
                             )
-                        ) : (
+                        )}
+                        
+                        {recipientType === 'user' && (
                             !selectedReceiverUsername ? (
                                 <View style={styles.formGroup}>
                                     <TouchableOpacity style={styles.techSelector} onPress={() => {
@@ -832,6 +962,70 @@ export const AssignSealScreen: React.FC = () => {
                                         </View>
                                     </View>
                                     <TouchableOpacity onPress={() => setSelectedReceiverUsername('')} style={styles.removeTechBtn}>
+                                        <Text style={styles.removeTechText}>✕</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            )
+                        )}
+
+                        {recipientType === 'meter_transfer' && (
+                            !selectedMeterTransferPea ? (
+                                <View style={styles.formGroup}>
+                                    <TouchableOpacity style={styles.techSelector} onPress={() => {
+                                        setMeterPeaSearchQuery('');
+                                        setShowMeterPeaDropdown(true);
+                                    }}>
+                                        <Text style={styles.techPlaceholder}>เลือกสังกัดปลายทาง...</Text>
+                                        <Text style={styles.dropdownIcon}>▼</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            ) : (
+                                <View style={styles.selectedTechCard}>
+                                    <View style={[styles.techAvatar, { backgroundColor: '#ff9800' }]}>
+                                        <Text style={styles.techAvatarText}>🏭</Text>
+                                    </View>
+                                    <View style={styles.techInfo}>
+                                        <Text style={styles.techName}>{getPeaName(selectedMeterTransferPea)}</Text>
+                                        <Text style={styles.techDetail}>รหัสสังกัด: {selectedMeterTransferPea}</Text>
+                                        <View style={[styles.techBadge, { backgroundColor: '#fff3e0' }]}>
+                                            <Text style={[styles.techBadgeText, { color: '#e65100' }]}>แผนกมิเตอร์</Text>
+                                        </View>
+                                    </View>
+                                    <TouchableOpacity onPress={() => setSelectedMeterTransferPea('')} style={styles.removeTechBtn}>
+                                        <Text style={styles.removeTechText}>✕</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            )
+                        )}
+
+                        {recipientType === 'meter_transfer' && selectedMeterTransferPea && (
+                            !selectedMeterReceiverUsername ? (
+                                <View style={styles.formGroup}>
+                                    <TouchableOpacity style={styles.techSelector} onPress={() => {
+                                        setMeterReceiverSearchQuery('');
+                                        setShowMeterReceiverDropdown(true);
+                                    }}>
+                                        <Text style={styles.techPlaceholder}>เลือกผู้รับที่แผนกมิเตอร์ปลายทาง...</Text>
+                                        <Text style={styles.dropdownIcon}>▼</Text>
+                                    </TouchableOpacity>
+                                </View>
+                            ) : (
+                                <View style={styles.selectedTechCard}>
+                                    <View style={[styles.techAvatar, { backgroundColor: '#ff9800' }]}>
+                                        <Text style={styles.techAvatarText}>
+                                            {selectedMeterReceiver?.first_name ? selectedMeterReceiver.first_name.charAt(0).toUpperCase() : 'M'}
+                                        </Text>
+                                    </View>
+                                    <View style={styles.techInfo}>
+                                        <Text style={styles.techName}>
+                                            {selectedMeterReceiver ? (`${selectedMeterReceiver.first_name || ''} ${selectedMeterReceiver.last_name || ''}`.trim() || selectedMeterReceiver.username) : selectedMeterReceiverUsername}
+                                        </Text>
+                                        <Text style={styles.techDetail}>Username: {selectedMeterReceiverUsername} • สังกัด: {getPeaName(selectedMeterReceiver?.pea_code)}</Text>
+                                        <View style={[styles.techBadge, { backgroundColor: '#fff3e0' }]}>
+                                            <Text style={[styles.techBadgeText, { color: '#e65100' }]}>แผนกมิเตอร์</Text>
+                                        </View>
+                                    </View>
+                                    <TouchableOpacity onPress={() => setSelectedMeterReceiverUsername('')} style={styles.removeTechBtn}>
                                         <Text style={styles.removeTechText}>✕</Text>
                                     </TouchableOpacity>
                                 </View>
@@ -1080,6 +1274,176 @@ export const AssignSealScreen: React.FC = () => {
                                 <View style={styles.emptyTechList}>
                                     <Text style={styles.emptyTechText}>
                                         {accountingUsers.length === 0 ? 'ไม่พบผู้รับบัญชีที่ใช้งานได้' : 'ไม่พบผู้รับตามคำค้นหา'}
+                                    </Text>
+                                </View>
+                            )}
+                        </ScrollView>
+                    </View>
+                </View>
+            </Modal>
+
+            {/* Recipient Type Selection Modal */}
+            <Modal visible={showRecipientTypeDropdown} transparent animationType="slide" onRequestClose={() => setShowRecipientTypeDropdown(false)}>
+                <View style={styles.techModalOverlay}>
+                    <View style={[styles.techModalContent, { width: 400, maxWidth: '90%', height: 'auto', minHeight: 180, paddingBottom: 20 }]}>
+                        <View style={styles.techModalHeader}>
+                            <Text style={styles.techModalTitle}>เลือกประเภทผู้รับ</Text>
+                            <TouchableOpacity onPress={() => setShowRecipientTypeDropdown(false)}>
+                                <Text style={styles.closeBtn}>✕</Text>
+                            </TouchableOpacity>
+                        </View>
+
+                        <TouchableOpacity
+                            style={[styles.techItem, recipientType === 'technician' && { backgroundColor: '#f3e5f5' }]}
+                            onPress={() => {
+                                setRecipientType('technician');
+                                setShowRecipientTypeDropdown(false);
+                            }}
+                        >
+                            <View style={{ flex: 1, paddingVertical: 5 }}>
+                                <Text style={[styles.techItemName, recipientType === 'technician' && { color: colors.primaryPurple }]}>จ่ายให้ช่าง</Text>
+                            </View>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={[styles.techItem, recipientType === 'user' && { backgroundColor: '#f3e5f5' }]}
+                            onPress={() => {
+                                setRecipientType('user');
+                                setShowRecipientTypeDropdown(false);
+                            }}
+                        >
+                            <View style={{ flex: 1, paddingVertical: 5 }}>
+                                <Text style={[styles.techItemName, recipientType === 'user' && { color: colors.primaryPurple }]}>โอนให้ฝ่ายบัญชี (User)</Text>
+                            </View>
+                        </TouchableOpacity>
+                        <TouchableOpacity
+                            style={[styles.techItem, recipientType === 'meter_transfer' && { backgroundColor: '#f3e5f5', borderBottomWidth: 0 }]}
+                            onPress={() => {
+                                setRecipientType('meter_transfer');
+                                setShowRecipientTypeDropdown(false);
+                            }}
+                        >
+                            <View style={{ flex: 1, paddingVertical: 5 }}>
+                                <Text style={[styles.techItemName, recipientType === 'meter_transfer' && { color: colors.primaryPurple }]}>โอนให้แผนกมิเตอร์สังกัดอื่น</Text>
+                            </View>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
+
+            {/* Meter PEA Transfer Selection Modal */}
+            <Modal visible={showMeterPeaDropdown} transparent animationType="slide" onRequestClose={() => setShowMeterPeaDropdown(false)}>
+                <View style={styles.techModalOverlay}>
+                    <View style={[styles.techModalContent, { width: 500, maxWidth: '90%' }]}>
+                        <View style={styles.techModalHeader}>
+                            <Text style={styles.techModalTitle}>เลือกสังกัดปลายทาง</Text>
+                            <TouchableOpacity onPress={() => setShowMeterPeaDropdown(false)}>
+                                <Text style={styles.closeBtn}>✕</Text>
+                            </TouchableOpacity>
+                        </View>
+                        <TextInput
+                            style={styles.techSearchInput}
+                            placeholder="🔍 พิมพ์ชื่อหรือรหัสสังกัด..."
+                            value={meterPeaSearchQuery}
+                            onChangeText={setMeterPeaSearchQuery}
+                        />
+
+                        <ScrollView style={styles.techList}>
+                            {masPeaList
+                                .filter(p => {
+                                    const code = p.pea_code || p.PeaCode || p.code || '';
+                                    const nameTh = p.name_th || p.NameTh || '';
+                                    // Exclude own PEA
+                                    if (user?.pea_code && code === user.pea_code) return false;
+                                    if (!meterPeaSearchQuery) return true;
+                                    const q = meterPeaSearchQuery.toLowerCase();
+                                    return code.toLowerCase().includes(q) || nameTh.toLowerCase().includes(q);
+                                })
+                                .map((p: any) => {
+                                    const code = p.pea_code || p.PeaCode || p.code || '';
+                                    const nameTh = p.name_th || p.NameTh || code;
+                                    const selected = code === selectedMeterTransferPea;
+                                    return (
+                                        <TouchableOpacity
+                                            key={code}
+                                            style={[styles.techItem, selected && { backgroundColor: '#f3e5f5' }]}
+                                            onPress={() => {
+                                                setSelectedMeterTransferPea(code);
+                                                setShowMeterPeaDropdown(false);
+                                            }}
+                                        >
+                                            <View style={[styles.techAvatarSmall, { backgroundColor: '#ff9800' }]}>
+                                                <Text style={styles.techAvatarTextSmall}>🏭</Text>
+                                            </View>
+                                            <View style={{ flex: 1 }}>
+                                                <Text style={[styles.techItemName, selected && { color: colors.primaryPurple }]}>{nameTh}</Text>
+                                                <Text style={styles.techItemSub}>รหัส: {code}</Text>
+                                            </View>
+                                        </TouchableOpacity>
+                                    );
+                                })}
+                            {masPeaList.filter(p => {
+                                const code = p.pea_code || p.PeaCode || p.code || '';
+                                if (user?.pea_code && code === user.pea_code) return false;
+                                if (!meterPeaSearchQuery) return true;
+                                const q = meterPeaSearchQuery.toLowerCase();
+                                const nameTh = p.name_th || p.NameTh || '';
+                                return code.toLowerCase().includes(q) || nameTh.toLowerCase().includes(q);
+                            }).length === 0 && (
+                                <View style={styles.emptyTechList}>
+                                    <Text style={styles.emptyTechText}>ไม่พบสังกัดตามคำค้นหา</Text>
+                                </View>
+                            )}
+                        </ScrollView>
+                    </View>
+                </View>
+            </Modal>
+
+            {/* Meter Receiver Selection Modal */}
+            <Modal visible={showMeterReceiverDropdown} transparent animationType="slide" onRequestClose={() => setShowMeterReceiverDropdown(false)}>
+                <View style={styles.techModalOverlay}>
+                    <View style={[styles.techModalContent, { width: 500, maxWidth: '90%' }]}>
+                        <View style={styles.techModalHeader}>
+                            <Text style={styles.techModalTitle}>เลือกผู้รับที่แผนกมิเตอร์ปลายทาง</Text>
+                            <TouchableOpacity onPress={() => setShowMeterReceiverDropdown(false)}>
+                                <Text style={styles.closeBtn}>✕</Text>
+                            </TouchableOpacity>
+                        </View>
+                        <TextInput
+                            style={styles.techSearchInput}
+                            placeholder="🔍 พิมพ์ชื่อหรือ username..."
+                            value={meterReceiverSearchQuery}
+                            onChangeText={setMeterReceiverSearchQuery}
+                        />
+
+                        <ScrollView style={styles.techList}>
+                            {filteredMeterReceiverUsers.map((u) => {
+                                const fullName = `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.username;
+                                const selected = u.username === selectedMeterReceiverUsername;
+                                return (
+                                    <TouchableOpacity
+                                        key={u.username}
+                                        style={[styles.techItem, selected && { backgroundColor: '#f3e5f5' }]}
+                                        onPress={() => {
+                                            setSelectedMeterReceiverUsername(u.username);
+                                            setShowMeterReceiverDropdown(false);
+                                        }}
+                                    >
+                                        <View style={[styles.techAvatarSmall, { backgroundColor: '#ff9800' }]}>
+                                            <Text style={styles.techAvatarTextSmall}>{u.first_name ? u.first_name.charAt(0).toUpperCase() : 'M'}</Text>
+                                        </View>
+                                        <View style={{ flex: 1 }}>
+                                            <Text style={[styles.techItemName, selected && { color: colors.primaryPurple }]}>{fullName}</Text>
+                                            <Text style={styles.techItemSub}>Username: {u.username} • สังกัด: {u.pea_code}</Text>
+                                        </View>
+                                    </TouchableOpacity>
+                                );
+                            })}
+                            {filteredMeterReceiverUsers.length === 0 && (
+                                <View style={styles.emptyTechList}>
+                                    <Text style={styles.emptyTechText}>
+                                        {meterUsersAtTarget.length === 0
+                                            ? 'ไม่พบผู้ใช้แผนกมิเตอร์ในสังกัดที่เลือก'
+                                            : 'ไม่พบผู้ใช้ตามคำค้นหา'}
                                     </Text>
                                 </View>
                             )}
