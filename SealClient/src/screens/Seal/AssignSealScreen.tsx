@@ -558,7 +558,22 @@ export const AssignSealScreen: React.FC = () => {
                 } else {
                     const techMatch = log.action.match(/ให้ช่าง\s+(\S+)/);
                     const userMatch = log.action.match(/ให้ฝ่ายผู้ใช้\s+\(([^)]+)\)/);
-                    
+
+                    // ถ้าเป็นการโอนบัญชี ให้ดึง pea_code ของผู้รับ (receiver) จาก allUsers
+                    let receiverPeaCode: string | undefined;
+                    if (isTransfer) {
+                        // receiverName คือชื่อเต็ม ให้หา user ที่ตรงชื่อ
+                        const receiverUser = (Object.values(userMap) as any[]).find((u: any) => {
+                            const fullName = `${u.first_name || ''} ${u.last_name || ''}`.trim();
+                            return fullName === receiverName || u.username === receiverName;
+                        });
+                        receiverPeaCode = receiverUser?.pea_code;
+                    }
+
+                    // ถ้าเป็นการจ่ายช่าง ให้ดึง pea_code ของช่างจาก technicians state
+                    const techCode = techMatch ? techMatch[1] : (isTransfer ? receiverName : 'Unknown');
+                    const matchedTech = !isTransfer ? technicians.find(t => t.technician_code === techCode) : undefined;
+
                     groups.push({
                         id: log.id,
                         timestamp: log.timestamp,
@@ -566,8 +581,9 @@ export const AssignSealScreen: React.FC = () => {
                         first_name: firstName,
                         last_name: lastName,
                         username: log.username,
-                        techCode: techMatch ? techMatch[1] : (isTransfer ? receiverName : 'Unknown'),
+                        techCode: techCode,
                         isTransfer: isTransfer,
+                        receiverPeaCode: isTransfer ? receiverPeaCode : matchedTech?.pea_code,
                         seals: sealNum ? [sealNum] : [],
                         originalLogs: [log]
                     });
@@ -576,14 +592,22 @@ export const AssignSealScreen: React.FC = () => {
 
             let filteredGroups = groups;
             if (user?.pea_code) {
+                const userPeaPrefix = user.pea_code.substring(0, 4);
                 filteredGroups = groups.filter(g => {
-                    // 1. เช็คว่าช่างผู้รับอยู่ในสังกัดเราหรือไม่ (เทียบล็อกรหัสช่างใน state ที่โหลดเฉพาะช่างสังกัดเรามาแล้ว)
-                    const isTechInPea = technicians.some(t => t.technician_code === g.techCode);
-                    // 2. เช็คว่าผู้จ่ายอยู่ในสังกัดเราหรือไม่ (ต้องตรงเป๊ะ ไม่ใช่แค่ขึ้นต้นเหมือนกัน)
-                    const groupPea = userMap[g.user_id]?.pea_code;
-                    const isIssuerInPea = groupPea === user.pea_code;
-                    
-                    return isTechInPea || isIssuerInPea;
+                    // ดึง pea_code ของผู้จ่าย (issuer) จาก userMap
+                    const issuerPea = userMap[g.user_id]?.pea_code;
+
+                    if (g.isTransfer) {
+                        // ประวัติโอนบัญชี: แสดงเฉพาะรายการที่ผู้จ่ายอยู่ในสังกัดปัจจุบัน
+                        // ถ้าหา issuer ใน userMap ไม่เจอ → ไม่แสดง
+                        if (!issuerPea) return false;
+                        return issuerPea.substring(0, 4) === userPeaPrefix;
+                    } else {
+                        // ประวัติจ่ายช่าง: ช่างผู้รับต้องอยู่ในสังกัดเรา หรือ ผู้จ่ายอยู่ในสังกัดเรา
+                        const isTechInPea = technicians.some(t => t.technician_code === g.techCode);
+                        const isIssuerInPea = !!issuerPea && issuerPea.substring(0, 4) === userPeaPrefix;
+                        return isTechInPea || isIssuerInPea;
+                    }
                 });
             }
 
@@ -1185,6 +1209,9 @@ export const AssignSealScreen: React.FC = () => {
                                             {group.isTransfer ? 'โอนให้บัญชี: ' : 'จ่ายให้ช่าง: '} 
                                             <Text style={{ fontWeight: 'bold', color: colors.primaryPurple }}>{group.techCode}</Text>
                                         </Text>
+                                        {group.receiverPeaCode ? (
+                                            <Text style={styles.historyUser}>สังกัด: {getPeaName(group.receiverPeaCode)}</Text>
+                                        ) : null}
                                         <Text style={styles.historyUser}>ผู้ออกใบ: {group.first_name || 'Admin'} {group.last_name || ''}</Text>
                                     </View>
                                     <View style={{ flex: 1.5, alignItems: 'center' }}>

@@ -110,7 +110,7 @@ export const HomeScreen: React.FC = () => {
                     />
                     {/* Action Cards Grid - Row 2 (Left Aligned) */}
                     <ActionCard
-                        title={`ใบจ่ายซีล(${new Date().toLocaleDateString('th-TH')})`}
+                        title={`จ่ายซีล`}
                         subtitle="จ่ายซีลให้ช่างเทคนิค"
                         icon="📦"
                         iconColor="#8d6e63"

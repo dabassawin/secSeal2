@@ -120,8 +120,8 @@ func (s *SealService) TransferSealsToUser(sealNumbers []string, issuedBy uint, t
 			}
 
 			if targetUser != nil {
-				// ส่งให้ User เฉพาะเจาะจง -> รอยืนยัน
-				seal.Status = string(constants.StatusWaitConfirmation)
+				// ส่งให้ User เฉพาะเจาะจง -> พร้อมใช้งานทันที (ไม่ต้องรอยืนยัน)
+				seal.Status = string(constants.StatusReady)
 				seal.IssuedTo = &targetUser.ID
 			} else {
 				// ส่งเข้าคลังส่วนกลาง -> พร้อมใช้งานทันที
