@@ -5,6 +5,7 @@
 
 interface TransferPDFOptions {
   sealNumbers: string[];
+  explicitCount?: number; // override count เมื่อ sealNumbers มีแค่ [first, last]
   receiverName: string;
   receiverAffiliation: string;
   issuer: {
@@ -95,7 +96,7 @@ export function generateTransferPDF(options: TransferPDFOptions): void {
     return a.localeCompare(b);
   });
 
-  const totalCount = sortedSeals.length;
+  const totalCount = options.explicitCount ?? sortedSeals.length;
   const firstSeal = sortedSeals[0] || '';
   const lastSeal = sortedSeals[sortedSeals.length - 1] || '';
 

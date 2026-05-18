@@ -7,6 +7,7 @@ import { sealService } from '@/services/sealService';
 import { userService } from '@/services/userService';
 import { useAuth } from '@/context/AuthContext';
 import { SealStatus } from '../../constants/status';
+import { generateCreationPDF } from '@/utils/generateCreationPDF';
 
 type EntryMode = 'scan' | 'range';
 
@@ -49,7 +50,118 @@ export const CreateSealScreen: React.FC = () => {
     const [modalStatus, setModalStatus] = useState<'success' | 'error'>('success');
     const [modalMessage, setModalMessage] = useState('');
 
+    // ประวัติการเบิก
+    const [historyModalVisible, setHistoryModalVisible] = useState(false);
+    const [creationHistory, setCreationHistory] = useState<any[]>([]);
+    const [historyLoading, setHistoryLoading] = useState(false);
+    const [historyUserMap, setHistoryUserMap] = useState<Record<number, any>>({});
+    const [historySearchText, setHistorySearchText] = useState('');
+    const [historyDateFilter, setHistoryDateFilter] = useState('');
+
     const CREATION_STATUSES = [SealStatus.READY, SealStatus.DAMAGED];
+
+    // ---------- Helpers ----------
+    const getPeaNameLocal = (code: string): string => {
+        const found = masPeaList.find((p: any) =>
+            (p.pea_code || p.PeaCode || p.code) === code
+        );
+        return found ? (found.name_th || found.NameTh || code) : code;
+    };
+
+    const parseCreationLog = (log: any) => {
+        const countMatch = log.action?.match(/สร้างซีลใหม่\s+(\d+)\s+อัน/);
+        const startSealMatch = log.action?.match(/จากเลขเริ่ม\s+(\S+)/);
+        const peaMatch = log.action?.match(/PEA:\s*([^,)]+)/);
+        const count = countMatch ? parseInt(countMatch[1], 10) : 1;
+        const startSeal = startSealMatch ? startSealMatch[1] : '';
+        const peaCode = peaMatch ? peaMatch[1].trim() : '';
+
+        let endSeal = startSeal;
+        if (count > 1 && startSeal) {
+            const m = startSeal.match(/^([A-Za-z]*)(\d+)$/);
+            if (m) {
+                const endNum = (parseInt(m[2], 10) + count - 1).toString().padStart(m[2].length, '0');
+                endSeal = `${m[1]}${endNum}`;
+            }
+        }
+        return { count, startSeal, endSeal, peaCode };
+    };
+
+    const fetchCreationHistory = async () => {
+        setHistoryLoading(true);
+        try {
+            const [logs, allUsers] = await Promise.all([
+                sealService.getCreationLogs(),
+                userService.getAllUsers().catch(() => []),
+            ]);
+
+            // build userMap
+            const uMap: Record<number, any> = {};
+            (allUsers || []).forEach((u: any) => { if (u.id) uMap[u.id] = u; });
+            setHistoryUserMap(uMap);
+
+            // filter by current user PEA (unless admin)
+            const filtered = logs.filter((log: any) => {
+                if (user?.role === 'admin') return true;
+                const peaMatch = log.action?.match(/PEA:\s*([^,)]+)/);
+                return peaMatch ? peaMatch[1].trim() === user?.pea_code : true;
+            });
+
+            const sorted = filtered.sort((a: any, b: any) =>
+                new Date(b.timestamp || b.created_at).getTime() -
+                new Date(a.timestamp || a.created_at).getTime()
+            );
+            setCreationHistory(sorted);
+        } catch (error) {
+            console.error('Error fetching creation history:', error);
+        } finally {
+            setHistoryLoading(false);
+        }
+    };
+
+    const handleDownloadCreationPDF = (log: any) => {
+        const { count, startSeal, peaCode } = parseCreationLog(log);
+        const timestamp = new Date(log.timestamp || log.created_at);
+        const u = historyUserMap[log.user_id];
+        const issuerFirstName = u?.first_name || '';
+        const issuerLastName = u?.last_name || '';
+        const issuerUsername = u?.username || String(log.user_id || 'Admin');
+        generateCreationPDF({
+            startSeal,
+            totalCount: count,
+            peaName: getPeaNameLocal(peaCode),
+            peaCode,
+            issuer: {
+                first_name: issuerFirstName,
+                last_name: issuerLastName,
+                username: issuerUsername,
+                pea_code: peaCode,
+            },
+            timestamp,
+            maxPerBox: 1000,
+        });
+    };
+
+    const getFilteredHistory = () => {
+        let result = creationHistory;
+        if (historyDateFilter) {
+            result = result.filter((log: any) => {
+                const d = new Date(log.timestamp || log.created_at);
+                const iso = `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+                return iso === historyDateFilter;
+            });
+        }
+        if (historySearchText.trim()) {
+            const q = historySearchText.toLowerCase();
+            result = result.filter((log: any) => {
+                const { startSeal, endSeal, peaCode } = parseCreationLog(log);
+                const u = historyUserMap[log.user_id];
+                const name = `${u?.first_name || ''} ${u?.last_name || ''}`.toLowerCase();
+                return startSeal.toLowerCase().includes(q) || endSeal.toLowerCase().includes(q) || peaCode.toLowerCase().includes(q) || name.includes(q);
+            });
+        }
+        return result;
+    };
 
     useEffect(() => {
         fetchMasPea();
@@ -471,8 +583,16 @@ export const CreateSealScreen: React.FC = () => {
                 <View style={styles.rightPanel}>
                     <View style={styles.listHeader}>
                         <Text style={styles.listTitle}>รายการที่จะสร้าง (Staging List)</Text>
-                        <View style={styles.countBadge}>
-                            <Text style={styles.countText}>Total: {stagedBatches.length} รายการ (Groups)</Text>
+                        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                            <TouchableOpacity
+                                style={styles.historyBtn}
+                                onPress={() => { setHistoryModalVisible(true); fetchCreationHistory(); }}
+                            >
+                                <Text style={styles.historyBtnText}>📋 ประวัติการเบิก</Text>
+                            </TouchableOpacity>
+                            <View style={styles.countBadge}>
+                                <Text style={styles.countText}>Total: {stagedBatches.length} รายการ (Groups)</Text>
+                            </View>
                         </View>
                     </View>
 
@@ -568,6 +688,88 @@ export const CreateSealScreen: React.FC = () => {
                     </View>
                 </View>
             </View>
+
+            {/* History Modal */}
+            <Modal visible={historyModalVisible} animationType="slide" transparent onRequestClose={() => setHistoryModalVisible(false)}>
+                <View style={styles.historyOverlay}>
+                    <View style={styles.historyModal}>
+                        {/* Header */}
+                        <View style={styles.historyModalHeader}>
+                            <Text style={styles.historyModalTitle}>📋 ประวัติการเบิกซีล</Text>
+                            <TouchableOpacity onPress={() => setHistoryModalVisible(false)}>
+                                <Text style={{ fontSize: 24, color: '#999' }}>✕</Text>
+                            </TouchableOpacity>
+                        </View>
+
+                        {/* Filters */}
+                        <View style={styles.historyFilters}>
+                            <TextInput
+                                style={[styles.historyFilterInput, { flex: 1 }]}
+                                placeholder="ค้นหมายเลขซีล, PEA, ชื่อผู้สร้าง..."
+                                value={historySearchText}
+                                onChangeText={setHistorySearchText}
+                            />
+                            <TextInput
+                                style={[styles.historyFilterInput, { width: 160 }]}
+                                placeholder="วว/ดด/ปปปป"
+                                value={historyDateFilter}
+                                onChangeText={setHistoryDateFilter}
+                                // date input on web
+                                {...({ type: 'date' } as any)}
+                            />
+                        </View>
+
+                        {/* Table Header */}
+                        <View style={styles.historyTableHead}>
+                            <Text style={[styles.historyTh, { flex: 2 }]}>วัน-เวลา</Text>
+                            <Text style={[styles.historyTh, { flex: 4 }]}>รายละเอียด</Text>
+                            <Text style={[styles.historyTh, { flex: 1.5, textAlign: 'center' }]}>จำนวน</Text>
+                            <Text style={[styles.historyTh, { flex: 1.5, textAlign: 'center' }]}>PDF</Text>
+                        </View>
+
+                        {/* List */}
+                        <ScrollView style={styles.historyList}>
+                            {historyLoading ? (
+                                <ActivityIndicator color={colors.primaryPurple} style={{ marginTop: 40 }} />
+                            ) : getFilteredHistory().length === 0 ? (
+                                <View style={{ padding: 40, alignItems: 'center' }}>
+                                    <Text style={{ color: '#ccc', fontSize: 16 }}>ยังไม่มีประวัติ
+                                    </Text>
+                                </View>
+                            ) : getFilteredHistory().map((log, index) => {
+                                const { count, startSeal, endSeal, peaCode } = parseCreationLog(log);
+                                const ts = new Date(log.timestamp || log.created_at);
+                                const u = historyUserMap[log.user_id];
+                                const creatorName = u ? `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.username : `ID: ${log.user_id}`;
+                                return (
+                                    <View key={log.id || index} style={styles.historyRow}>
+                                        <View style={{ flex: 2 }}>
+                                            <Text style={styles.historyDate}>{ts.toLocaleDateString('th-TH')}</Text>
+                                            <Text style={styles.historyTime}>{ts.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} น.</Text>
+                                        </View>
+                                        <View style={{ flex: 4 }}>
+                                            <Text style={styles.historyAction}>เบิกซีล: <Text style={{ fontWeight: 'bold', color: colors.primaryPurple }}>{startSeal}</Text></Text>
+                                            {count > 1 && <Text style={styles.historyUser}>ถึง: {endSeal}</Text>}
+                                            <Text style={styles.historyUser}>สังกัด: {getPeaNameLocal(peaCode)}</Text>
+                                            <Text style={styles.historyUser}>ผู้สร้าง: {creatorName}</Text>
+                                        </View>
+                                        <View style={{ flex: 1.5, alignItems: 'center' }}>
+                                            <View style={styles.historyCountBadge}>
+                                                <Text style={styles.historyCountText}>{count}</Text>
+                                            </View>
+                                        </View>
+                                        <View style={{ flex: 1.5, alignItems: 'center' }}>
+                                            <TouchableOpacity onPress={() => handleDownloadCreationPDF(log)}>
+                                                <Text style={{ fontSize: 22 }}>📥</Text>
+                                            </TouchableOpacity>
+                                        </View>
+                                    </View>
+                                );
+                            })}
+                        </ScrollView>
+                    </View>
+                </View>
+            </Modal>
 
             {/* PEA Selection Modal */}
             <Modal visible={showPeaDropdown} transparent animationType="slide" onRequestClose={() => setShowPeaDropdown(false)}>
@@ -791,4 +993,26 @@ const styles = StyleSheet.create({
     modalMessage: { fontSize: 16, color: '#666', textAlign: 'center', marginBottom: 25, lineHeight: 22 },
     modalBtn: { width: '100%', height: 50, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
     modalBtnText: { color: 'white', fontSize: 16, fontWeight: 'bold' },
+
+    // History Button
+    historyBtn: { backgroundColor: '#f3e5f5', paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, borderWidth: 1, borderColor: colors.primaryPurple },
+    historyBtnText: { color: colors.primaryPurple, fontWeight: 'bold', fontSize: 13 },
+
+    // History Modal
+    historyOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
+    historyModal: { width: '85%', height: '82%', backgroundColor: 'white', borderRadius: 16, padding: 20, flexDirection: 'column' },
+    historyModalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 },
+    historyModalTitle: { fontSize: 20, fontWeight: 'bold', color: colors.primaryPurple },
+    historyFilters: { flexDirection: 'row', gap: 10, marginBottom: 12 },
+    historyFilterInput: { height: 40, borderWidth: 1, borderColor: '#e0e0e0', borderRadius: 8, paddingHorizontal: 12, fontSize: 13, backgroundColor: '#fafafa' },
+    historyTableHead: { flexDirection: 'row', backgroundColor: '#f8f9fa', padding: 10, borderRadius: 8, marginBottom: 8 },
+    historyTh: { fontSize: 12, fontWeight: 'bold', color: '#999' },
+    historyList: { flex: 1 },
+    historyRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#f5f5f5' },
+    historyDate: { fontSize: 14, fontWeight: 'bold', color: '#333' },
+    historyTime: { fontSize: 12, color: '#888', marginTop: 2 },
+    historyAction: { fontSize: 14, color: '#333' },
+    historyUser: { fontSize: 12, color: '#666', marginTop: 2 },
+    historyCountBadge: { backgroundColor: colors.primaryPurple, borderRadius: 14, paddingHorizontal: 10, paddingVertical: 4, minWidth: 36, alignItems: 'center' },
+    historyCountText: { color: 'white', fontWeight: 'bold', fontSize: 13 },
 });
