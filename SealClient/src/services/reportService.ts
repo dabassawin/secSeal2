@@ -20,6 +20,7 @@ export interface SealReportItem {
     used_by_name: string;
     returned_by_technician_name: string;
     returned_by_name: string;
+    receiver_name: string;  // ชื่อผู้รับ (รองรับทุกประเภท: ช่าง / User / บัญชี)
 }
 
 export interface SealReportResponse {

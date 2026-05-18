@@ -100,7 +100,12 @@ SELECT
     COALESCE(mc.name_eng, '') AS technician_company_eng,
     COALESCE(t_used.first_name || ' ' || t_used.last_name, '') AS used_by_name,
     COALESCE(t_ret.first_name || ' ' || t_ret.last_name, '') AS returned_by_technician_name,
-    COALESCE(u_ret.first_name || ' ' || u_ret.last_name, '') AS returned_by_name
+    COALESCE(u_ret.first_name || ' ' || u_ret.last_name, '') AS returned_by_name,
+    COALESCE(
+        NULLIF(t.first_name || ' ' || t.last_name, ' '),
+        NULLIF(u_issued.first_name || ' ' || u_issued.last_name, ' '),
+        ''
+    ) AS receiver_name
 FROM seals s
 LEFT JOIN users u ON u.emp_id = s.issued_by AND u.deleted_at IS NULL
 LEFT JOIN technicians t_trans ON t_trans.id = s.transferred_by_technician
@@ -109,6 +114,7 @@ LEFT JOIN mas_coms mc ON mc.name_th = t.company_name AND mc.deleted_at IS NULL
 LEFT JOIN technicians t_used ON t_used.id = s.used_by
 LEFT JOIN technicians t_ret ON t_ret.id = s.returned_by_technician
 LEFT JOIN users u_ret ON u_ret.emp_id = s.returned_by AND u_ret.deleted_at IS NULL
+LEFT JOIN users u_issued ON u_issued.id = s.issued_to AND u_issued.deleted_at IS NULL
 WHERE s.deleted_at IS NULL;`
 
 	if err := db.Exec(viewSQL).Error; err != nil {

@@ -152,13 +152,13 @@ const DateInput: React.FC<{
 // ─── CSV/Excel/PDF Export ────────────────────────────
 const exportCSV = (items: SealReportItem[]) => {
     if (Platform.OS !== 'web') return;
-    const headers = ['หมายเลขซีล', 'สถานะ', 'สังกัด กฟภ.', 'ผู้จ่าย', 'ช่างที่รับ', 'ช่างที่ติดตั้ง', 'ช่างที่ส่งคืน', 'ผู้รับคืน', 'เลขมิเตอร์', 'วันที่สร้าง', 'วันที่จ่าย', 'วันที่ติดตั้ง'];
+    const headers = ['หมายเลขซีล', 'สถานะ', 'สังกัด กฟภ.', 'ผู้จ่าย', 'ผู้รับ', 'ช่างที่ติดตั้ง', 'ช่างที่ส่งคืน', 'ผู้รับคืน', 'เลขมิเตอร์', 'วันที่สร้าง', 'วันที่จ่าย', 'วันที่ติดตั้ง'];
     const rows = items.map(item => [
         item.seal_number,
         item.status,
         item.pea_code,
         item.issued_by_name || '-',
-        item.technician_name || '-',
+        item.receiver_name || item.technician_name || '-',
         item.used_by_name || '-',
         item.returned_by_technician_name || '-',
         item.returned_by_name || '-',
@@ -177,10 +177,10 @@ const exportCSV = (items: SealReportItem[]) => {
 
 const exportExcel = (items: SealReportItem[]) => {
     if (Platform.OS !== 'web') return;
-    const headers = ['หมายเลขซีล', 'สถานะ', 'สังกัด กฟภ.', 'ผู้จ่าย', 'ช่างที่รับ', 'ช่างที่ติดตั้ง', 'ช่างที่ส่งคืน', 'ผู้รับคืน', 'เลขมิเตอร์', 'วันที่สร้าง', 'วันที่จ่าย', 'วันที่ติดตั้ง'];
+    const headers = ['หมายเลขซีล', 'สถานะ', 'สังกัด กฟภ.', 'ผู้จ่าย', 'ผู้รับ', 'ช่างที่ติดตั้ง', 'ช่างที่ส่งคืน', 'ผู้รับคืน', 'เลขมิเตอร์', 'วันที่สร้าง', 'วันที่จ่าย', 'วันที่ติดตั้ง'];
     const rows = items.map(item => [
         item.seal_number, item.status, item.pea_code,
-        item.issued_by_name || '-', item.technician_name || '-',
+        item.issued_by_name || '-', item.receiver_name || item.technician_name || '-',
         item.used_by_name || '-', item.returned_by_technician_name || '-',
         item.returned_by_name || '-', item.installed_serial || '-',
         formatDate(item.created_at), formatDate(item.issued_at), formatDate(item.used_at),
@@ -200,10 +200,10 @@ const exportExcel = (items: SealReportItem[]) => {
 
 const exportPDF = (items: SealReportItem[]) => {
     if (Platform.OS !== 'web') return;
-    const headers = ['หมายเลขซีล', 'สถานะ', 'สังกัด กฟภ.', 'ผู้จ่าย', 'ช่างที่รับ', 'ช่างที่ติดตั้ง', 'ช่างที่ส่งคืน', 'ผู้รับคืน', 'เลขมิเตอร์', 'วันที่สร้าง', 'วันที่จ่าย', 'วันที่ติดตั้ง'];
+    const headers = ['หมายเลขซีล', 'สถานะ', 'สังกัด กฟภ.', 'ผู้จ่าย', 'ผู้รับ', 'ช่างที่ติดตั้ง', 'ช่างที่ส่งคืน', 'ผู้รับคืน', 'เลขมิเตอร์', 'วันที่สร้าง', 'วันที่จ่าย', 'วันที่ติดตั้ง'];
     const rows = items.map(item => [
         item.seal_number, item.status, item.pea_code,
-        item.issued_by_name || '-', item.technician_name || '-',
+        item.issued_by_name || '-', item.receiver_name || item.technician_name || '-',
         item.used_by_name || '-', item.returned_by_technician_name || '-',
         item.returned_by_name || '-', item.installed_serial || '-',
         formatDate(item.created_at), formatDate(item.issued_at), formatDate(item.used_at),
@@ -382,6 +382,7 @@ export const ReportScreen: React.FC = () => {
                 item.seal_number.toLowerCase().includes(q) ||
                 item.status.toLowerCase().includes(q) ||
                 (item.issued_by_name || '').toLowerCase().includes(q) ||
+                (item.receiver_name || '').toLowerCase().includes(q) ||
                 (item.technician_name || '').toLowerCase().includes(q) ||
                 (item.installed_serial || '').toLowerCase().includes(q)
             );
@@ -566,7 +567,7 @@ export const ReportScreen: React.FC = () => {
                             <Text style={styles.searchIcon}>🔍</Text>
                             <TextInput
                                 style={styles.searchInput}
-                                placeholder="ค้นหาหมายเลขซีล, สถานะ, ช่าง..."
+                                placeholder="ค้นหาหมายเลขซีล, สถานะ, ผู้รับ..."
                                 placeholderTextColor="#aaa"
                                 value={searchQuery}
                                 onChangeText={(t) => { setSearchQuery(t); setPage(1); }}
@@ -612,7 +613,7 @@ export const ReportScreen: React.FC = () => {
                                             <Text style={styles.headerText}>ผู้จ่าย</Text>
                                         </View>
                                         <View style={[styles.cell, styles.cellName]}>
-                                            <Text style={styles.headerText}>ช่างที่รับ</Text>
+                                            <Text style={styles.headerText}>ผู้รับ</Text>
                                         </View>
                                         <View style={[styles.cell, styles.cellName]}>
                                             <Text style={styles.headerText}>ช่างที่ติดตั้ง</Text>
@@ -660,7 +661,7 @@ export const ReportScreen: React.FC = () => {
                                                     <Text style={styles.cellText}>{item.issued_by_name || '-'}</Text>
                                                 </View>
                                                 <View style={[styles.cell, styles.cellName]}>
-                                                    <Text style={styles.cellText}>{item.technician_name || '-'}</Text>
+                                                    <Text style={styles.cellText}>{item.receiver_name || item.technician_name || '-'}</Text>
                                                 </View>
                                                 <View style={[styles.cell, styles.cellName]}>
                                                     <Text style={styles.cellText}>{item.used_by_name || '-'}</Text>
