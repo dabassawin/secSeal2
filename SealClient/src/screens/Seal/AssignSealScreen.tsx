@@ -73,7 +73,8 @@ export const AssignSealScreen: React.FC = () => {
     const [modalMessage, setModalMessage] = useState('');
 
     const [historyModalVisible, setHistoryModalVisible] = useState(false);
-    const [historyTab, setHistoryTab] = useState<'technician' | 'user'>('technician');
+    const [historyTab, setHistoryTab] = useState<'technician' | 'user' | 'meter_transfer' | 'acc_other'>('technician');
+    const [showHistoryTabDropdown, setShowHistoryTabDropdown] = useState(false);
     const [historyGroups, setHistoryGroups] = useState<any[]>([]);
     const [loadingHistory, setLoadingHistory] = useState(false);
 
@@ -789,7 +790,9 @@ export const AssignSealScreen: React.FC = () => {
                     Math.abs(new Date(g.timestamp).getTime() - logTime) < 5000
                 );
 
-                const isTransfer = log.action.includes('โอนซีล');
+                const isTransfer = log.action.includes('โอนซีล') && log.action.includes('เข้าคลังแผนกบัญชี') && !log.action.includes('สังกัด');
+                const isMeterTransfer = log.action.includes('โอนซีล') && log.action.includes('เข้าคลังแผนกมิเตอร์');
+                const isAccOtherTransfer = log.action.includes('โอนซีล') && log.action.includes('เข้าคลังแผนกบัญชี') && log.action.includes('สังกัด');
                 const receiverMatch = log.action.match(/ผู้รับ:\s*([^@)]+)/);
                 const receiverName = receiverMatch ? receiverMatch[1].trim() : 'Unknown';
 
@@ -825,7 +828,7 @@ export const AssignSealScreen: React.FC = () => {
 
                     // ดึง pea_code ปลายทางจาก log action (เก็บไว้ตอนโอนจริง)
                     let receiverPeaCode: string | undefined;
-                    if (isTransfer) {
+                    if (isTransfer || isMeterTransfer || isAccOtherTransfer) {
                         // รูปแบบใหม่: สังกัด 'S2xxx' ในข้อความ log
                         const targetPeaMatch = log.action.match(/\u0e2a\u0e31\u0e07\u0e01\u0e31\u0e14\s+'([^']+)'/);
                         if (targetPeaMatch) {
@@ -845,7 +848,11 @@ export const AssignSealScreen: React.FC = () => {
                     }
 
                     // ถ้าเป็นการจ่ายช่าง ให้ดึง pea_code ของช่างจาก technicians state
-                    const techCode = techMatch ? techMatch[1] : (isTransfer ? receiverName : 'Unknown');
+                    const techCode = techMatch
+                        ? techMatch[1]
+                        : (isTransfer || isMeterTransfer || isAccOtherTransfer)
+                            ? receiverName
+                            : 'Unknown';
                     const matchedTech = !isTransfer ? technicians.find(t => t.technician_code === techCode) : undefined;
 
                     groups.push({
@@ -857,7 +864,9 @@ export const AssignSealScreen: React.FC = () => {
                         username: log.username,
                         techCode: techCode,
                         isTransfer: isTransfer,
-                        receiverPeaCode: isTransfer ? receiverPeaCode : matchedTech?.pea_code,
+                        isMeterTransfer: isMeterTransfer,
+                        isAccOtherTransfer: isAccOtherTransfer,
+                        receiverPeaCode: (isTransfer || isMeterTransfer || isAccOtherTransfer) ? receiverPeaCode : matchedTech?.pea_code,
                         issuerPeaCode: issuerPeaFromLog || userMap[log.user_id]?.pea_code || '',
                         seals: sealNum ? [sealNum] : [],
                         originalLogs: [log]
@@ -869,16 +878,18 @@ export const AssignSealScreen: React.FC = () => {
             if (user?.pea_code) {
                 const userPeaPrefix = user.pea_code.substring(0, 4);
                 filteredGroups = groups.filter(g => {
-                    // ดึง pea_code ของผู้จ่าย (issuer) จาก userMap
                     const issuerPea = userMap[g.user_id]?.pea_code;
 
                     if (g.isTransfer) {
-                        // ประวัติโอนบัญชี: แสดงเฉพาะรายการที่ผู้จ่ายอยู่ในสังกัดปัจจุบัน
-                        // ถ้าหา issuer ใน userMap ไม่เจอ → ไม่แสดง
+                        if (!issuerPea) return false;
+                        return issuerPea.substring(0, 4) === userPeaPrefix;
+                    } else if (g.isMeterTransfer) {
+                        if (!issuerPea) return false;
+                        return issuerPea.substring(0, 4) === userPeaPrefix;
+                    } else if (g.isAccOtherTransfer) {
                         if (!issuerPea) return false;
                         return issuerPea.substring(0, 4) === userPeaPrefix;
                     } else {
-                        // ประวัติจ่ายช่าง: ช่างผู้รับต้องอยู่ในสังกัดเรา หรือ ผู้จ่ายอยู่ในสังกัดเรา
                         const isTechInPea = technicians.some(t => t.technician_code === g.techCode);
                         const isIssuerInPea = !!issuerPea && issuerPea.substring(0, 4) === userPeaPrefix;
                         return isTechInPea || isIssuerInPea;
@@ -897,10 +908,17 @@ export const AssignSealScreen: React.FC = () => {
 
     const filteredHistoryGroups = historyGroups.filter(group => {
         if ((user?.role || '').toLowerCase() === 'meter') {
-            if (historyTab === 'technician' && group.isTransfer) return false;
-            if (historyTab === 'user' && !group.isTransfer) return false;
+            if (historyTab === 'technician') {
+                if (group.isTransfer || group.isMeterTransfer || group.isAccOtherTransfer) return false;
+            } else if (historyTab === 'user') {
+                if (!group.isTransfer) return false;
+            } else if (historyTab === 'meter_transfer') {
+                if (!group.isMeterTransfer) return false;
+            } else if (historyTab === 'acc_other') {
+                if (!group.isAccOtherTransfer) return false;
+            }
         } else {
-            if (group.isTransfer) return false;
+            if (group.isTransfer || group.isMeterTransfer || group.isAccOtherTransfer) return false;
         }
 
         let match = true;
@@ -1809,19 +1827,59 @@ export const AssignSealScreen: React.FC = () => {
                         </View>
 
                         {(user?.role || '').toLowerCase() === 'meter' && (
-                            <View style={[styles.recipientTypeContainer, { marginBottom: 15 }]}>
+                            <View style={[styles.formGroup, { zIndex: 100, position: 'relative' }]}>
                                 <TouchableOpacity
-                                    style={[styles.recipientTypeBtn, historyTab === 'technician' && styles.recipientTypeBtnActive]}
-                                    onPress={() => setHistoryTab('technician')}
+                                    style={styles.techSelector}
+                                    onPress={() => setShowHistoryTabDropdown(!showHistoryTabDropdown)}
                                 >
-                                    <Text style={[styles.recipientTypeText, historyTab === 'technician' && styles.recipientTypeTextActive]}>ประวัติการจ่ายช่าง</Text>
+                                    <Text style={{ fontSize: 14, color: '#333', fontWeight: '500' }}>
+                                        {historyTab === 'technician' ? 'ประวัติการจ่ายช่าง'
+                                            : historyTab === 'user' ? 'ประวัติโอนบัญชี'
+                                                : historyTab === 'meter_transfer' ? 'ประวัติโอนมิเตอร์'
+                                                    : 'ประวัติโอน sx'}
+                                    </Text>
+                                    <Text style={styles.dropdownIcon}>▼</Text>
                                 </TouchableOpacity>
-                                <TouchableOpacity
-                                    style={[styles.recipientTypeBtn, historyTab === 'user' && styles.recipientTypeBtnActive]}
-                                    onPress={() => setHistoryTab('user')}
-                                >
-                                    <Text style={[styles.recipientTypeText, historyTab === 'user' && styles.recipientTypeTextActive]}>ประวัติโอนบัญชี</Text>
-                                </TouchableOpacity>
+                                {showHistoryTabDropdown && (
+                                    <View style={[{
+                                        backgroundColor: 'white',
+                                        borderRadius: 8,
+                                        borderWidth: 1,
+                                        borderColor: '#e0e0e0',
+                                        shadowColor: '#000',
+                                        shadowOffset: { width: 0, height: 4 },
+                                        shadowOpacity: 0.15,
+                                        shadowRadius: 8,
+                                        elevation: 8,
+                                        position: 'absolute',
+                                        top: 52, left: 0, right: 0, zIndex: 999
+                                    }]}>
+                                        {[
+                                            { value: 'technician', label: 'ประวัติการจ่ายช่าง' },
+                                            { value: 'user', label: 'ประวัติโอนบัญชี' },
+                                            { value: 'meter_transfer', label: 'ประวัติโอนมิเตอร์' },
+                                            { value: 'acc_other', label: 'ประวัติโอน sx' },
+                                        ].map(opt => (
+                                            <TouchableOpacity
+                                                key={opt.value}
+                                                style={[{
+                                                    paddingVertical: 12,
+                                                    paddingHorizontal: 16,
+                                                    borderBottomWidth: 1,
+                                                    borderBottomColor: '#f0f0f0',
+                                                }, historyTab === opt.value && { backgroundColor: '#f3e5f5' }]}
+                                                onPress={() => {
+                                                    setHistoryTab(opt.value as any);
+                                                    setShowHistoryTabDropdown(false);
+                                                }}
+                                            >
+                                                <Text style={[{ fontSize: 14, color: '#333' }, historyTab === opt.value && { color: colors.primaryPurple, fontWeight: '600' }]}>
+                                                    {opt.label}
+                                                </Text>
+                                            </TouchableOpacity>
+                                        ))}
+                                    </View>
+                                )}
                             </View>
                         )}
 
@@ -1896,7 +1954,10 @@ export const AssignSealScreen: React.FC = () => {
                                     </View>
                                     <View style={{ flex: 4 }}>
                                         <Text style={styles.historyAction}>
-                                            {group.isTransfer ? 'โอนให้บัญชี: ' : 'จ่ายให้ช่าง: '}
+                                            {group.isAccOtherTransfer ? 'โอน sx: '
+                                                : group.isMeterTransfer ? 'โอนมิเตอร์: '
+                                                    : group.isTransfer ? 'โอนบัญชี: '
+                                                        : 'จ่ายช่าง: '}
                                             <Text style={{ fontWeight: 'bold', color: colors.primaryPurple }}>{group.techCode}</Text>
                                         </Text>
                                         {group.receiverPeaCode ? (
