@@ -974,8 +974,8 @@ export const AssignSealScreen: React.FC = () => {
     const handleReDownloadPDFFromGroup = (group: any) => {
         if (!group.seals || group.seals.length === 0) return;
 
-        if (group.isTransfer) {
-            // Use stored PEA codes from log, not real-time user PEA
+        if (group.isTransfer || group.isMeterTransfer || group.isAccOtherTransfer) {
+            // ใช้ generateTransferPDF สำหรับทุกประเภทการโอน (โอนบัญชี, โอนมิเตอร์, โอน SX)
             const issuerPea = group.issuerPeaCode || user?.pea_code;
             generateTransferPDF({
                 sealNumbers: group.seals,
