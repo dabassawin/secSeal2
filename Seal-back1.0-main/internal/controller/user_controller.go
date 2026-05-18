@@ -1,6 +1,8 @@
 package controller
 
 import (
+	"net/url"
+
 	"github.com/Kev2406/PEA/internal/domain/model"
 	"github.com/Kev2406/PEA/internal/service"
 	"github.com/gofiber/fiber/v2"
@@ -26,7 +28,7 @@ func (uc *UserController) GetAllUsersHandler(c *fiber.Ctx) error {
 
 // ✅ GET /api/users/:username — ดึงข้อมูลผู้ใช้ตาม username
 func (uc *UserController) GetUserHandler(c *fiber.Ctx) error {
-	username := c.Params("username")
+	username, _ := url.PathUnescape(c.Params("username"))
 
 	user, err := uc.userService.GetUserByUsername(username)
 	if err != nil {
@@ -96,7 +98,7 @@ func (uc *UserController) CreateUserHandler(c *fiber.Ctx) error {
 
 // ✅ PUT /api/users/:username — แก้ไขข้อมูลผู้ใช้
 func (uc *UserController) UpdateUserHandler(c *fiber.Ctx) error {
-	username := c.Params("username")
+	username, _ := url.PathUnescape(c.Params("username"))
 	var request struct {
 		Title    string `json:"title_s_desc"`
 		First    string `json:"first_name"`
@@ -166,7 +168,7 @@ func (uc *UserController) UpdateUserHandler(c *fiber.Ctx) error {
 
 // ✅ DELETE /api/users/:username — ลบผู้ใช้ (Soft Delete)
 func (uc *UserController) DeleteUserHandler(c *fiber.Ctx) error {
-	username := c.Params("username")
+	username, _ := url.PathUnescape(c.Params("username"))
 
 	if err := uc.userService.DeleteUser(username); err != nil {
 		return c.Status(fiber.StatusNotFound).JSON(fiber.Map{"error": "User not found"})
