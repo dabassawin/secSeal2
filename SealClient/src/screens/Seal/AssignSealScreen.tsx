@@ -782,12 +782,27 @@ export const AssignSealScreen: React.FC = () => {
             const groups: any[] = [];
             sortedLogs.forEach((log: any) => {
                 const logTime = new Date(log.timestamp).getTime();
-                const group = groups.find(g =>
-                    g.user_id === log.user_id &&
-                    Math.abs(new Date(g.timestamp).getTime() - logTime) < 5000
-                );
 
-                const isTransfer = log.action.includes('โอนซีล');
+                // คำนวณ flags ก่อนเพื่อใช้ใน group matching
+                const isTransfer = log.action.includes('โอนซีล') && log.action.includes('เข้าคลังแผนกบัญชี') && !log.action.includes('สังกัด');
+                const isMeterTransfer = log.action.includes('โอนซีล') && log.action.includes('เข้าคลังแผนกมิเตอร์');
+                const isAccOtherTransfer = log.action.includes('โอนซีล') && log.action.includes('เข้าคลังแผนกบัญชี') && log.action.includes('สังกัด');
+                const isAnyTransfer = isTransfer || isMeterTransfer || isAccOtherTransfer;
+
+                // หา group ที่ตรงประเภท + user เดียวกัน
+                // transfer ใช้ window 60 วินาที (batch ใหญ่อาจใช้เวลานาน), ช่างใช้ 5 วินาที
+                const group = groups.find(g => {
+                    const sameUser = g.user_id === log.user_id;
+                    const timeWindow = isAnyTransfer ? 60000 : 5000;
+                    const withinWindow = Math.abs(new Date(g.timestamp).getTime() - logTime) < timeWindow;
+                    const sameType =
+                        g.isTransfer === isTransfer &&
+                        g.isMeterTransfer === isMeterTransfer &&
+                        g.isAccOtherTransfer === isAccOtherTransfer;
+                    return sameUser && withinWindow && sameType;
+                });
+
+
                 const receiverMatch = log.action.match(/ผู้รับ:\s*([^@)]+)/);
                 const receiverName = receiverMatch ? receiverMatch[1].trim() : 'Unknown';
 
@@ -798,7 +813,9 @@ export const AssignSealScreen: React.FC = () => {
                 const issuerPeaFromLog = issuerPeaMatch ? issuerPeaMatch[1] : '';
 
                 const issuerMatch = log.action.match(/ผู้จ่าย:\s*([^)]+)/);
-                const issuerName = issuerMatch ? issuerMatch[1].trim() : '';
+                let issuerName = issuerMatch ? issuerMatch[1].trim() : '';
+                // ถ้า backend เก็บ "ID: xxx" เป็น fallback (หา user ไม่เจอ) ให้ reset เพื่อ lookup จาก userMap แทน
+                if (issuerName.startsWith('ID:')) issuerName = '';;
 
                 let firstName = '';
                 let lastName = '';
@@ -1894,8 +1911,19 @@ export const AssignSealScreen: React.FC = () => {
                                     </View>
                                     <View style={{ flex: 4 }}>
                                         <Text style={styles.historyAction}>
-                                            {group.isTransfer ? 'โอนให้บัญชี: ' : 'จ่ายให้ช่าง: '}
-                                            <Text style={{ fontWeight: 'bold', color: colors.primaryPurple }}>{group.techCode}</Text>
+                                            {group.isAccOtherTransfer ? 'โอน sx: '
+                                                : group.isMeterTransfer ? 'โอนมิเตอร์: '
+                                                    : group.isTransfer ? 'โอนบัญชี: '
+                                                        : 'จ่ายช่าง: '}
+                                            <Text style={{ fontWeight: 'bold', color: colors.primaryPurple }}>
+                                                {(group.isTransfer || group.isMeterTransfer || group.isAccOtherTransfer)
+                                                    ? group.techCode
+                                                    : (() => {
+                                                        const t = technicians.find(t => t.technician_code === group.techCode);
+                                                        return t ? `${t.first_name} ${t.last_name}`.trim() : group.techCode;
+                                                    })()
+                                                }
+                                            </Text>
                                         </Text>
                                         {group.receiverPeaCode ? (
                                             <Text style={styles.historyUser}>สังกัด: {getPeaName(group.receiverPeaCode)}</Text>

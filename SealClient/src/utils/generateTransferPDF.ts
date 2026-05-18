@@ -84,17 +84,43 @@ export function generateTransferPDF(options: TransferPDFOptions): void {
   const issuerFullName = `${issuer.first_name || ''} ${issuer.last_name || ''}`.trim() || issuer.username;
   const issuerAffiliation = peaName || issuer.pea_code || '-';
 
-  const groups = groupSealNumbers(sealNumbers);
+  // เรียงซีลเพื่อหาซีลแรกและซีลสุดท้าย
+  const sortedSeals = [...sealNumbers].sort((a, b) => {
+    const ma = a.match(/^([a-zA-Z]+)(\d+)$/);
+    const mb = b.match(/^([a-zA-Z]+)(\d+)$/);
+    if (ma && mb) {
+      if (ma[1] !== mb[1]) return ma[1].localeCompare(mb[1]);
+      return parseInt(ma[2], 10) - parseInt(mb[2], 10);
+    }
+    return a.localeCompare(b);
+  });
+
+  const totalCount = sortedSeals.length;
+  const firstSeal = sortedSeals[0] || '';
+  const lastSeal = sortedSeals[sortedSeals.length - 1] || '';
 
   let dataRows = '';
   let rowCount = 0;
 
-  groups.forEach((g) => {
-    if (g.count > 1) {
-      dataRows += `
+  if (totalCount === 1) {
+    // ซีลเดียว — 1 แถว
+    dataRows = `
       <tr>
-        <td class="center" rowspan="2">${g.count}</td>
-        <td class="center bold">${g.startString}</td>
+        <td class="center">1</td>
+        <td class="center bold">${firstSeal}</td>
+        <td class="center">${thaiDate}</td>
+        <td>${receiverName}<br/><span class="sub">${receiverAffiliation}</span></td>
+        <td class="sign-cell"></td>
+        <td>${issuerFullName}<br/><span class="sub">${issuerAffiliation}</span></td>
+        <td class="sign-cell"></td>
+      </tr>`;
+    rowCount = 1;
+  } else {
+    // หลายซีล — แสดงเป็น 1 กลุ่ม (ซีลแรก/ซีลสุดท้าย + จำนวนรวม)
+    dataRows = `
+      <tr>
+        <td class="center" rowspan="2">${totalCount}</td>
+        <td class="center bold">${firstSeal}</td>
         <td class="center" rowspan="2">${thaiDate}</td>
         <td rowspan="2">${receiverName}<br/><span class="sub">${receiverAffiliation}</span></td>
         <td class="sign-cell" rowspan="2"></td>
@@ -102,23 +128,11 @@ export function generateTransferPDF(options: TransferPDFOptions): void {
         <td class="sign-cell" rowspan="2"></td>
       </tr>
       <tr>
-        <td class="center bold">${g.endString}</td>
+        <td class="center bold">${lastSeal}</td>
       </tr>`;
-      rowCount += 2;
-    } else {
-      dataRows += `
-      <tr>
-        <td class="center">1</td>
-        <td class="center bold">${g.startString}</td>
-        <td class="center">${thaiDate}</td>
-        <td>${receiverName}<br/><span class="sub">${receiverAffiliation}</span></td>
-        <td class="sign-cell"></td>
-        <td>${issuerFullName}<br/><span class="sub">${issuerAffiliation}</span></td>
-        <td class="sign-cell"></td>
-      </tr>`;
-      rowCount += 1;
-    }
-  });
+    rowCount = 2;
+  }
+
 
   const minRows = 20;
   const emptyCount = Math.max(0, minRows - rowCount);
