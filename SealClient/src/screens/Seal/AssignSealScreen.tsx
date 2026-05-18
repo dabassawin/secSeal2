@@ -879,8 +879,11 @@ export const AssignSealScreen: React.FC = () => {
                         username: log.username,
                         techCode: techCode,
                         isTransfer: isTransfer,
+                        isMeterTransfer: isMeterTransfer,
+                        isAccOtherTransfer: isAccOtherTransfer,
+                        isAnyTransfer: isAnyTransfer,
                         transferType,  // ← เพิ่ม field นี้
-                        receiverPeaCode: isTransfer ? receiverPeaCode : matchedTech?.pea_code,
+                        receiverPeaCode: isAnyTransfer ? receiverPeaCode : matchedTech?.pea_code,
                         issuerPeaCode: issuerPeaFromLog || userMap[log.user_id]?.pea_code || '',
                         seals: sealNum ? [sealNum] : [],
                         originalLogs: [log]
@@ -894,7 +897,7 @@ export const AssignSealScreen: React.FC = () => {
                 filteredGroups = groups.filter(g => {
                     const issuerPea = userMap[g.user_id]?.pea_code;
 
-                    if (g.isTransfer) {
+                    if (g.isAnyTransfer) {
                         if (!issuerPea) return false;
                         return issuerPea.substring(0, 4) === userPeaPrefix;
                     } else {
@@ -961,7 +964,7 @@ export const AssignSealScreen: React.FC = () => {
     const handleReDownloadPDFFromGroup = (group: any) => {
         if (!group.seals || group.seals.length === 0) return;
 
-        if (group.isTransfer) {
+        if (group.isTransfer || group.isMeterTransfer || group.isAccOtherTransfer) {
             const issuerPea = group.issuerPeaCode || user?.pea_code;
             generateTransferPDF({
                 sealNumbers: group.seals,
