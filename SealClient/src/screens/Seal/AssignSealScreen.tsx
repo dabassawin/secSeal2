@@ -817,7 +817,9 @@ export const AssignSealScreen: React.FC = () => {
                 const issuerPeaFromLog = issuerPeaMatch ? issuerPeaMatch[1] : '';
 
                 const issuerMatch = log.action.match(/ผู้จ่าย:\s*([^)]+)/);
-                const issuerName = issuerMatch ? issuerMatch[1].trim() : '';
+                let issuerName = issuerMatch ? issuerMatch[1].trim() : '';
+                // ถ้า backend เก็บ "ID: xxx" เป็น fallback (หา user ไม่เจอ) ให้ reset เพื่อ lookup จาก userMap แทน
+                if (issuerName.startsWith('ID:')) issuerName = '';;
 
                 let firstName = '';
                 let lastName = '';
@@ -1971,7 +1973,15 @@ export const AssignSealScreen: React.FC = () => {
                                                 : group.isMeterTransfer ? 'โอนมิเตอร์: '
                                                     : group.isTransfer ? 'โอนบัญชี: '
                                                         : 'จ่ายช่าง: '}
-                                            <Text style={{ fontWeight: 'bold', color: colors.primaryPurple }}>{group.techCode}</Text>
+                                            <Text style={{ fontWeight: 'bold', color: colors.primaryPurple }}>
+                                                {(group.isTransfer || group.isMeterTransfer || group.isAccOtherTransfer)
+                                                    ? group.techCode
+                                                    : (() => {
+                                                        const t = technicians.find(t => t.technician_code === group.techCode);
+                                                        return t ? `${t.first_name} ${t.last_name}`.trim() : group.techCode;
+                                                    })()
+                                                }
+                                            </Text>
                                         </Text>
                                         {group.receiverPeaCode ? (
                                             <Text style={styles.historyUser}>สังกัด: {getPeaName(group.receiverPeaCode)}</Text>
