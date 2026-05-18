@@ -785,14 +785,27 @@ export const AssignSealScreen: React.FC = () => {
             const groups: any[] = [];
             sortedLogs.forEach((log: any) => {
                 const logTime = new Date(log.timestamp).getTime();
-                const group = groups.find(g =>
-                    g.user_id === log.user_id &&
-                    Math.abs(new Date(g.timestamp).getTime() - logTime) < 5000
-                );
 
+                // คำนวณ flags ก่อนเพื่อใช้ใน group matching
                 const isTransfer = log.action.includes('โอนซีล') && log.action.includes('เข้าคลังแผนกบัญชี') && !log.action.includes('สังกัด');
                 const isMeterTransfer = log.action.includes('โอนซีล') && log.action.includes('เข้าคลังแผนกมิเตอร์');
                 const isAccOtherTransfer = log.action.includes('โอนซีล') && log.action.includes('เข้าคลังแผนกบัญชี') && log.action.includes('สังกัด');
+                const isAnyTransfer = isTransfer || isMeterTransfer || isAccOtherTransfer;
+
+                // หา group ที่ตรงประเภท + user เดียวกัน
+                // transfer ใช้ window 60 วินาที (batch ใหญ่อาจใช้เวลานาน), ช่างใช้ 5 วินาที
+                const group = groups.find(g => {
+                    const sameUser = g.user_id === log.user_id;
+                    const timeWindow = isAnyTransfer ? 60000 : 5000;
+                    const withinWindow = Math.abs(new Date(g.timestamp).getTime() - logTime) < timeWindow;
+                    const sameType =
+                        g.isTransfer === isTransfer &&
+                        g.isMeterTransfer === isMeterTransfer &&
+                        g.isAccOtherTransfer === isAccOtherTransfer;
+                    return sameUser && withinWindow && sameType;
+                });
+
+
                 const receiverMatch = log.action.match(/ผู้รับ:\s*([^@)]+)/);
                 const receiverName = receiverMatch ? receiverMatch[1].trim() : 'Unknown';
 
@@ -853,7 +866,7 @@ export const AssignSealScreen: React.FC = () => {
                         : (isTransfer || isMeterTransfer || isAccOtherTransfer)
                             ? receiverName
                             : 'Unknown';
-                    const matchedTech = !isTransfer ? technicians.find(t => t.technician_code === techCode) : undefined;
+                    const matchedTech = !isAnyTransfer ? technicians.find(t => t.technician_code === techCode) : undefined;
 
                     groups.push({
                         id: log.id,
@@ -866,7 +879,7 @@ export const AssignSealScreen: React.FC = () => {
                         isTransfer: isTransfer,
                         isMeterTransfer: isMeterTransfer,
                         isAccOtherTransfer: isAccOtherTransfer,
-                        receiverPeaCode: (isTransfer || isMeterTransfer || isAccOtherTransfer) ? receiverPeaCode : matchedTech?.pea_code,
+                        receiverPeaCode: isAnyTransfer ? receiverPeaCode : matchedTech?.pea_code,
                         issuerPeaCode: issuerPeaFromLog || userMap[log.user_id]?.pea_code || '',
                         seals: sealNum ? [sealNum] : [],
                         originalLogs: [log]
