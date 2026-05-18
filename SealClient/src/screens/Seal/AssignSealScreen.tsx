@@ -13,6 +13,7 @@ import { generateAssignPDF } from '@/utils/generateAssignPDF';
 import { generateTransferPDF } from '@/utils/generateTransferPDF';
 
 type EntryMode = 'scan' | 'range';
+type HistoryTab = 'technician' | 'user' | 'meter_transfer' | 'accounting_other';
 
 interface StagedSeal {
     id: string;
@@ -73,7 +74,10 @@ export const AssignSealScreen: React.FC = () => {
     const [modalMessage, setModalMessage] = useState('');
 
     const [historyModalVisible, setHistoryModalVisible] = useState(false);
-    const [historyTab, setHistoryTab] = useState<'technician' | 'user'>('technician');
+    // ---- CHANGED: 4 tabs ----
+    const [historyTab, setHistoryTab] = useState<HistoryTab>('technician');
+    const [showHistoryTabDropdown, setShowHistoryTabDropdown] = useState(false);
+    // -------------------------
     const [historyGroups, setHistoryGroups] = useState<any[]>([]);
     const [loadingHistory, setLoadingHistory] = useState(false);
 
@@ -140,7 +144,6 @@ export const AssignSealScreen: React.FC = () => {
         });
     }, [accountingUsers, receiverSearchQuery]);
 
-    // Fetch meter users at the selected target PEA
     useEffect(() => {
         if (!selectedMeterTransferPea) {
             setMeterUsersAtTarget([]);
@@ -185,7 +188,6 @@ export const AssignSealScreen: React.FC = () => {
         });
     }, [meterUsersAtTarget, meterReceiverSearchQuery]);
 
-    // Fetch accounting users at the selected target PEA for accounting_other
     useEffect(() => {
         if (!selectedAccOtherPea) {
             setAccOtherUsersAtTarget([]);
@@ -461,7 +463,6 @@ export const AssignSealScreen: React.FC = () => {
                     ? `${selectedMeterReceiver.first_name || ''} ${selectedMeterReceiver.last_name || ''}`.trim() || selectedMeterReceiver.username
                     : selectedMeterReceiverUsername;
 
-                // Generate transfer PDF
                 try {
                     let issuerData = {
                         first_name: user?.first_name,
@@ -691,7 +692,6 @@ export const AssignSealScreen: React.FC = () => {
                 );
             }
 
-            // เปิด PDF ใบจ่ายซีลอัตโนมัติ (web only)
             try {
                 const recipientData = {
                     first_name: selectedTech!.first_name,
@@ -701,7 +701,6 @@ export const AssignSealScreen: React.FC = () => {
                     company_name: selectedTech!.company_name,
                     is_center: selectedTech!.is_center,
                 };
-                // Fetch current user details to ensure we have first_name and last_name
                 let issuerData = {
                     first_name: user?.first_name,
                     last_name: user?.last_name,
@@ -723,7 +722,6 @@ export const AssignSealScreen: React.FC = () => {
                     }
                 }
 
-                // ใช้ timestamp จาก backend response ถ้ามี ไม่งั้นใช้เวลาปัจจุบัน
                 const assignmentTimestamp = response?.data?.timestamp ? new Date(response.data.timestamp) : new Date();
 
                 generateAssignPDF({
@@ -731,7 +729,7 @@ export const AssignSealScreen: React.FC = () => {
                     technician: recipientData as any,
                     issuer: issuerData,
                     peaName: getPeaName(user?.pea_code),
-                    timestamp: assignmentTimestamp, // ใช้ timestamp จาก backend
+                    timestamp: assignmentTimestamp,
                     isToUser: recipientType === 'user',
                 });
             } catch (pdfErr) {
@@ -741,7 +739,7 @@ export const AssignSealScreen: React.FC = () => {
             setModalStatus('success');
             setModalMessage(`มอบหมายซีลจำนวน ${sealList.length} รายการ เรียบร้อยแล้ว`);
             setModalVisible(true);
-            setStagedSeals([]); // Clear list
+            setStagedSeals([]);
 
         } catch (error: any) {
             console.error('Assignment error:', error);
@@ -796,7 +794,6 @@ export const AssignSealScreen: React.FC = () => {
                 const sealMatch = log.action.match(/จ่ายซีล\s+(\S+)\s+ให้ช่าง/) || log.action.match(/โอนซีล\s+(\S+)\s+เข้าคลัง/);
                 const sealNum = sealMatch ? sealMatch[1] : null;
 
-                // Parse issuer's PEA code from log (stored at transfer time)
                 const issuerPeaMatch = log.action.match(/\[PEA:(\S+?)\]/);
                 const issuerPeaFromLog = issuerPeaMatch ? issuerPeaMatch[1] : '';
 
@@ -823,30 +820,38 @@ export const AssignSealScreen: React.FC = () => {
                     const techMatch = log.action.match(/ให้ช่าง\s+(\S+)/);
                     const userMatch = log.action.match(/ให้ฝ่ายผู้ใช้\s+\(([^)]+)\)/);
 
-                    // ดึง pea_code ปลายทางจาก log action (เก็บไว้ตอนโอนจริง)
                     let receiverPeaCode: string | undefined;
                     if (isTransfer) {
-                        // รูปแบบใหม่: สังกัด 'S2xxx' ในข้อความ log
                         const targetPeaMatch = log.action.match(/\u0e2a\u0e31\u0e07\u0e01\u0e31\u0e14\s+'([^']+)'/);
                         if (targetPeaMatch) {
                             receiverPeaCode = targetPeaMatch[1];
                         } else {
-                            // รูปแบบเก่า: ดึงจาก @username ใน log แล้วหา pea_code จาก userMap
                             const atUsernameMatch = log.action.match(/@(\S+)\)/);
                             if (atUsernameMatch) {
                                 const receiverUser = (Object.values(userMap) as any[]).find((u: any) => u.username === atUsernameMatch[1]);
                                 receiverPeaCode = receiverUser?.pea_code;
                             }
-                            // fallback: ถ้าเป็นโอนบัญชีในสังกัดเดียวกัน ใช้ issuerPeaCode
                             if (!receiverPeaCode && issuerPeaFromLog) {
                                 receiverPeaCode = issuerPeaFromLog;
                             }
                         }
                     }
 
-                    // ถ้าเป็นการจ่ายช่าง ให้ดึง pea_code ของช่างจาก technicians state
                     const techCode = techMatch ? techMatch[1] : (isTransfer ? receiverName : 'Unknown');
                     const matchedTech = !isTransfer ? technicians.find(t => t.technician_code === techCode) : undefined;
+
+                    // ---- CHANGED: determine transferType for each group ----
+                    let transferType: HistoryTab = 'technician';
+                    if (isTransfer) {
+                        if (log.action.includes('แผนกมิเตอร์')) {
+                            transferType = 'meter_transfer';
+                        } else if (log.action.includes('บัญชีสังกัด') || log.action.includes('โอนXS')) {
+                            transferType = 'accounting_other';
+                        } else {
+                            transferType = 'user';
+                        }
+                    }
+                    // -------------------------------------------------------
 
                     groups.push({
                         id: log.id,
@@ -857,6 +862,7 @@ export const AssignSealScreen: React.FC = () => {
                         username: log.username,
                         techCode: techCode,
                         isTransfer: isTransfer,
+                        transferType,  // ← เพิ่ม field นี้
                         receiverPeaCode: isTransfer ? receiverPeaCode : matchedTech?.pea_code,
                         issuerPeaCode: issuerPeaFromLog || userMap[log.user_id]?.pea_code || '',
                         seals: sealNum ? [sealNum] : [],
@@ -869,16 +875,12 @@ export const AssignSealScreen: React.FC = () => {
             if (user?.pea_code) {
                 const userPeaPrefix = user.pea_code.substring(0, 4);
                 filteredGroups = groups.filter(g => {
-                    // ดึง pea_code ของผู้จ่าย (issuer) จาก userMap
                     const issuerPea = userMap[g.user_id]?.pea_code;
 
                     if (g.isTransfer) {
-                        // ประวัติโอนบัญชี: แสดงเฉพาะรายการที่ผู้จ่ายอยู่ในสังกัดปัจจุบัน
-                        // ถ้าหา issuer ใน userMap ไม่เจอ → ไม่แสดง
                         if (!issuerPea) return false;
                         return issuerPea.substring(0, 4) === userPeaPrefix;
                     } else {
-                        // ประวัติจ่ายช่าง: ช่างผู้รับต้องอยู่ในสังกัดเรา หรือ ผู้จ่ายอยู่ในสังกัดเรา
                         const isTechInPea = technicians.some(t => t.technician_code === g.techCode);
                         const isIssuerInPea = !!issuerPea && issuerPea.substring(0, 4) === userPeaPrefix;
                         return isTechInPea || isIssuerInPea;
@@ -895,19 +897,17 @@ export const AssignSealScreen: React.FC = () => {
         }
     };
 
+    // ---- CHANGED: filter by transferType instead of isTransfer ----
     const filteredHistoryGroups = historyGroups.filter(group => {
         if ((user?.role || '').toLowerCase() === 'meter') {
-            if (historyTab === 'technician' && group.isTransfer) return false;
-            if (historyTab === 'user' && !group.isTransfer) return false;
+            if (group.transferType !== historyTab) return false;
         } else {
-            if (group.isTransfer) return false;
+            if (group.transferType !== 'technician') return false;
         }
 
         let match = true;
         if (historyDateFilter) {
-            // Check if user is using YYYY-MM-DD or other formats
             try {
-                // For timezone safety, just take YYYY-MM-DD from locale string or create a Date
                 const groupDate = new Date(group.timestamp);
                 const year = groupDate.getFullYear();
                 const month = String(groupDate.getMonth() + 1).padStart(2, '0');
@@ -934,6 +934,7 @@ export const AssignSealScreen: React.FC = () => {
 
         return match;
     });
+    // ---------------------------------------------------------------
 
     const handleShowDetails = (group: any) => {
         setSelectedGroup(group);
@@ -944,7 +945,6 @@ export const AssignSealScreen: React.FC = () => {
         if (!group.seals || group.seals.length === 0) return;
 
         if (group.isTransfer) {
-            // Use stored PEA codes from log, not real-time user PEA
             const issuerPea = group.issuerPeaCode || user?.pea_code;
             generateTransferPDF({
                 sealNumbers: group.seals,
@@ -971,11 +971,10 @@ export const AssignSealScreen: React.FC = () => {
         };
 
         if (group.isToUser) {
-            // กรณีเป็นฝ่าย User
             generateAssignPDF({
                 sealNumbers: group.seals,
                 technician: {
-                    first_name: group.first_name_recipient || group.techCode, // ถ้ามีชื่อผู้รับใน group ให้ใช้ (ถ้าไม่มีใช้ username)
+                    first_name: group.first_name_recipient || group.techCode,
                     last_name: group.last_name_recipient || '',
                     technician_code: group.techCode,
                     pea_code: user?.pea_code,
@@ -988,7 +987,6 @@ export const AssignSealScreen: React.FC = () => {
                 isToUser: true,
             });
         } else if (tech) {
-            // กรณีเป็นช่าง
             generateAssignPDF({
                 sealNumbers: group.seals,
                 technician: {
@@ -1004,7 +1002,6 @@ export const AssignSealScreen: React.FC = () => {
                 timestamp: new Date(group.timestamp),
             });
         } else {
-            // กรณีหาช่างไม่เจอ แต่มี techCode (อาจเป็นช่างที่ถูกลบ)
             generateAssignPDF({
                 sealNumbers: group.seals,
                 technician: {
@@ -1022,6 +1019,15 @@ export const AssignSealScreen: React.FC = () => {
             });
         }
     };
+
+    // ---- options สำหรับ history tab dropdown ----
+    const historyTabOptions: { key: HistoryTab; label: string }[] = [
+        { key: 'technician',       label: 'จ่ายให้ช่าง' },
+        { key: 'user',             label: 'โอนให้ฝ่ายบัญชี (User)' },
+        { key: 'meter_transfer',   label: 'โอนให้แผนกมิเตอร์สังกัดอื่น' },
+        { key: 'accounting_other', label: 'โอนXS' },
+    ];
+    // ---------------------------------------------
 
     return (
         <View style={styles.mainContainer}>
@@ -1076,7 +1082,7 @@ export const AssignSealScreen: React.FC = () => {
                                 </View>
                             )
                         )}
-                        
+
                         {recipientType === 'user' && (
                             !selectedReceiverUsername ? (
                                 <View style={styles.formGroup}>
@@ -1174,6 +1180,7 @@ export const AssignSealScreen: React.FC = () => {
                                 </View>
                             )
                         )}
+
                         {recipientType === 'accounting_other' && (
                             !selectedAccOtherPea ? (
                                 <View style={styles.formGroup}>
@@ -1406,7 +1413,6 @@ export const AssignSealScreen: React.FC = () => {
                             value={searchTechQuery}
                             onChangeText={setSearchTechQuery}
                         />
-
                         <ScrollView style={styles.techList}>
                             {filterTechnicians().map(tech => (
                                 <TouchableOpacity
@@ -1451,7 +1457,6 @@ export const AssignSealScreen: React.FC = () => {
                             value={receiverSearchQuery}
                             onChangeText={setReceiverSearchQuery}
                         />
-
                         <ScrollView style={styles.techList}>
                             {filteredReceiverUsers.map(item => {
                                 const fullName = `${item.first_name || ''} ${item.last_name || ''}`.trim() || item.username;
@@ -1498,13 +1503,9 @@ export const AssignSealScreen: React.FC = () => {
                                 <Text style={styles.closeBtn}>✕</Text>
                             </TouchableOpacity>
                         </View>
-
                         <TouchableOpacity
                             style={[styles.techItem, recipientType === 'technician' && { backgroundColor: '#f3e5f5' }]}
-                            onPress={() => {
-                                setRecipientType('technician');
-                                setShowRecipientTypeDropdown(false);
-                            }}
+                            onPress={() => { setRecipientType('technician'); setShowRecipientTypeDropdown(false); }}
                         >
                             <View style={{ flex: 1, paddingVertical: 5 }}>
                                 <Text style={[styles.techItemName, recipientType === 'technician' && { color: colors.primaryPurple }]}>จ่ายให้ช่าง</Text>
@@ -1512,10 +1513,7 @@ export const AssignSealScreen: React.FC = () => {
                         </TouchableOpacity>
                         <TouchableOpacity
                             style={[styles.techItem, recipientType === 'user' && { backgroundColor: '#f3e5f5' }]}
-                            onPress={() => {
-                                setRecipientType('user');
-                                setShowRecipientTypeDropdown(false);
-                            }}
+                            onPress={() => { setRecipientType('user'); setShowRecipientTypeDropdown(false); }}
                         >
                             <View style={{ flex: 1, paddingVertical: 5 }}>
                                 <Text style={[styles.techItemName, recipientType === 'user' && { color: colors.primaryPurple }]}>โอนให้ฝ่ายบัญชี (User)</Text>
@@ -1523,10 +1521,7 @@ export const AssignSealScreen: React.FC = () => {
                         </TouchableOpacity>
                         <TouchableOpacity
                             style={[styles.techItem, recipientType === 'meter_transfer' && { backgroundColor: '#f3e5f5' }]}
-                            onPress={() => {
-                                setRecipientType('meter_transfer');
-                                setShowRecipientTypeDropdown(false);
-                            }}
+                            onPress={() => { setRecipientType('meter_transfer'); setShowRecipientTypeDropdown(false); }}
                         >
                             <View style={{ flex: 1, paddingVertical: 5 }}>
                                 <Text style={[styles.techItemName, recipientType === 'meter_transfer' && { color: colors.primaryPurple }]}>โอนให้แผนกมิเตอร์สังกัดอื่น</Text>
@@ -1534,10 +1529,7 @@ export const AssignSealScreen: React.FC = () => {
                         </TouchableOpacity>
                         <TouchableOpacity
                             style={[styles.techItem, recipientType === 'accounting_other' && { backgroundColor: '#f3e5f5', borderBottomWidth: 0 }]}
-                            onPress={() => {
-                                setRecipientType('accounting_other');
-                                setShowRecipientTypeDropdown(false);
-                            }}
+                            onPress={() => { setRecipientType('accounting_other'); setShowRecipientTypeDropdown(false); }}
                         >
                             <View style={{ flex: 1, paddingVertical: 5 }}>
                                 <Text style={[styles.techItemName, recipientType === 'accounting_other' && { color: colors.primaryPurple }]}>โอนXS</Text>
@@ -1563,13 +1555,11 @@ export const AssignSealScreen: React.FC = () => {
                             value={meterPeaSearchQuery}
                             onChangeText={setMeterPeaSearchQuery}
                         />
-
                         <ScrollView style={styles.techList}>
                             {masPeaList
                                 .filter(p => {
                                     const code = p.pea_code || p.PeaCode || p.code || '';
                                     const nameTh = p.name_th || p.NameTh || '';
-                                    // Exclude own PEA
                                     if (user?.pea_code && code === user.pea_code) return false;
                                     if (!meterPeaSearchQuery) return true;
                                     const q = meterPeaSearchQuery.toLowerCase();
@@ -1583,10 +1573,7 @@ export const AssignSealScreen: React.FC = () => {
                                         <TouchableOpacity
                                             key={code}
                                             style={[styles.techItem, selected && { backgroundColor: '#f3e5f5' }]}
-                                            onPress={() => {
-                                                setSelectedMeterTransferPea(code);
-                                                setShowMeterPeaDropdown(false);
-                                            }}
+                                            onPress={() => { setSelectedMeterTransferPea(code); setShowMeterPeaDropdown(false); }}
                                         >
                                             <View style={[styles.techAvatarSmall, { backgroundColor: '#ff9800' }]}>
                                                 <Text style={styles.techAvatarTextSmall}>🏭</Text>
@@ -1631,7 +1618,6 @@ export const AssignSealScreen: React.FC = () => {
                             value={meterReceiverSearchQuery}
                             onChangeText={setMeterReceiverSearchQuery}
                         />
-
                         <ScrollView style={styles.techList}>
                             {filteredMeterReceiverUsers.map((u) => {
                                 const fullName = `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.username;
@@ -1640,10 +1626,7 @@ export const AssignSealScreen: React.FC = () => {
                                     <TouchableOpacity
                                         key={u.username}
                                         style={[styles.techItem, selected && { backgroundColor: '#f3e5f5' }]}
-                                        onPress={() => {
-                                            setSelectedMeterReceiverUsername(u.username);
-                                            setShowMeterReceiverDropdown(false);
-                                        }}
+                                        onPress={() => { setSelectedMeterReceiverUsername(u.username); setShowMeterReceiverDropdown(false); }}
                                     >
                                         <View style={[styles.techAvatarSmall, { backgroundColor: '#ff9800' }]}>
                                             <Text style={styles.techAvatarTextSmall}>{u.first_name ? u.first_name.charAt(0).toUpperCase() : 'M'}</Text>
@@ -1658,9 +1641,7 @@ export const AssignSealScreen: React.FC = () => {
                             {filteredMeterReceiverUsers.length === 0 && (
                                 <View style={styles.emptyTechList}>
                                     <Text style={styles.emptyTechText}>
-                                        {meterUsersAtTarget.length === 0
-                                            ? 'ไม่พบผู้ใช้แผนกมิเตอร์ในสังกัดที่เลือก'
-                                            : 'ไม่พบผู้ใช้ตามคำค้นหา'}
+                                        {meterUsersAtTarget.length === 0 ? 'ไม่พบผู้ใช้แผนกมิเตอร์ในสังกัดที่เลือก' : 'ไม่พบผู้ใช้ตามคำค้นหา'}
                                     </Text>
                                 </View>
                             )}
@@ -1690,13 +1671,10 @@ export const AssignSealScreen: React.FC = () => {
                                 .filter(p => {
                                     const code = p.pea_code || p.PeaCode || p.code || '';
                                     const nameTh = p.name_th || p.NameTh || '';
-
-                                    // ต้องมี 4 ตัวแรกตรงกับ user แต่ไม่ใช่ตัวเอง
                                     if (!user?.pea_code) return false;
                                     const userPrefix = user.pea_code.substring(0, 4);
-                                    if (code.substring(0, 4) !== userPrefix) return false;  // ไม่ใช่ลูก
-                                    if (code === user.pea_code) return false;               // ตัดตัวเอง
-
+                                    if (code.substring(0, 4) !== userPrefix) return false;
+                                    if (code === user.pea_code) return false;
                                     if (!accOtherPeaSearchQuery) return true;
                                     const q = accOtherPeaSearchQuery.toLowerCase();
                                     return code.toLowerCase().includes(q) || nameTh.toLowerCase().includes(q);
@@ -1718,13 +1696,10 @@ export const AssignSealScreen: React.FC = () => {
                             {masPeaList.filter(p => {
                                 const code = p.pea_code || p.PeaCode || p.code || '';
                                 const nameTh = p.name_th || p.NameTh || '';
-
-                                // ต้องมี 4 ตัวแรกตรงกับ user แต่ไม่ใช่ตัวเอง
                                 if (!user?.pea_code) return false;
                                 const userPrefix = user.pea_code.substring(0, 4);
-                                if (code.substring(0, 4) !== userPrefix) return false;  // ไม่ใช่ลูก
-                                if (code === user.pea_code) return false;               // ตัดตัวเอง
-
+                                if (code.substring(0, 4) !== userPrefix) return false;
+                                if (code === user.pea_code) return false;
                                 if (!accOtherPeaSearchQuery) return true;
                                 const q = accOtherPeaSearchQuery.toLowerCase();
                                 return code.toLowerCase().includes(q) || nameTh.toLowerCase().includes(q);
@@ -1789,7 +1764,9 @@ export const AssignSealScreen: React.FC = () => {
                         </View>
                         <Text style={styles.modalTitle}>{modalStatus === 'success' ? 'สำเร็จ' : 'เกิดข้อผิดพลาด'}</Text>
                         <Text style={styles.modalMessage}>{modalMessage}</Text>
-                        <TouchableOpacity style={[styles.modalBtn, { backgroundColor: modalStatus === 'success' ? colors.primaryPurple : '#f44336' }]} onPress={handleModalClose}><Text style={styles.modalBtnText}>ตกลง</Text></TouchableOpacity>
+                        <TouchableOpacity style={[styles.modalBtn, { backgroundColor: modalStatus === 'success' ? colors.primaryPurple : '#f44336' }]} onPress={handleModalClose}>
+                            <Text style={styles.modalBtnText}>ตกลง</Text>
+                        </TouchableOpacity>
                     </View>
                 </View>
             </Modal>
@@ -1808,22 +1785,46 @@ export const AssignSealScreen: React.FC = () => {
                             </TouchableOpacity>
                         </View>
 
+                        {/* ---- CHANGED: dropdown แทน 2 tab ---- */}
                         {(user?.role || '').toLowerCase() === 'meter' && (
-                            <View style={[styles.recipientTypeContainer, { marginBottom: 15 }]}>
+                            <View style={{ marginBottom: 15, zIndex: 999 }}>
                                 <TouchableOpacity
-                                    style={[styles.recipientTypeBtn, historyTab === 'technician' && styles.recipientTypeBtnActive]}
-                                    onPress={() => setHistoryTab('technician')}
+                                    style={styles.techSelector}
+                                    onPress={() => setShowHistoryTabDropdown(prev => !prev)}
                                 >
-                                    <Text style={[styles.recipientTypeText, historyTab === 'technician' && styles.recipientTypeTextActive]}>ประวัติการจ่ายช่าง</Text>
+                                    <Text style={[styles.techPlaceholder, { color: '#333' }]}>
+                                        {historyTabOptions.find(t => t.key === historyTab)?.label ?? 'เลือกประเภท'}
+                                    </Text>
+                                    <Text style={styles.dropdownIcon}>{showHistoryTabDropdown ? '▲' : '▼'}</Text>
                                 </TouchableOpacity>
-                                <TouchableOpacity
-                                    style={[styles.recipientTypeBtn, historyTab === 'user' && styles.recipientTypeBtnActive]}
-                                    onPress={() => setHistoryTab('user')}
-                                >
-                                    <Text style={[styles.recipientTypeText, historyTab === 'user' && styles.recipientTypeTextActive]}>ประวัติโอนบัญชี</Text>
-                                </TouchableOpacity>
+
+                                {showHistoryTabDropdown && (
+                                    <View style={styles.historyTabDropdownMenu}>
+                                        {historyTabOptions.map(({ key, label }) => (
+                                            <TouchableOpacity
+                                                key={key}
+                                                style={[
+                                                    styles.techItem,
+                                                    historyTab === key && { backgroundColor: '#f3e5f5' },
+                                                ]}
+                                                onPress={() => {
+                                                    setHistoryTab(key);
+                                                    setShowHistoryTabDropdown(false);
+                                                }}
+                                            >
+                                                <Text style={[
+                                                    styles.techItemName,
+                                                    historyTab === key && { color: colors.primaryPurple },
+                                                ]}>
+                                                    {label}
+                                                </Text>
+                                            </TouchableOpacity>
+                                        ))}
+                                    </View>
+                                )}
                             </View>
                         )}
+                        {/* ------------------------------------- */}
 
                         <View style={styles.historyFilterContainer}>
                             <View style={styles.historyFilterItem}>
@@ -1870,10 +1871,7 @@ export const AssignSealScreen: React.FC = () => {
                             {(historyDateFilter || historySearchQuery) ? (
                                 <TouchableOpacity
                                     style={styles.historyClearFilterBtn}
-                                    onPress={() => {
-                                        setHistoryDateFilter('');
-                                        setHistorySearchQuery('');
-                                    }}
+                                    onPress={() => { setHistoryDateFilter(''); setHistorySearchQuery(''); }}
                                 >
                                     <Text style={styles.historyClearFilterText}>ล้างตัวกรอง</Text>
                                 </TouchableOpacity>
@@ -1977,10 +1975,7 @@ export const AssignSealScreen: React.FC = () => {
                         <View style={styles.detailFooter}>
                             <TouchableOpacity
                                 style={styles.detailPrintBtn}
-                                onPress={() => {
-                                    handleReDownloadPDFFromGroup(selectedGroup);
-                                    setDetailModalVisible(false);
-                                }}
+                                onPress={() => { handleReDownloadPDFFromGroup(selectedGroup); setDetailModalVisible(false); }}
                             >
                                 <Text style={styles.detailPrintBtnText}>📥 โหลดใบจ่ายซีล (PDF)</Text>
                             </TouchableOpacity>
@@ -2000,12 +1995,7 @@ const styles = StyleSheet.create({
 
     sectionCard: { backgroundColor: 'white', borderRadius: 12, padding: 20, marginBottom: 20, elevation: 1 },
     sectionTitle: { fontSize: 16, fontWeight: 'bold', color: colors.primaryPurple },
-    sectionHeaderRow: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 15
-    },
+    sectionHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
 
     formGroup: { marginBottom: 15 },
     techSelector: {
@@ -2028,12 +2018,7 @@ const styles = StyleSheet.create({
     recipientTypeText: { color: '#666', fontWeight: '500' },
     recipientTypeTextActive: { color: colors.primaryPurple, fontWeight: 'bold' },
 
-    techModalOverlay: {
-        flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.5)',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
+    techModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
     techModalContent: {
         width: '90%',
         height: '80%',
@@ -2046,12 +2031,7 @@ const styles = StyleSheet.create({
         shadowRadius: 15,
         elevation: 10,
     },
-    techModalHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        marginBottom: 15,
-    },
+    techModalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
     techModalTitle: { fontSize: 20, fontWeight: 'bold', color: colors.primaryPurple },
     closeBtn: { fontSize: 24, color: '#999' },
     techSearchInput: {
@@ -2073,15 +2053,7 @@ const styles = StyleSheet.create({
         flexDirection: 'row',
         alignItems: 'center',
     },
-    techAvatarSmall: {
-        width: 36,
-        height: 36,
-        borderRadius: 18,
-        backgroundColor: colors.primaryPurple,
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginRight: 10,
-    },
+    techAvatarSmall: { width: 36, height: 36, borderRadius: 18, backgroundColor: colors.primaryPurple, justifyContent: 'center', alignItems: 'center', marginRight: 10 },
     techAvatarTextSmall: { color: 'white', fontSize: 14, fontWeight: 'bold' },
     techItemName: { fontSize: 14, fontWeight: 'bold', color: '#333' },
     techItemSub: { fontSize: 12, color: '#666', marginTop: 2 },
@@ -2174,12 +2146,7 @@ const styles = StyleSheet.create({
         backgroundColor: '#fdfbff',
     },
     historyBtnText: { color: colors.primaryPurple, fontSize: 14, fontWeight: 'bold' },
-    historyModalOverlay: {
-        flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.6)',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
+    historyModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.6)', justifyContent: 'center', alignItems: 'center' },
     historyModalContent: {
         width: '60%',
         maxHeight: '80%',
@@ -2192,161 +2159,70 @@ const styles = StyleSheet.create({
         shadowRadius: 20,
         elevation: 10,
     },
-    historyModalHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'flex-start',
-        marginBottom: 20,
-    },
+    historyModalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 },
     historyModalTitle: { fontSize: 22, fontWeight: 'bold', color: '#333' },
     historyModalSub: { fontSize: 14, color: '#888', marginTop: 4 },
     historyCloseBtn: { padding: 4 },
     historyCloseText: { fontSize: 24, color: '#bbb' },
 
-    historyFilterContainer: {
-        flexDirection: 'row',
-        alignItems: 'flex-end',
-        marginBottom: 15,
-        gap: 12,
-        paddingBottom: 15,
-        borderBottomWidth: 1,
-        borderBottomColor: '#f0f0f0',
-    },
-    historyFilterItem: {
-        flexDirection: 'column',
-    },
-    historyFilterLabel: {
-        fontSize: 12,
-        color: '#666',
-        marginBottom: 6,
-        fontWeight: 'bold',
-    },
-    historyFilterInput: {
-        height: 40,
+    // ---- NEW: history tab dropdown menu style ----
+    historyTabDropdownMenu: {
+        position: 'absolute',
+        top: 52,
+        left: 0,
+        right: 0,
+        backgroundColor: 'white',
+        borderRadius: 8,
         borderWidth: 1,
         borderColor: '#ddd',
-        borderRadius: 8,
-        paddingHorizontal: 12,
-        backgroundColor: '#f9f9f9',
-        fontSize: 14,
-        minWidth: 140,
+        elevation: 10,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 8,
+        zIndex: 1000,
     },
-    historyClearFilterBtn: {
-        height: 40,
-        paddingHorizontal: 15,
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: '#ffebee',
-        borderRadius: 8,
-        borderWidth: 1,
-        borderColor: '#ffcdd2',
-    },
-    historyClearFilterText: {
-        color: '#c62828',
-        fontSize: 13,
-        fontWeight: 'bold',
-    },
+    // ---------------------------------------------
 
-    historyTableHead: {
-        flexDirection: 'row',
-        backgroundColor: '#f8f9fa',
-        padding: 12,
-        borderRadius: 8,
-        marginBottom: 8,
-    },
+    historyFilterContainer: { flexDirection: 'row', alignItems: 'flex-end', marginBottom: 15, gap: 12, paddingBottom: 15, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
+    historyFilterItem: { flexDirection: 'column' },
+    historyFilterLabel: { fontSize: 12, color: '#666', marginBottom: 6, fontWeight: 'bold' },
+    historyFilterInput: { height: 40, borderWidth: 1, borderColor: '#ddd', borderRadius: 8, paddingHorizontal: 12, backgroundColor: '#f9f9f9', fontSize: 14, minWidth: 140 },
+    historyClearFilterBtn: { height: 40, paddingHorizontal: 15, justifyContent: 'center', alignItems: 'center', backgroundColor: '#ffebee', borderRadius: 8, borderWidth: 1, borderColor: '#ffcdd2' },
+    historyClearFilterText: { color: '#c62828', fontSize: 13, fontWeight: 'bold' },
+
+    historyTableHead: { flexDirection: 'row', backgroundColor: '#f8f9fa', padding: 12, borderRadius: 8, marginBottom: 8 },
     historyTh: { fontSize: 13, fontWeight: 'bold', color: '#666' },
     historyList: { flex: 1 },
-    historyRow: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        paddingVertical: 14,
-        borderBottomWidth: 1,
-        borderBottomColor: '#f0f0f0',
-    },
+    historyRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#f0f0f0' },
     historyDate: { fontSize: 14, fontWeight: 'bold', color: '#333' },
     historyTime: { fontSize: 12, color: '#999', marginTop: 2 },
     historyAction: { fontSize: 14, color: '#444', fontWeight: '500' },
     historyUser: { fontSize: 12, color: '#888', marginTop: 4 },
-    reDownloadBtn: {
-        flex: 1.5,
-        alignItems: 'center',
-        justifyContent: 'center',
-        height: 40,
-    },
+    reDownloadBtn: { flex: 1.5, alignItems: 'center', justifyContent: 'center', height: 40 },
     reDownloadText: { fontSize: 20 },
     emptyHistory: { padding: 40, alignItems: 'center' },
     emptyHistoryText: { color: '#bbb', fontSize: 15 },
-    countBadgeSmall: {
-        backgroundColor: '#f3e5f5',
-        paddingHorizontal: 8,
-        paddingVertical: 4,
-        borderRadius: 12,
-        minWidth: 30,
-        alignItems: 'center',
-    },
+    countBadgeSmall: { backgroundColor: '#f3e5f5', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, minWidth: 30, alignItems: 'center' },
     countTextSmall: { color: colors.primaryPurple, fontWeight: 'bold', fontSize: 12 },
 
-    detailModalOverlay: {
-        flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.7)',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    detailModalContent: {
-        width: '40%',
-        maxHeight: '75%',
-        backgroundColor: 'white',
-        borderRadius: 16,
-        padding: 24,
-    },
-    detailHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'flex-start',
-        marginBottom: 20,
-    },
+    detailModalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.7)', justifyContent: 'center', alignItems: 'center' },
+    detailModalContent: { width: '40%', maxHeight: '75%', backgroundColor: 'white', borderRadius: 16, padding: 24 },
+    detailHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 20 },
     detailTitle: { fontSize: 20, fontWeight: 'bold', color: '#333' },
     detailSub: { fontSize: 13, color: '#666', marginTop: 4 },
     detailCloseBtn: { padding: 4 },
     detailCloseText: { fontSize: 20, color: '#bbb' },
     detailStats: { flexDirection: 'row', marginBottom: 20 },
-    statBox: {
-        backgroundColor: '#f8f9fa',
-        padding: 15,
-        borderRadius: 10,
-        flex: 1,
-        alignItems: 'center',
-        borderWidth: 1,
-        borderColor: '#eee',
-    },
+    statBox: { backgroundColor: '#f8f9fa', padding: 15, borderRadius: 10, flex: 1, alignItems: 'center', borderWidth: 1, borderColor: '#eee' },
     statLabel: { fontSize: 12, color: '#888', marginBottom: 5 },
     statValue: { fontSize: 18, fontWeight: 'bold', color: colors.primaryPurple },
-    detailTableHead: {
-        flexDirection: 'row',
-        paddingVertical: 10,
-        borderBottomWidth: 1,
-        borderBottomColor: '#eee',
-    },
+    detailTableHead: { flexDirection: 'row', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#eee' },
     detailTh: { fontSize: 13, fontWeight: 'bold', color: '#999' },
     detailList: { flex: 1 },
-    detailRow: {
-        flexDirection: 'row',
-        paddingVertical: 12,
-        borderBottomWidth: 1,
-        borderBottomColor: '#f9f9f9',
-    },
+    detailRow: { flexDirection: 'row', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#f9f9f9' },
     detailTd: { fontSize: 14, color: '#444' },
-    detailFooter: {
-        marginTop: 20,
-        paddingTop: 15,
-        borderTopWidth: 1,
-        borderTopColor: '#eee',
-    },
-    detailPrintBtn: {
-        backgroundColor: colors.primaryPurple,
-        paddingVertical: 12,
-        borderRadius: 8,
-        alignItems: 'center',
-    },
+    detailFooter: { marginTop: 20, paddingTop: 15, borderTopWidth: 1, borderTopColor: '#eee' },
+    detailPrintBtn: { backgroundColor: colors.primaryPurple, paddingVertical: 12, borderRadius: 8, alignItems: 'center' },
     detailPrintBtnText: { color: 'white', fontWeight: 'bold', fontSize: 15 },
 });
