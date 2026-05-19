@@ -166,6 +166,16 @@ export const sealService = {
         }
     },
 
+    getCreationLogs: async (): Promise<any[]> => {
+        try {
+            const response = await api.get('/api/logs/created');
+            return response.data.logs || [];
+        } catch (error) {
+            console.error('Error fetching creation logs:', error);
+            return [];
+        }
+    },
+
     meterTransfer: async (sealNumbers: string[], newPeaCode: string, targetUsername?: string) => {
         return await api.post('/api/seals/meter-transfer', {
             seal_numbers: sealNumbers,

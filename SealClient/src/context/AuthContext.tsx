@@ -83,7 +83,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const refreshUser = async () => {
         try {
             const storedUser = await authService.getUser();
-            if (storedUser?.username) {
+            const currentRole = await authService.getUserRole();
+            if (storedUser?.username && currentRole === 'staff') {
                 const updatedUser = await userService.getUser(storedUser.username);
                 if (updatedUser) {
                     setUser(updatedUser);

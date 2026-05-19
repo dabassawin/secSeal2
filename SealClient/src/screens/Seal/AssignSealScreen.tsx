@@ -789,20 +789,25 @@ export const AssignSealScreen: React.FC = () => {
                 const isAccOtherTransfer = log.action.includes('โอนซีล') && log.action.includes('เข้าคลังแผนกบัญชี') && log.action.includes('สังกัด');
                 const isAnyTransfer = isTransfer || isMeterTransfer || isAccOtherTransfer;
 
+                // กำหนด transferType
+                let transferType: HistoryTab = 'technician';
+                if (isTransfer) {
+                    transferType = 'user';
+                } else if (isMeterTransfer) {
+                    transferType = 'meter_transfer';
+                } else if (isAccOtherTransfer) {
+                    transferType = 'accounting_other';
+                }
+
                 // หา group ที่ตรงประเภท + user เดียวกัน
                 // transfer ใช้ window 60 วินาที (batch ใหญ่อาจใช้เวลานาน), ช่างใช้ 5 วินาที
                 const group = groups.find(g => {
                     const sameUser = g.user_id === log.user_id;
                     const timeWindow = isAnyTransfer ? 60000 : 5000;
                     const withinWindow = Math.abs(new Date(g.timestamp).getTime() - logTime) < timeWindow;
-                    const sameType =
-                        g.isTransfer === isTransfer &&
-                        g.isMeterTransfer === isMeterTransfer &&
-                        g.isAccOtherTransfer === isAccOtherTransfer;
+                    const sameType = g.transferType === transferType;
                     return sameUser && withinWindow && sameType;
                 });
-
-
                 const receiverMatch = log.action.match(/ผู้รับ:\s*([^@)]+)/);
                 const receiverName = receiverMatch ? receiverMatch[1].trim() : 'Unknown';
 
@@ -838,7 +843,7 @@ export const AssignSealScreen: React.FC = () => {
                     const userMatch = log.action.match(/ให้ฝ่ายผู้ใช้\s+\(([^)]+)\)/);
 
                     let receiverPeaCode: string | undefined;
-                    if (isTransfer) {
+                    if (isAnyTransfer) {
                         const targetPeaMatch = log.action.match(/\u0e2a\u0e31\u0e07\u0e01\u0e31\u0e14\s+'([^']+)'/);
                         if (targetPeaMatch) {
                             receiverPeaCode = targetPeaMatch[1];
@@ -854,21 +859,8 @@ export const AssignSealScreen: React.FC = () => {
                         }
                     }
 
-                    const techCode = techMatch ? techMatch[1] : (isTransfer ? receiverName : 'Unknown');
-                    const matchedTech = !isTransfer ? technicians.find(t => t.technician_code === techCode) : undefined;
-
-                    // ---- CHANGED: determine transferType for each group ----
-                    let transferType: HistoryTab = 'technician';
-                    if (isTransfer) {
-                        if (log.action.includes('แผนกมิเตอร์')) {
-                            transferType = 'meter_transfer';
-                        } else if (log.action.includes('บัญชีสังกัด') || log.action.includes('โอนXS')) {
-                            transferType = 'accounting_other';
-                        } else {
-                            transferType = 'user';
-                        }
-                    }
-                    // -------------------------------------------------------
+                    const techCode = techMatch ? techMatch[1] : (isAnyTransfer ? receiverName : 'Unknown');
+                    const matchedTech = !isAnyTransfer ? technicians.find(t => t.technician_code === techCode) : undefined;
 
                     groups.push({
                         id: log.id,
@@ -881,7 +873,6 @@ export const AssignSealScreen: React.FC = () => {
                         isTransfer: isTransfer,
                         isMeterTransfer: isMeterTransfer,
                         isAccOtherTransfer: isAccOtherTransfer,
-                        isAnyTransfer: isAnyTransfer,
                         transferType,  // ← เพิ่ม field นี้
                         receiverPeaCode: isAnyTransfer ? receiverPeaCode : matchedTech?.pea_code,
                         issuerPeaCode: issuerPeaFromLog || userMap[log.user_id]?.pea_code || '',
@@ -964,7 +955,7 @@ export const AssignSealScreen: React.FC = () => {
     const handleReDownloadPDFFromGroup = (group: any) => {
         if (!group.seals || group.seals.length === 0) return;
 
-        if (group.isTransfer || group.isMeterTransfer || group.isAccOtherTransfer) {
+        if (group.transferType !== 'technician') {
             const issuerPea = group.issuerPeaCode || user?.pea_code;
             generateTransferPDF({
                 sealNumbers: group.seals,
@@ -2029,6 +2020,29 @@ const styles = StyleSheet.create({
     sectionHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15 },
 
     formGroup: { marginBottom: 15 },
+    dropdownList: {
+        backgroundColor: 'white',
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: '#e0e0e0',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 8,
+        elevation: 8,
+        zIndex: 999,
+    },
+    dropdownItem: {
+        paddingVertical: 12,
+        paddingHorizontal: 16,
+        borderBottomWidth: 1,
+        borderBottomColor: '#f0f0f0',
+    },
+    dropdownItemText: {
+        fontSize: 14,
+        color: '#333',
+    },
+
     techSelector: {
         borderWidth: 1,
         borderColor: '#ddd',
